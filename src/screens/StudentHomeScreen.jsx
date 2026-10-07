@@ -406,7 +406,9 @@ export default function StudentHomeScreen({
             </Text>
 
             <Text
-              style={styles.statusSubtitle}
+              style={
+                styles.statusSubtitle
+              }
             >
               No major campus alerts right now.
             </Text>
@@ -501,6 +503,7 @@ export default function StudentHomeScreen({
         </View>
 
         <View style={styles.quickGrid}>
+
           {/* MY REPORTS */}
 
           <TouchableOpacity
@@ -533,7 +536,43 @@ export default function StudentHomeScreen({
             <Text
               style={styles.quickSubtitle}
             >
-              Track your issues
+              View your complaints
+            </Text>
+          </TouchableOpacity>
+
+          {/* TRACK COMPLAINT */}
+
+          <TouchableOpacity
+            style={styles.quickCard}
+            activeOpacity={0.8}
+            onPress={() =>
+              navigation.navigate(
+                'TrackComplaint'
+              )
+            }
+          >
+            <View
+              style={
+                styles.quickIconBlue
+              }
+            >
+              <Text
+                style={styles.quickIconText}
+              >
+                🔍
+              </Text>
+            </View>
+
+            <Text
+              style={styles.quickTitle}
+            >
+              Track Complaint
+            </Text>
+
+            <Text
+              style={styles.quickSubtitle}
+            >
+              Check complaint status
             </Text>
           </TouchableOpacity>
 
@@ -647,7 +686,9 @@ export default function StudentHomeScreen({
         {/* RECENT ACTIVITY */}
 
         <View
-          style={styles.sectionHeaderRecent}
+          style={
+            styles.sectionHeaderRecent
+          }
         >
           <View>
             <Text
@@ -824,6 +865,7 @@ export default function StudentHomeScreen({
       {/* BOTTOM NAVIGATION */}
 
       <View style={styles.bottomNav}>
+
         {/* HOME */}
 
         <TouchableOpacity
@@ -918,6 +960,7 @@ export default function StudentHomeScreen({
             Profile
           </Text>
         </TouchableOpacity>
+
       </View>
     </SafeAreaView>
   );

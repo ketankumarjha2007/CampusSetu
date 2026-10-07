@@ -1,20 +1,20 @@
 const express = require('express');
 
-const authenticateUser =
-  require('../middleware/authMiddleware');
+const authenticateUser = require('../middleware/authMiddleware');
 
 const {
   createIssue,
   getMyIssues,
   getIssueById,
+  deleteIssue,
+  trackIssueByComplaintId,
 } = require('../controllers/issueController');
 
-const router =
-  express.Router();
+const router = express.Router();
 
 
 /*
- * CREATE NEW ISSUE
+ * CREATE ISSUE
  *
  * POST /api/issues
  */
@@ -26,17 +26,32 @@ router.post(
 
 
 /*
- * GET CURRENT USER'S ISSUES
+ * GET MY ISSUES
  *
  * GET /api/issues/my
- *
- * IMPORTANT:
- * Keep this BEFORE /:id.
  */
 router.get(
   '/my',
   authenticateUser,
   getMyIssues
+);
+router.get(
+  '/track/:complaintId',
+  authenticateUser,
+  trackIssueByComplaintId
+);
+
+/*
+ * DELETE ISSUE
+ *
+ * DELETE /api/issues/:id
+ *
+ * Must come before /:id.
+ */
+router.delete(
+  '/:id',
+  authenticateUser,
+  deleteIssue
 );
 
 

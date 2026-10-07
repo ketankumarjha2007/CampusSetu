@@ -1,6 +1,5 @@
 const Issue = require('../models/Issue');
 
-
 /*
  * Generate the next human-readable complaint ID.
  *
@@ -54,7 +53,8 @@ const ensureComplaintId = async (issue) => {
     return issue;
   }
 
-  let complaintId = await generateComplaintId();
+  let complaintId =
+    await generateComplaintId();
 
   /*
    * Extra protection against a duplicate ID.
@@ -64,7 +64,8 @@ const ensureComplaintId = async (issue) => {
   });
 
   while (existingIssue) {
-    complaintId = await generateComplaintId();
+    complaintId =
+      await generateComplaintId();
 
     existingIssue = await Issue.findOne({
       complaintId,
@@ -347,8 +348,179 @@ const getIssueById = async (req, res) => {
 };
 
 
+/*
+ * DELETE ISSUE
+ *
+ * DELETE /api/issues/:id
+ *
+ * Students can only delete their own
+ * pending complaints.
+ */
+const deleteIssue = async (req, res) => {
+  try {
+    const {
+      id,
+    } = req.params;
+
+    console.log(
+      'Delete Issue: Requested issue:',
+      id
+    );
+
+    /*
+     * Check whether the MongoDB ID is valid.
+     */
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid issue ID',
+      });
+    }
+
+    /*
+     * Find the issue AND make sure it belongs
+     * to the currently authenticated student.
+     */
+    const issue = await Issue.findOne({
+      _id: id,
+      reportedBy: req.user._id,
+    });
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message:
+          'Issue not found or you do not have permission to delete it',
+      });
+    }
+
+    /*
+     * Students can delete only pending complaints.
+     *
+     * Once an official has started processing the
+     * complaint, it should remain in the system.
+     */
+    if (issue.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Only pending complaints can be deleted',
+      });
+    }
+
+    /*
+     * Delete the complaint.
+     */
+    await Issue.deleteOne({
+      _id: issue._id,
+    });
+
+    console.log(
+      `Complaint deleted: ${
+        issue.complaintId || issue._id
+      }`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        'Complaint deleted successfully',
+      deletedIssueId: issue._id,
+      complaintId:
+        issue.complaintId || null,
+    });
+  } catch (error) {
+    console.error(
+      'Delete issue error:',
+      error.message
+    );
+
+    if (
+      error.name === 'CastError'
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Invalid issue ID',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message:
+        'Failed to delete complaint',
+    });
+  }
+};
+
+const trackIssueByComplaintId = async (req, res) => {
+  try {
+    const { complaintId } = req.params;
+
+    if (!complaintId || !complaintId.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Complaint ID is required',
+      });
+    }
+
+    const normalizedComplaintId = complaintId
+      .trim()
+      .toUpperCase();
+
+    console.log(
+      'Track Issue: Searching for:',
+      normalizedComplaintId
+    );
+
+    const issue = await Issue.findOne({
+      complaintId: normalizedComplaintId,
+      reportedBy: req.user._id,
+    })
+      .populate(
+        'reportedBy',
+        'name email usn department'
+      )
+      .populate(
+        'assignedTo',
+        'name email role department'
+      )
+      .populate(
+        'history.changedBy',
+        'name email role'
+      )
+      .select('-__v');
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message:
+          'Complaint not found or you do not have permission to view it',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Complaint found successfully',
+      issue,
+    });
+  } catch (error) {
+    console.error(
+      'Track issue error:',
+      error.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to track complaint',
+    });
+  }
+};
+
 module.exports = {
   createIssue,
   getMyIssues,
   getIssueById,
+  deleteIssue,
+  trackIssueByComplaintId,
 };
