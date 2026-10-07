@@ -6,7 +6,9 @@ dotenv.config();
 
 const connectDB = require('./config/db');
 const authenticateUser = require('./middleware/authMiddleware');
+
 const userRoutes = require('./routes/userRoutes');
+const issueRoutes = require('./routes/issueRoutes');
 
 const app = express();
 
@@ -52,9 +54,14 @@ app.get(
 // User routes
 app.use('/api/users', userRoutes);
 
+// Issue routes
+app.use('/api/issues', issueRoutes);
+
 // Start server
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`CampusSetu backend running on port ${PORT}`);
+  console.log(
+    `CampusSetu backend running on port ${PORT}`
+  );
 });
