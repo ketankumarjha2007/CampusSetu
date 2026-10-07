@@ -15,11 +15,11 @@ import RegisterScreen from '../screens/RegisterScreen';
 import StudentHomeScreen from '../screens/StudentHomeScreen';
 import ReportIssueScreen from '../screens/ReportIssueScreen';
 import MyReportsScreen from '../screens/MyReportsScreen';
+import IssueDetailsScreen from '../screens/IssueDetailsScreen';
 
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
-
   return (
     <NavigationContainer>
 
@@ -54,9 +54,15 @@ export default function AppNavigator() {
           name="ReportIssue"
           component={ReportIssueScreen}
         />
+
         <Stack.Screen
           name="MyReports"
           component={MyReportsScreen}
+        />
+
+        <Stack.Screen
+          name="IssueDetails"
+          component={IssueDetailsScreen}
         />
 
       </Stack.Navigator>

@@ -1,10 +1,7 @@
 import { getAuth } from 'firebase/auth';
 
-const API_BASE_URL = 'http://10.32.95.1:5000/api';
+const API_BASE_URL = 'http://192.168.1.20:5000/api';
 
-/**
- * Get the currently authenticated Firebase user's ID token.
- */
 export const getFirebaseToken = async () => {
   const auth = getAuth();
 

@@ -1,5 +1,89 @@
 const Issue = require('../models/Issue');
 
+
+/*
+ * Generate the next human-readable complaint ID.
+ *
+ * Format:
+ * CS-2026-000001
+ * CS-2026-000002
+ * CS-2026-000003
+ */
+const generateComplaintId = async () => {
+  const year = new Date().getFullYear();
+
+  const lastIssue = await Issue.findOne({
+    complaintId: {
+      $regex: `^CS-${year}-`,
+    },
+  }).sort({
+    complaintId: -1,
+  });
+
+  let nextNumber = 1;
+
+  if (lastIssue?.complaintId) {
+    const parts =
+      lastIssue.complaintId.split('-');
+
+    const lastNumber = parseInt(
+      parts[2],
+      10
+    );
+
+    if (!Number.isNaN(lastNumber)) {
+      nextNumber = lastNumber + 1;
+    }
+  }
+
+  return `CS-${year}-${String(nextNumber).padStart(
+    6,
+    '0'
+  )}`;
+};
+
+
+/*
+ * Make sure an old issue has a complaint ID.
+ *
+ * This handles complaints created before the
+ * complaintId feature was added.
+ */
+const ensureComplaintId = async (issue) => {
+  if (issue.complaintId) {
+    return issue;
+  }
+
+  let complaintId = await generateComplaintId();
+
+  /*
+   * Extra protection against a duplicate ID.
+   */
+  let existingIssue = await Issue.findOne({
+    complaintId,
+  });
+
+  while (existingIssue) {
+    complaintId = await generateComplaintId();
+
+    existingIssue = await Issue.findOne({
+      complaintId,
+    });
+  }
+
+  issue.complaintId = complaintId;
+
+  await issue.save();
+
+  return issue;
+};
+
+
+/*
+ * CREATE ISSUE
+ *
+ * POST /api/issues
+ */
 const createIssue = async (req, res) => {
   try {
     const {
@@ -24,41 +108,71 @@ const createIssue = async (req, res) => {
       });
     }
 
+    const complaintId =
+      await generateComplaintId();
+
     const issue = await Issue.create({
+      complaintId,
+
       title: title.trim(),
-      description: description.trim(),
-      category: category.trim(),
-      location: location.trim(),
-      photoUrl: photoUrl || '',
-      reportedBy: req.user._id,
-      priority: priority || 'medium',
-      status: 'pending',
+
+      description:
+        description.trim(),
+
+      category:
+        category.trim(),
+
+      location:
+        location.trim(),
+
+      photoUrl:
+        photoUrl || '',
+
+      reportedBy:
+        req.user._id,
+
+      priority:
+        priority || 'medium',
+
+      status:
+        'pending',
 
       history: [
         {
           status: 'pending',
-          note: 'Issue reported by student',
-          changedBy: req.user._id,
+
+          note:
+            'Issue reported by student',
+
+          changedBy:
+            req.user._id,
         },
       ],
     });
 
-    const populatedIssue = await Issue.findById(
-      issue._id
-    )
-      .populate(
-        'reportedBy',
-        'name email role department'
-      )
-      .populate(
-        'assignedTo',
-        'name email role department'
-      );
+    const populatedIssue =
+      await Issue.findById(issue._id)
+        .populate(
+          'reportedBy',
+          'name email role department'
+        )
+        .populate(
+          'assignedTo',
+          'name email role department'
+        );
+
+    console.log(
+      `Complaint created: ${complaintId}`
+    );
 
     return res.status(201).json({
       success: true,
-      message: 'Issue reported successfully',
-      issue: populatedIssue,
+
+      message:
+        'Issue reported successfully',
+
+      issue:
+        populatedIssue,
     });
   } catch (error) {
     console.error(
@@ -68,25 +182,47 @@ const createIssue = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to create issue',
+
+      message:
+        'Failed to create issue',
     });
   }
 };
 
+
+/*
+ * GET MY ISSUES
+ *
+ * GET /api/issues/my
+ */
 const getMyIssues = async (req, res) => {
   try {
-    const issues = await Issue.find({
+    let issues = await Issue.find({
       reportedBy: req.user._id,
     })
       .populate(
         'assignedTo',
         'name email role department'
       )
-      .sort({ createdAt: -1 });
+      .sort({
+        createdAt: -1,
+      });
+
+    /*
+     * Backfill complaint IDs for old complaints.
+     */
+    for (const issue of issues) {
+      if (!issue.complaintId) {
+        await ensureComplaintId(issue);
+      }
+    }
 
     return res.status(200).json({
       success: true,
-      count: issues.length,
+
+      count:
+        issues.length,
+
       issues,
     });
   } catch (error) {
@@ -97,12 +233,122 @@ const getMyIssues = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch your issues',
+
+      message:
+        'Failed to fetch your issues',
     });
   }
 };
 
+
+/*
+ * GET SINGLE ISSUE
+ *
+ * GET /api/issues/:id
+ *
+ * Students can only access their own complaints.
+ */
+const getIssueById = async (req, res) => {
+  try {
+    const {
+      id,
+    } = req.params;
+
+    console.log(
+      'Issue Details: Requested issue:',
+      id
+    );
+
+    let issue =
+      await Issue.findOne({
+        _id: id,
+
+        reportedBy:
+          req.user._id,
+      })
+        .populate(
+          'reportedBy',
+          'name email role department'
+        )
+        .populate(
+          'assignedTo',
+          'name email role department'
+        )
+        .populate(
+          'history.changedBy',
+          'name email role department'
+        );
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+
+        message:
+          'Issue not found or you do not have permission to view it',
+      });
+    }
+
+    /*
+     * Backfill complaint ID if this is
+     * an old complaint.
+     */
+    if (!issue.complaintId) {
+      issue =
+        await ensureComplaintId(issue);
+
+      /*
+       * Populate again after save.
+       */
+      issue =
+        await Issue.findById(issue._id)
+          .populate(
+            'reportedBy',
+            'name email role department'
+          )
+          .populate(
+            'assignedTo',
+            'name email role department'
+          )
+          .populate(
+            'history.changedBy',
+            'name email role department'
+          );
+    }
+
+    return res.status(200).json({
+      success: true,
+
+      issue,
+    });
+  } catch (error) {
+    console.error(
+      'Get issue by ID error:',
+      error.message
+    );
+
+    if (
+      error.name === 'CastError'
+    ) {
+      return res.status(400).json({
+        success: false,
+
+        message:
+          'Invalid issue ID',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+
+      message:
+        'Failed to fetch issue details',
+    });
+  }
+};
+
+
 module.exports = {
   createIssue,
   getMyIssues,
+  getIssueById,
 };

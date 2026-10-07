@@ -2,6 +2,19 @@ const mongoose = require('mongoose');
 
 const issueSchema = new mongoose.Schema(
   {
+    /*
+     * Human-readable complaint tracking ID.
+     *
+     * Example:
+     * CS-2026-000001
+     */
+    complaintId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+
     title: {
       type: String,
       required: true,
@@ -57,7 +70,12 @@ const issueSchema = new mongoose.Schema(
 
     priority: {
       type: String,
-      enum: ['low', 'medium', 'high', 'critical'],
+      enum: [
+        'low',
+        'medium',
+        'high',
+        'critical',
+      ],
       default: 'medium',
     },
 
@@ -101,4 +119,7 @@ const issueSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model('Issue', issueSchema);
+module.exports = mongoose.model(
+  'Issue',
+  issueSchema
+);
