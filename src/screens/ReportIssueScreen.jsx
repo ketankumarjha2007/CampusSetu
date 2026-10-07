@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';
 
 import styles from './ReportIssueScreen.styles';
+
 import { apiRequest } from '../services/api';
 
 const CATEGORIES = [
@@ -34,11 +35,15 @@ const CATEGORIES = [
 export default function ReportIssueScreen({
   navigation,
 }) {
-  const [title, setTitle] = useState('');
+  const [title, setTitle] =
+    useState('');
+
   const [category, setCategory] =
     useState('');
+
   const [description, setDescription] =
     useState('');
+
   const [location, setLocation] =
     useState('');
 
@@ -117,7 +122,8 @@ export default function ReportIssueScreen({
         result.assets &&
         result.assets.length > 0
       ) {
-        const asset = result.assets[0];
+        const asset =
+          result.assets[0];
 
         saveSelectedImage(asset);
       }
@@ -172,7 +178,8 @@ export default function ReportIssueScreen({
         result.assets &&
         result.assets.length > 0
       ) {
-        const asset = result.assets[0];
+        const asset =
+          result.assets[0];
 
         saveSelectedImage(asset);
       }
@@ -230,6 +237,76 @@ export default function ReportIssueScreen({
     }
 
     setSelectedImage(null);
+  };
+
+  // ==========================================
+  // DUPLICATE COMPLAINT
+  // ==========================================
+
+  const showDuplicateComplaint = (
+    existingIssue
+  ) => {
+    if (!existingIssue) {
+      Alert.alert(
+        'Similar complaint exists',
+        'A similar active complaint already exists for this location.'
+      );
+
+      return;
+    }
+
+    const complaintId =
+      existingIssue.complaintId ||
+      'Not available';
+
+    const status =
+      existingIssue.status || 'pending';
+
+    const formattedStatus =
+      status === 'pending'
+        ? 'Pending'
+        : status === 'assigned'
+        ? 'Assigned'
+        : status === 'in_progress'
+        ? 'In Progress'
+        : status === 'resolved'
+        ? 'Resolved'
+        : status === 'rejected'
+        ? 'Rejected'
+        : status;
+
+    Alert.alert(
+      '⚠️ Similar Complaint Already Exists',
+      `You already reported a similar issue for this location.\n\nComplaint ID\n${complaintId}\n\nStatus\n${formattedStatus}`,
+      [
+        {
+          text: 'Close',
+          style: 'cancel',
+        },
+
+        {
+          text: 'View Complaint',
+          onPress: () => {
+            if (!existingIssue._id) {
+              Alert.alert(
+                'Unable to open complaint',
+                'The existing complaint ID could not be found.'
+              );
+
+              return;
+            }
+
+            navigation.navigate(
+              'IssueDetails',
+              {
+                issueId:
+                  existingIssue._id,
+              }
+            );
+          },
+        },
+      ]
+    );
   };
 
   // ==========================================
@@ -427,9 +504,28 @@ export default function ReportIssueScreen({
         error
       );
 
+      // ========================================
+      // DUPLICATE COMPLAINT
+      // ========================================
+
+      if (
+        error?.status === 409 &&
+        error?.data?.duplicate === true &&
+        error?.data?.existingIssue
+      ) {
+        showDuplicateComplaint(
+          error.data.existingIssue
+        );
+
+        return;
+      }
+
+      // ========================================
+      // NORMAL ERROR
+      // ========================================
+
       Alert.alert(
         'Submission failed',
-
         error.message ||
           'Unable to submit your issue. Please try again.'
       );
@@ -524,7 +620,9 @@ export default function ReportIssueScreen({
           {/* TITLE */}
 
           <View
-            style={styles.fieldContainer}
+            style={
+              styles.fieldContainer
+            }
           >
             <Text style={styles.label}>
               ISSUE TITLE
@@ -544,14 +642,18 @@ export default function ReportIssueScreen({
           {/* CATEGORY */}
 
           <View
-            style={styles.fieldContainer}
+            style={
+              styles.fieldContainer
+            }
           >
             <Text style={styles.label}>
               CATEGORY
             </Text>
 
             <View
-              style={styles.categoryGrid}
+              style={
+                styles.categoryGrid
+              }
             >
               {CATEGORIES.map(
                 (item) => {
@@ -571,7 +673,9 @@ export default function ReportIssueScreen({
                       onPress={() =>
                         setCategory(item)
                       }
-                      disabled={submitting}
+                      disabled={
+                        submitting
+                      }
                     >
                       <Text
                         style={[
@@ -593,7 +697,9 @@ export default function ReportIssueScreen({
           {/* DESCRIPTION */}
 
           <View
-            style={styles.fieldContainer}
+            style={
+              styles.fieldContainer
+            }
           >
             <Text style={styles.label}>
               DESCRIPTION
@@ -619,7 +725,9 @@ export default function ReportIssueScreen({
           {/* LOCATION */}
 
           <View
-            style={styles.fieldContainer}
+            style={
+              styles.fieldContainer
+            }
           >
             <Text style={styles.label}>
               LOCATION
@@ -640,7 +748,9 @@ export default function ReportIssueScreen({
           {/* PHOTO */}
 
           <View
-            style={styles.fieldContainer}
+            style={
+              styles.fieldContainer
+            }
           >
             <Text style={styles.label}>
               PHOTO
@@ -664,7 +774,8 @@ export default function ReportIssueScreen({
               >
                 <Image
                   source={{
-                    uri: selectedImage.uri,
+                    uri:
+                      selectedImage.uri,
                   }}
                   style={{
                     width: '100%',
@@ -758,7 +869,9 @@ export default function ReportIssueScreen({
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.photoCard}
+                style={
+                  styles.photoCard
+                }
                 activeOpacity={0.8}
                 disabled={submitting}
                 onPress={
@@ -766,7 +879,9 @@ export default function ReportIssueScreen({
                 }
               >
                 <View
-                  style={styles.photoIcon}
+                  style={
+                    styles.photoIcon
+                  }
                 >
                   <Text
                     style={
@@ -808,7 +923,9 @@ export default function ReportIssueScreen({
                 onPress={
                   handleAddPhoto
                 }
-                disabled={submitting}
+                disabled={
+                  submitting
+                }
                 activeOpacity={0.8}
                 style={{
                   marginTop: 10,

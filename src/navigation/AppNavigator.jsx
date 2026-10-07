@@ -19,6 +19,8 @@ import IssueDetailsScreen from '../screens/IssueDetailsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import TrackComplaintScreen from '../screens/TrackComplaintScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import HelpScreen from '../screens/HelpScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -78,6 +80,14 @@ export default function AppNavigator() {
         <Stack.Screen
           name="TrackComplaint"
           component={TrackComplaintScreen}
+        />
+        <Stack.Screen
+          name="Notifications"
+          component={NotificationsScreen}
+        />
+        <Stack.Screen
+          name="Help"
+          component={HelpScreen}
         />
 
       </Stack.Navigator>

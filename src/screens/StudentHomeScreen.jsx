@@ -23,46 +23,112 @@ import styles from './StudentHomeScreen.styles';
 export default function StudentHomeScreen({
   navigation,
 }) {
-  const [recentReports, setRecentReports] = useState([]);
+  const [recentReports, setRecentReports] =
+    useState([]);
+
   const [reportsLoading, setReportsLoading] =
     useState(true);
+
   const [reportsError, setReportsError] =
     useState('');
 
-  const hour = new Date().getHours();
+  // ==========================================
+  // OPEN NOTIFICATIONS
+  // ==========================================
 
-  let greeting = 'GOOD MORNING';
+  const openNotifications = () => {
+    const currentState =
+      navigation.getState();
 
-  if (hour >= 12 && hour < 17) {
-    greeting = 'GOOD AFTERNOON';
-  } else if (hour >= 17 && hour < 21) {
-    greeting = 'GOOD EVENING';
-  } else if (hour >= 21 || hour < 5) {
-    greeting = 'GOOD NIGHT';
-  }
+    const currentRoutes =
+      currentState?.routeNames || [];
+
+    console.log(
+      'StudentHome current routes:',
+      currentRoutes
+    );
+
+    // Notifications exists in current navigator
+    if (
+      currentRoutes.includes(
+        'Notifications'
+      )
+    ) {
+      navigation.navigate(
+        'Notifications'
+      );
+
+      return;
+    }
+
+    // Try parent navigator
+    const parentNavigation =
+      navigation.getParent();
+
+    const parentState =
+      parentNavigation?.getState();
+
+    const parentRoutes =
+      parentState?.routeNames || [];
+
+    console.log(
+      'StudentHome parent routes:',
+      parentRoutes
+    );
+
+    if (
+      parentNavigation &&
+      parentRoutes.includes(
+        'Notifications'
+      )
+    ) {
+      parentNavigation.navigate(
+        'Notifications'
+      );
+
+      return;
+    }
+
+    console.error(
+      'Notifications route not found.',
+      {
+        currentRoutes,
+        parentRoutes,
+      }
+    );
+  };
+
+  // ==========================================
+  // LOAD RECENT REPORTS
+  // ==========================================
 
   const loadRecentReports = async () => {
     try {
       setReportsError('');
 
-      const response = await apiRequest(
-        '/issues/my'
-      );
+      const response =
+        await apiRequest(
+          '/issues/my'
+        );
 
       if (
         response?.success &&
-        Array.isArray(response?.issues)
+        Array.isArray(
+          response?.issues
+        )
       ) {
         const sortedReports = [
           ...response.issues,
         ].sort((a, b) => {
-          const dateA = new Date(
-            a.createdAt || 0
-          ).getTime();
+          const dateA =
+            new Date(
+              a.createdAt || 0
+            ).getTime();
 
-          const dateB = new Date(
-            b.createdAt || 0
-          ).getTime();
+          const dateB =
+            new Date(
+              b.createdAt || 0
+            ).getTime();
 
           return dateB - dateA;
         });
@@ -73,7 +139,7 @@ export default function StudentHomeScreen({
       } else {
         throw new Error(
           response?.message ||
-            'Unable to load recent activity'
+          'Unable to load recent activity'
         );
       }
     } catch (error) {
@@ -84,7 +150,7 @@ export default function StudentHomeScreen({
 
       setReportsError(
         error.message ||
-          'Unable to load recent activity.'
+        'Unable to load recent activity.'
       );
 
       setRecentReports([]);
@@ -93,6 +159,10 @@ export default function StudentHomeScreen({
     }
   };
 
+  // ==========================================
+  // REFRESH WHEN SCREEN FOCUSES
+  // ==========================================
+
   useFocusEffect(
     useCallback(() => {
       setReportsLoading(true);
@@ -100,14 +170,23 @@ export default function StudentHomeScreen({
     }, [])
   );
 
+  // ==========================================
+  // FORMAT DATE
+  // ==========================================
+
   const formatDate = (dateValue) => {
     if (!dateValue) {
       return 'Date unavailable';
     }
 
-    const date = new Date(dateValue);
+    const date =
+      new Date(dateValue);
 
-    if (Number.isNaN(date.getTime())) {
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
       return 'Date unavailable';
     }
 
@@ -121,7 +200,13 @@ export default function StudentHomeScreen({
     );
   };
 
-  const getStatusLabel = (status) => {
+  // ==========================================
+  // STATUS LABEL
+  // ==========================================
+
+  const getStatusLabel = (
+    status
+  ) => {
     switch (status) {
       case 'pending':
         return 'Pending';
@@ -143,43 +228,69 @@ export default function StudentHomeScreen({
     }
   };
 
-  const getStatusColors = (status) => {
+  // ==========================================
+  // STATUS COLORS
+  // ==========================================
+
+  const getStatusColors = (
+    status
+  ) => {
     switch (status) {
       case 'resolved':
         return {
-          backgroundColor: '#F0FDF4',
-          borderColor: '#BBF7D0',
-          textColor: '#15803D',
+          backgroundColor:
+            '#F0FDF4',
+          borderColor:
+            '#BBF7D0',
+          textColor:
+            '#15803D',
         };
 
       case 'in_progress':
       case 'assigned':
         return {
-          backgroundColor: '#EFF6FF',
-          borderColor: '#BFDBFE',
-          textColor: '#2563EB',
+          backgroundColor:
+            '#EFF6FF',
+          borderColor:
+            '#BFDBFE',
+          textColor:
+            '#2563EB',
         };
 
       case 'rejected':
         return {
-          backgroundColor: '#FEF2F2',
-          borderColor: '#FECACA',
-          textColor: '#DC2626',
+          backgroundColor:
+            '#FEF2F2',
+          borderColor:
+            '#FECACA',
+          textColor:
+            '#DC2626',
         };
 
       case 'pending':
       default:
         return {
-          backgroundColor: '#FFF7ED',
-          borderColor: '#FED7AA',
-          textColor: '#EA580C',
+          backgroundColor:
+            '#FFF7ED',
+          borderColor:
+            '#FED7AA',
+          textColor:
+            '#EA580C',
         };
     }
   };
 
-  const renderRecentReport = (report) => {
+  // ==========================================
+  // RECENT REPORT CARD
+  // ==========================================
+
+  const renderRecentReport = (
+    report
+  ) => {
     const statusColors =
-      getStatusColors(report.status);
+      getStatusColors(
+        report.status
+      );
 
     return (
       <TouchableOpacity
@@ -189,16 +300,24 @@ export default function StudentHomeScreen({
           navigation.navigate(
             'IssueDetails',
             {
-              issueId: report._id,
+              issueId:
+                report._id,
             }
           )
         }
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor:
+            '#FFFFFF',
+
           borderRadius: 18,
+
           borderWidth: 1,
-          borderColor: '#E5E7EB',
+
+          borderColor:
+            '#E5E7EB',
+
           padding: 16,
+
           marginBottom: 12,
         }}
       >
@@ -207,8 +326,10 @@ export default function StudentHomeScreen({
         <View
           style={{
             flexDirection: 'row',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
+            alignItems:
+              'flex-start',
+            justifyContent:
+              'space-between',
           }}
         >
           <View
@@ -254,11 +375,16 @@ export default function StudentHomeScreen({
             style={{
               backgroundColor:
                 statusColors.backgroundColor,
+
               borderWidth: 1,
+
               borderColor:
                 statusColors.borderColor,
+
               borderRadius: 999,
+
               paddingHorizontal: 9,
+
               paddingVertical: 5,
             }}
           >
@@ -266,7 +392,9 @@ export default function StudentHomeScreen({
               style={{
                 color:
                   statusColors.textColor,
+
                 fontSize: 10,
+
                 fontWeight: '900',
               }}
             >
@@ -282,22 +410,39 @@ export default function StudentHomeScreen({
         <View
           style={{
             marginTop: 13,
+
             paddingTop: 11,
+
             borderTopWidth: 1,
-            borderTopColor: '#F1F5F9',
+
+            borderTopColor:
+              '#F1F5F9',
+
             flexDirection: 'row',
+
             alignItems: 'center',
-            justifyContent: 'space-between',
+
+            justifyContent:
+              'space-between',
           }}
         >
-          <View style={{ flex: 1 }}>
+          <View
+            style={{
+              flex: 1,
+            }}
+          >
             <Text
               style={{
                 fontSize: 9,
+
                 fontWeight: '900',
+
                 letterSpacing: 0.8,
+
                 color: '#94A3B8',
-                textTransform: 'uppercase',
+
+                textTransform:
+                  'uppercase',
               }}
             >
               Complaint ID
@@ -306,9 +451,13 @@ export default function StudentHomeScreen({
             <Text
               style={{
                 marginTop: 3,
+
                 fontSize: 11,
+
                 fontWeight: '800',
+
                 color: '#2563EB',
+
                 letterSpacing: 0.5,
               }}
             >
@@ -320,7 +469,9 @@ export default function StudentHomeScreen({
           <Text
             style={{
               fontSize: 20,
+
               color: '#94A3B8',
+
               fontWeight: '400',
             }}
           >
@@ -330,6 +481,10 @@ export default function StudentHomeScreen({
       </TouchableOpacity>
     );
   };
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
     <SafeAreaView
@@ -345,30 +500,64 @@ export default function StudentHomeScreen({
         contentContainerStyle={
           styles.container
         }
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          false
+        }
       >
         {/* HEADER */}
 
-        <View style={styles.header}>
+        <View
+          style={styles.header}
+        >
           <View>
-            <Text style={styles.greeting}>
-              {greeting}
+            <Text
+              style={styles.greeting}
+            >
+              {(() => {
+                const hour =
+                  new Date().getHours();
+
+                if (
+                  hour >= 5 &&
+                  hour < 12
+                ) {
+                  return 'GOOD MORNING';
+                }
+
+                if (
+                  hour >= 12 &&
+                  hour < 17
+                ) {
+                  return 'GOOD AFTERNOON';
+                }
+
+                if (
+                  hour >= 17 &&
+                  hour < 21
+                ) {
+                  return 'GOOD EVENING';
+                }
+
+                return 'GOOD NIGHT';
+              })()}
             </Text>
 
-            <Text style={styles.title}>
+            <Text
+              style={styles.title}
+            >
               Hello, Ketan 👋
             </Text>
           </View>
+
+          {/* NOTIFICATION BUTTON */}
 
           <TouchableOpacity
             style={
               styles.notificationButton
             }
             activeOpacity={0.8}
-            onPress={() =>
-              navigation.navigate(
-                'Notifications'
-              )
+            onPress={
+              openNotifications
             }
           >
             <Text
@@ -389,19 +578,29 @@ export default function StudentHomeScreen({
 
         {/* CAMPUS STATUS */}
 
-        <View style={styles.statusCard}>
-          <View style={styles.statusIcon}>
+        <View
+          style={styles.statusCard}
+        >
+          <View
+            style={styles.statusIcon}
+          >
             <Text
-              style={styles.statusIconText}
+              style={
+                styles.statusIconText
+              }
             >
               ✓
             </Text>
           </View>
 
           <View
-            style={styles.statusContent}
+            style={
+              styles.statusContent
+            }
           >
-            <Text style={styles.statusTitle}>
+            <Text
+              style={styles.statusTitle}
+            >
               Campus is running smoothly
             </Text>
 
@@ -415,14 +614,18 @@ export default function StudentHomeScreen({
           </View>
 
           <View
-            style={styles.statusIndicator}
+            style={
+              styles.statusIndicator
+            }
           />
         </View>
 
         {/* REPORT ISSUE */}
 
         <TouchableOpacity
-          style={styles.reportCard}
+          style={
+            styles.reportCard
+          }
           activeOpacity={0.88}
           onPress={() =>
             navigation.navigate(
@@ -431,29 +634,39 @@ export default function StudentHomeScreen({
           }
         >
           <View
-            style={styles.reportContent}
+            style={
+              styles.reportContent
+            }
           >
             <Text
-              style={styles.reportEyebrow}
+              style={
+                styles.reportEyebrow
+              }
             >
               NEED HELP?
             </Text>
 
             <Text
-              style={styles.reportTitle}
+              style={
+                styles.reportTitle
+              }
             >
               Report an Issue
             </Text>
 
             <Text
-              style={styles.reportSubtitle}
+              style={
+                styles.reportSubtitle
+              }
             >
               Tell us what is wrong on campus
               and we'll help get it resolved.
             </Text>
 
             <View
-              style={styles.reportButton}
+              style={
+                styles.reportButton
+              }
             >
               <Text
                 style={
@@ -472,7 +685,9 @@ export default function StudentHomeScreen({
           </View>
 
           <View
-            style={styles.reportDecoration}
+            style={
+              styles.reportDecoration
+            }
           >
             <Text
               style={
@@ -502,12 +717,15 @@ export default function StudentHomeScreen({
           </Text>
         </View>
 
-        <View style={styles.quickGrid}>
-
+        <View
+          style={styles.quickGrid}
+        >
           {/* MY REPORTS */}
 
           <TouchableOpacity
-            style={styles.quickCard}
+            style={
+              styles.quickCard
+            }
             activeOpacity={0.8}
             onPress={() =>
               navigation.navigate(
@@ -521,7 +739,9 @@ export default function StudentHomeScreen({
               }
             >
               <Text
-                style={styles.quickIconText}
+                style={
+                  styles.quickIconText
+                }
               >
                 ≡
               </Text>
@@ -534,7 +754,9 @@ export default function StudentHomeScreen({
             </Text>
 
             <Text
-              style={styles.quickSubtitle}
+              style={
+                styles.quickSubtitle
+              }
             >
               View your complaints
             </Text>
@@ -543,7 +765,9 @@ export default function StudentHomeScreen({
           {/* TRACK COMPLAINT */}
 
           <TouchableOpacity
-            style={styles.quickCard}
+            style={
+              styles.quickCard
+            }
             activeOpacity={0.8}
             onPress={() =>
               navigation.navigate(
@@ -557,7 +781,9 @@ export default function StudentHomeScreen({
               }
             >
               <Text
-                style={styles.quickIconText}
+                style={
+                  styles.quickIconText
+                }
               >
                 🔍
               </Text>
@@ -570,7 +796,9 @@ export default function StudentHomeScreen({
             </Text>
 
             <Text
-              style={styles.quickSubtitle}
+              style={
+                styles.quickSubtitle
+              }
             >
               Check complaint status
             </Text>
@@ -579,7 +807,9 @@ export default function StudentHomeScreen({
           {/* RESOLVED */}
 
           <TouchableOpacity
-            style={styles.quickCard}
+            style={
+              styles.quickCard
+            }
             activeOpacity={0.8}
             onPress={() =>
               navigation.navigate(
@@ -593,7 +823,9 @@ export default function StudentHomeScreen({
               }
             >
               <Text
-                style={styles.quickIconText}
+                style={
+                  styles.quickIconText
+                }
               >
                 ✓
               </Text>
@@ -606,7 +838,9 @@ export default function StudentHomeScreen({
             </Text>
 
             <Text
-              style={styles.quickSubtitle}
+              style={
+                styles.quickSubtitle
+              }
             >
               View completed issues
             </Text>
@@ -615,7 +849,9 @@ export default function StudentHomeScreen({
           {/* PENDING */}
 
           <TouchableOpacity
-            style={styles.quickCard}
+            style={
+              styles.quickCard
+            }
             activeOpacity={0.8}
             onPress={() =>
               navigation.navigate(
@@ -629,7 +865,9 @@ export default function StudentHomeScreen({
               }
             >
               <Text
-                style={styles.quickIconText}
+                style={
+                  styles.quickIconText
+                }
               >
                 !
               </Text>
@@ -642,7 +880,9 @@ export default function StudentHomeScreen({
             </Text>
 
             <Text
-              style={styles.quickSubtitle}
+              style={
+                styles.quickSubtitle
+              }
             >
               Issues being handled
             </Text>
@@ -651,7 +891,9 @@ export default function StudentHomeScreen({
           {/* HELP */}
 
           <TouchableOpacity
-            style={styles.quickCard}
+            style={
+              styles.quickCard
+            }
             activeOpacity={0.8}
             onPress={() =>
               navigation.navigate('Help')
@@ -663,7 +905,9 @@ export default function StudentHomeScreen({
               }
             >
               <Text
-                style={styles.quickIconText}
+                style={
+                  styles.quickIconText
+                }
               >
                 ?
               </Text>
@@ -676,7 +920,9 @@ export default function StudentHomeScreen({
             </Text>
 
             <Text
-              style={styles.quickSubtitle}
+              style={
+                styles.quickSubtitle
+              }
             >
               Campus support
             </Text>
@@ -692,13 +938,17 @@ export default function StudentHomeScreen({
         >
           <View>
             <Text
-              style={styles.sectionTitle}
+              style={
+                styles.sectionTitle
+              }
             >
               Recent activity
             </Text>
 
             <Text
-              style={styles.sectionHint}
+              style={
+                styles.sectionHint
+              }
             >
               Your latest campus reports
             </Text>
@@ -711,7 +961,9 @@ export default function StudentHomeScreen({
               )
             }
           >
-            <Text style={styles.viewAll}>
+            <Text
+              style={styles.viewAll}
+            >
               View all
             </Text>
           </TouchableOpacity>
@@ -722,13 +974,22 @@ export default function StudentHomeScreen({
         {reportsLoading ? (
           <View
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor:
+                '#FFFFFF',
+
               borderRadius: 18,
+
               borderWidth: 1,
-              borderColor: '#E5E7EB',
+
+              borderColor:
+                '#E5E7EB',
+
               paddingVertical: 30,
+
               alignItems: 'center',
-              justifyContent: 'center',
+
+              justifyContent:
+                'center',
             }}
           >
             <ActivityIndicator
@@ -739,8 +1000,11 @@ export default function StudentHomeScreen({
             <Text
               style={{
                 marginTop: 10,
+
                 fontSize: 12,
+
                 fontWeight: '600',
+
                 color: '#94A3B8',
               }}
             >
@@ -750,17 +1014,25 @@ export default function StudentHomeScreen({
         ) : reportsError ? (
           <View
             style={{
-              backgroundColor: '#FEF2F2',
+              backgroundColor:
+                '#FEF2F2',
+
               borderRadius: 18,
+
               borderWidth: 1,
-              borderColor: '#FECACA',
+
+              borderColor:
+                '#FECACA',
+
               padding: 18,
             }}
           >
             <Text
               style={{
                 fontSize: 14,
+
                 fontWeight: '900',
+
                 color: '#991B1B',
               }}
             >
@@ -770,8 +1042,11 @@ export default function StudentHomeScreen({
             <Text
               style={{
                 marginTop: 6,
+
                 fontSize: 12,
+
                 lineHeight: 18,
+
                 color: '#B91C1C',
               }}
             >
@@ -781,24 +1056,39 @@ export default function StudentHomeScreen({
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => {
-                setReportsLoading(true);
+                setReportsLoading(
+                  true
+                );
+
                 loadRecentReports();
               }}
               style={{
                 marginTop: 13,
-                alignSelf: 'flex-start',
-                backgroundColor: '#FFFFFF',
+
+                alignSelf:
+                  'flex-start',
+
+                backgroundColor:
+                  '#FFFFFF',
+
                 borderWidth: 1,
-                borderColor: '#FCA5A5',
+
+                borderColor:
+                  '#FCA5A5',
+
                 borderRadius: 10,
+
                 paddingHorizontal: 13,
+
                 paddingVertical: 8,
               }}
             >
               <Text
                 style={{
                   fontSize: 11,
+
                   fontWeight: '900',
+
                   color: '#DC2626',
                 }}
               >
@@ -813,10 +1103,14 @@ export default function StudentHomeScreen({
             )}
           </View>
         ) : (
-          /* EMPTY STATE */
-
-          <View style={styles.emptyCard}>
-            <View style={styles.emptyIcon}>
+          <View
+            style={styles.emptyCard}
+          >
+            <View
+              style={
+                styles.emptyIcon
+              }
+            >
               <Text
                 style={
                   styles.emptyIconText
@@ -833,14 +1127,18 @@ export default function StudentHomeScreen({
             </Text>
 
             <Text
-              style={styles.emptySubtitle}
+              style={
+                styles.emptySubtitle
+              }
             >
               Your reported campus issues will
               appear here.
             </Text>
 
             <TouchableOpacity
-              style={styles.emptyButton}
+              style={
+                styles.emptyButton
+              }
               activeOpacity={0.8}
               onPress={() =>
                 navigation.navigate(
@@ -859,27 +1157,35 @@ export default function StudentHomeScreen({
           </View>
         )}
 
-        <View style={styles.bottomSpace} />
+        <View
+          style={styles.bottomSpace}
+        />
       </ScrollView>
 
       {/* BOTTOM NAVIGATION */}
 
-      <View style={styles.bottomNav}>
-
+      <View
+        style={styles.bottomNav}
+      >
         {/* HOME */}
 
         <TouchableOpacity
           style={styles.navItem}
           activeOpacity={0.7}
+          onPress={() => { }}
         >
           <Text
-            style={styles.navIconActive}
+            style={
+              styles.navIconActive
+            }
           >
             ⌂
           </Text>
 
           <Text
-            style={styles.navLabelActive}
+            style={
+              styles.navLabelActive
+            }
           >
             Home
           </Text>
@@ -896,11 +1202,15 @@ export default function StudentHomeScreen({
             )
           }
         >
-          <Text style={styles.navIcon}>
+          <Text
+            style={styles.navIcon}
+          >
             ≡
           </Text>
 
-          <Text style={styles.navLabel}>
+          <Text
+            style={styles.navLabel}
+          >
             Reports
           </Text>
         </TouchableOpacity>
@@ -917,7 +1227,9 @@ export default function StudentHomeScreen({
           }
         >
           <Text
-            style={styles.addButtonText}
+            style={
+              styles.addButtonText
+            }
           >
             +
           </Text>
@@ -928,17 +1240,19 @@ export default function StudentHomeScreen({
         <TouchableOpacity
           style={styles.navItem}
           activeOpacity={0.7}
-          onPress={() =>
-            navigation.navigate(
-              'Notifications'
-            )
+          onPress={
+            openNotifications
           }
         >
-          <Text style={styles.navIcon}>
+          <Text
+            style={styles.navIcon}
+          >
             🔔
           </Text>
 
-          <Text style={styles.navLabel}>
+          <Text
+            style={styles.navLabel}
+          >
             Alerts
           </Text>
         </TouchableOpacity>
@@ -949,18 +1263,23 @@ export default function StudentHomeScreen({
           style={styles.navItem}
           activeOpacity={0.7}
           onPress={() =>
-            navigation.navigate('Profile')
+            navigation.navigate(
+              'Profile'
+            )
           }
         >
-          <Text style={styles.navIcon}>
+          <Text
+            style={styles.navIcon}
+          >
             ●
           </Text>
 
-          <Text style={styles.navLabel}>
+          <Text
+            style={styles.navLabel}
+          >
             Profile
           </Text>
         </TouchableOpacity>
-
       </View>
     </SafeAreaView>
   );

@@ -2,11 +2,6 @@ import { getAuth } from 'firebase/auth';
 
 const API_BASE_URL ='http://192.168.1.20:5000/api';
 
-
-// ==========================================
-// GET FIREBASE TOKEN
-// ==========================================
-
 export const getFirebaseToken = async () => {
   const auth = getAuth();
 
@@ -30,11 +25,6 @@ export const getFirebaseToken = async () => {
 
   return token;
 };
-
-
-// ==========================================
-// AUTHENTICATED API REQUEST
-// ==========================================
 
 export const apiRequest = async (
   endpoint,
@@ -109,16 +99,28 @@ export const apiRequest = async (
         parseError
       );
 
-      throw new Error(
+      const error = new Error(
         `Server returned invalid JSON. Status: ${response.status}`
       );
+
+      error.status = response.status;
+
+      throw error;
     }
 
     if (!response.ok) {
-      throw new Error(
+      const error = new Error(
         data.message ||
           `API request failed with status ${response.status}`
       );
+
+      // IMPORTANT:
+      // Preserve backend response so screens
+      // can handle special cases like duplicate complaints.
+      error.status = response.status;
+      error.data = data;
+
+      throw error;
     }
 
     console.log(
@@ -127,7 +129,6 @@ export const apiRequest = async (
     );
 
     return data;
-
   } catch (error) {
     console.error(
       'API: Request failed:',
@@ -137,11 +138,6 @@ export const apiRequest = async (
     throw error;
   }
 };
-
-
-// ==========================================
-// GET CURRENT USER
-// ==========================================
 
 export const getCurrentUser = async () => {
   console.log(
