@@ -48,9 +48,39 @@ export default function ReportIssueScreen({
   const [submitting, setSubmitting] =
     useState(false);
 
+  // ==========================================
+  // SAVE SELECTED IMAGE
+  // ==========================================
+
+  const saveSelectedImage = (asset) => {
+    if (!asset) {
+      return;
+    }
+
+    console.log(
+      'Photo selected:',
+      asset.uri
+    );
+
+    setSelectedImage({
+      uri: asset.uri,
+
+      fileName:
+        asset.fileName ||
+        `campussetu-${Date.now()}.jpg`,
+
+      mimeType:
+        asset.mimeType ||
+        'image/jpeg',
+
+      width: asset.width,
+
+      height: asset.height,
+    });
+  };
 
   // ==========================================
-  // PICK IMAGE
+  // PICK IMAGE FROM GALLERY
   // ==========================================
 
   const handlePickImage = async () => {
@@ -65,12 +95,7 @@ export default function ReportIssueScreen({
       if (!permissionResult.granted) {
         Alert.alert(
           'Permission required',
-          'Please allow photo library access so you can attach a photo to your complaint.',
-          [
-            {
-              text: 'OK',
-            },
-          ]
+          'Please allow photo library access so you can attach a photo to your complaint.'
         );
 
         return;
@@ -94,28 +119,8 @@ export default function ReportIssueScreen({
       ) {
         const asset = result.assets[0];
 
-        console.log(
-          'Photo selected:',
-          asset.uri
-        );
-
-        setSelectedImage({
-          uri: asset.uri,
-
-          fileName:
-            asset.fileName ||
-            `campussetu-${Date.now()}.jpg`,
-
-          mimeType:
-            asset.mimeType ||
-            'image/jpeg',
-
-          width: asset.width,
-
-          height: asset.height,
-        });
+        saveSelectedImage(asset);
       }
-
     } catch (error) {
       console.error(
         'Photo picker error:',
@@ -129,6 +134,91 @@ export default function ReportIssueScreen({
     }
   };
 
+  // ==========================================
+  // TAKE PHOTO USING LIVE CAMERA
+  // ==========================================
+
+  const handleTakePhoto = async () => {
+    if (submitting) {
+      return;
+    }
+
+    try {
+      const permissionResult =
+        await ImagePicker.requestCameraPermissionsAsync();
+
+      if (!permissionResult.granted) {
+        Alert.alert(
+          'Camera permission required',
+          'Please allow camera access so you can take a photo of the issue.'
+        );
+
+        return;
+      }
+
+      const result =
+        await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.8,
+        });
+
+      if (result.canceled) {
+        return;
+      }
+
+      if (
+        result.assets &&
+        result.assets.length > 0
+      ) {
+        const asset = result.assets[0];
+
+        saveSelectedImage(asset);
+      }
+    } catch (error) {
+      console.error(
+        'Camera error:',
+        error
+      );
+
+      Alert.alert(
+        'Unable to take photo',
+        'Something went wrong while opening the camera. Please try again.'
+      );
+    }
+  };
+
+  // ==========================================
+  // ADD PHOTO OPTIONS
+  // ==========================================
+
+  const handleAddPhoto = () => {
+    if (submitting) {
+      return;
+    }
+
+    Alert.alert(
+      'Add Photo',
+      'Choose how you want to add a photo.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+
+        {
+          text: 'Take Photo',
+          onPress: handleTakePhoto,
+        },
+
+        {
+          text: 'Choose from Gallery',
+          onPress: handlePickImage,
+        },
+      ]
+    );
+  };
 
   // ==========================================
   // REMOVE IMAGE
@@ -142,7 +232,6 @@ export default function ReportIssueScreen({
     setSelectedImage(null);
   };
 
-
   // ==========================================
   // SUBMIT ISSUE
   // ==========================================
@@ -151,7 +240,6 @@ export default function ReportIssueScreen({
     if (submitting) {
       return;
     }
-
 
     // ----------------------------------------
     // VALIDATION
@@ -193,15 +281,12 @@ export default function ReportIssueScreen({
       return;
     }
 
-
     setSubmitting(true);
-
 
     try {
       console.log(
         'Report Issue: Creating FormData...'
       );
-
 
       // ========================================
       // CREATE FORM DATA
@@ -209,7 +294,6 @@ export default function ReportIssueScreen({
 
       const formData =
         new FormData();
-
 
       // ========================================
       // TEXT FIELDS
@@ -240,7 +324,6 @@ export default function ReportIssueScreen({
         'medium'
       );
 
-
       // ========================================
       // PHOTO
       // ========================================
@@ -258,7 +341,6 @@ export default function ReportIssueScreen({
           selectedImage.uri
         );
 
-
         // --------------------------------------
         // Convert Expo URI into File
         // --------------------------------------
@@ -268,11 +350,9 @@ export default function ReportIssueScreen({
             selectedImage.uri
           );
 
-
         console.log(
           'Image file created'
         );
-
 
         // --------------------------------------
         // Append File to FormData
@@ -283,12 +363,10 @@ export default function ReportIssueScreen({
           imageFile
         );
 
-
         console.log(
           'Photo added to FormData'
         );
       }
-
 
       // ========================================
       // SEND REQUEST
@@ -303,11 +381,9 @@ export default function ReportIssueScreen({
           '/issues',
           {
             method: 'POST',
-
             body: formData,
           }
         );
-
 
       // ========================================
       // SUCCESS
@@ -317,7 +393,6 @@ export default function ReportIssueScreen({
         'Report Issue: Issue created:',
         response.issue
       );
-
 
       Alert.alert(
         'Issue reported',
@@ -346,7 +421,6 @@ export default function ReportIssueScreen({
           },
         ]
       );
-
     } catch (error) {
       console.error(
         'Report Issue: Submission failed:',
@@ -359,12 +433,10 @@ export default function ReportIssueScreen({
         error.message ||
           'Unable to submit your issue. Please try again.'
       );
-
     } finally {
       setSubmitting(false);
     }
   };
-
 
   // ==========================================
   // UI
@@ -392,7 +464,6 @@ export default function ReportIssueScreen({
           }
           keyboardShouldPersistTaps="handled"
         >
-
           {/* HEADER */}
 
           <View style={styles.header}>
@@ -432,7 +503,6 @@ export default function ReportIssueScreen({
             </View>
           </View>
 
-
           {/* INTRO */}
 
           <View style={styles.intro}>
@@ -450,7 +520,6 @@ export default function ReportIssueScreen({
               action.
             </Text>
           </View>
-
 
           {/* TITLE */}
 
@@ -471,7 +540,6 @@ export default function ReportIssueScreen({
               editable={!submitting}
             />
           </View>
-
 
           {/* CATEGORY */}
 
@@ -522,7 +590,6 @@ export default function ReportIssueScreen({
             </View>
           </View>
 
-
           {/* DESCRIPTION */}
 
           <View
@@ -549,7 +616,6 @@ export default function ReportIssueScreen({
             />
           </View>
 
-
           {/* LOCATION */}
 
           <View
@@ -570,7 +636,6 @@ export default function ReportIssueScreen({
               editable={!submitting}
             />
           </View>
-
 
           {/* PHOTO */}
 
@@ -657,7 +722,9 @@ export default function ReportIssueScreen({
                     onPress={
                       handleRemoveImage
                     }
-                    disabled={submitting}
+                    disabled={
+                      submitting
+                    }
                     activeOpacity={0.8}
                     style={{
                       paddingHorizontal: 13,
@@ -695,7 +762,7 @@ export default function ReportIssueScreen({
                 activeOpacity={0.8}
                 disabled={submitting}
                 onPress={
-                  handlePickImage
+                  handleAddPhoto
                 }
               >
                 <View
@@ -728,22 +795,18 @@ export default function ReportIssueScreen({
                       styles.photoSubtitle
                     }
                   >
-                    A photo can help the
-                    resolution team
-                    understand the issue
-                    faster.
+                    Take a live photo or choose one from your gallery.
                   </Text>
                 </View>
               </TouchableOpacity>
             )}
-
 
             {/* CHANGE PHOTO */}
 
             {selectedImage && (
               <TouchableOpacity
                 onPress={
-                  handlePickImage
+                  handleAddPhoto
                 }
                 disabled={submitting}
                 activeOpacity={0.8}
@@ -777,12 +840,11 @@ export default function ReportIssueScreen({
                     color: '#2563EB',
                   }}
                 >
-                  Choose another photo
+                  Change photo
                 </Text>
               </TouchableOpacity>
             )}
           </View>
-
 
           {/* SUBMIT */}
 
@@ -836,7 +898,6 @@ export default function ReportIssueScreen({
             </View>
           </TouchableOpacity>
 
-
           {/* FOOTER */}
 
           <Text
@@ -845,7 +906,6 @@ export default function ReportIssueScreen({
             CampusSetu • Bridging Students
             and Solutions.
           </Text>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
