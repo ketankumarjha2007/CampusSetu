@@ -22,9 +22,23 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    usn: {
+      type: String,
+      required: false,
+      unique: true,
+      sparse: true,
+      trim: true,
+      uppercase: true,
+    },
+
     role: {
       type: String,
-      enum: ['student', 'teacher', 'cluster_head', 'principal'],
+      enum: [
+        'student',
+        'teacher',
+        'cluster_head',
+        'principal',
+      ],
       required: true,
     },
 

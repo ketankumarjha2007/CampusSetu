@@ -16,6 +16,8 @@ import StudentHomeScreen from '../screens/StudentHomeScreen';
 import ReportIssueScreen from '../screens/ReportIssueScreen';
 import MyReportsScreen from '../screens/MyReportsScreen';
 import IssueDetailsScreen from '../screens/IssueDetailsScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -63,6 +65,14 @@ export default function AppNavigator() {
         <Stack.Screen
           name="IssueDetails"
           component={IssueDetailsScreen}
+        />
+        <Stack.Screen
+          name="Profile"
+          component={ProfileScreen}
+        />
+        <Stack.Screen
+          name="EditProfile"
+          component={EditProfileScreen}
         />
 
       </Stack.Navigator>

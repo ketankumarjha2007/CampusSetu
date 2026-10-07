@@ -23,6 +23,7 @@ import {
 } from 'firebase/auth';
 
 import { auth } from '../config/firebase';
+import { apiRequest } from '../services/api';
 
 import styles from './RegisterScreen.styles';
 
@@ -41,18 +42,12 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] =
-    useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
-
-  const [focusedField, setFocusedField] =
-    useState(null);
-
+  const [focusedField, setFocusedField] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const pageAnim = useRef(
@@ -139,8 +134,8 @@ export default function RegisterScreen({ navigation }) {
 
     if (!trimmedStudentId) {
       Alert.alert(
-        'Missing student ID',
-        'Please enter your student ID.',
+        'Missing USN',
+        'Please enter your USN.',
       );
       return false;
     }
@@ -204,11 +199,10 @@ export default function RegisterScreen({ navigation }) {
 
     try {
       const trimmedName = fullName.trim();
-      const trimmedEmail =
-        email.trim().toLowerCase();
-      const trimmedStudentId =
-        studentId.trim();
+      const trimmedEmail = email.trim().toLowerCase();
+      const trimmedStudentId = studentId.trim().toUpperCase();
 
+      // Create Firebase account
       const userCredential =
         await createUserWithEmailAndPassword(
           auth,
@@ -218,19 +212,30 @@ export default function RegisterScreen({ navigation }) {
 
       const user = userCredential.user;
 
+      // Save display name in Firebase
       await updateProfile(user, {
         displayName: trimmedName,
       });
 
+      // Save student profile in CampusSetu MongoDB
+      await apiRequest('/users/profile', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: trimmedName,
+          usn: trimmedStudentId,
+        }),
+      });
+
+      // Send verification email
       await sendEmailVerification(user);
 
       console.log(
-        'Student Firebase account created:',
+        'CampusSetu student account created:',
         {
           uid: user.uid,
           fullName: trimmedName,
           email: trimmedEmail,
-          studentId: trimmedStudentId,
+          usn: trimmedStudentId,
         },
       );
 
@@ -251,10 +256,21 @@ export default function RegisterScreen({ navigation }) {
         error,
       );
 
-      Alert.alert(
-        'Registration failed',
-        getFirebaseErrorMessage(error.code),
-      );
+      // Handle duplicate USN / backend errors
+      if (
+        error.message &&
+        error.message.toLowerCase().includes('usn')
+      ) {
+        Alert.alert(
+          'Registration failed',
+          error.message,
+        );
+      } else {
+        Alert.alert(
+          'Registration failed',
+          getFirebaseErrorMessage(error.code),
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -293,7 +309,7 @@ export default function RegisterScreen({ navigation }) {
           style={[
             styles.inputContainer,
             focused &&
-            styles.inputContainerFocused,
+              styles.inputContainerFocused,
           ]}
         >
           <View style={styles.inputIcon}>
@@ -301,8 +317,8 @@ export default function RegisterScreen({ navigation }) {
               {field === 'name'
                 ? 'N'
                 : field === 'email'
-                  ? '@'
-                  : 'ID'}
+                ? '@'
+                : 'ID'}
             </Text>
           </View>
 
@@ -349,7 +365,11 @@ export default function RegisterScreen({ navigation }) {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        keyboardDismissMode={
+          Platform.OS === 'ios'
+            ? 'interactive'
+            : 'on-drag'
+        }
         automaticallyAdjustKeyboardInsets={true}
         contentInsetAdjustmentBehavior="automatic"
       >
@@ -521,10 +541,10 @@ export default function RegisterScreen({ navigation }) {
           })}
 
           {renderInput({
-            label: 'STUDENT ID',
+            label: 'USN',
             value: studentId,
             onChangeText: setStudentId,
-            placeholder: 'Enter your student ID',
+            placeholder: 'Enter your USN',
             field: 'studentId',
             inputRef: studentIdRef,
             nextRef: passwordRef,
@@ -542,7 +562,7 @@ export default function RegisterScreen({ navigation }) {
               style={[
                 styles.inputContainer,
                 focusedField === 'password' &&
-                styles.inputContainerFocused,
+                  styles.inputContainerFocused,
               ]}
             >
               <View style={styles.inputIcon}>
@@ -609,8 +629,8 @@ export default function RegisterScreen({ navigation }) {
               style={[
                 styles.inputContainer,
                 focusedField ===
-                'confirmPassword' &&
-                styles.inputContainerFocused,
+                  'confirmPassword' &&
+                  styles.inputContainerFocused,
               ]}
             >
               <View style={styles.inputIcon}>
@@ -642,7 +662,9 @@ export default function RegisterScreen({ navigation }) {
                   )
                 }
                 onBlur={handleFieldBlur}
-                onSubmitEditing={handleRegister}
+                onSubmitEditing={
+                  handleRegister
+                }
               />
 
               <TouchableOpacity
@@ -674,7 +696,7 @@ export default function RegisterScreen({ navigation }) {
             style={[
               styles.createButton,
               loading &&
-              styles.createButtonLoading,
+                styles.createButtonLoading,
             ]}
             activeOpacity={0.86}
             disabled={loading}
@@ -744,14 +766,18 @@ export default function RegisterScreen({ navigation }) {
             </View>
 
             <View
-              style={styles.securityTextContainer}
+              style={
+                styles.securityTextContainer
+              }
             >
               <Text style={styles.securityTitle}>
                 Secure registration
               </Text>
 
               <Text
-                style={styles.securitySubtitle}
+                style={
+                  styles.securitySubtitle
+                }
               >
                 Your account will be securely
                 authenticated by Firebase.
