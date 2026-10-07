@@ -1,6 +1,7 @@
 const express = require('express');
 
 const authenticateUser = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 
 const {
   createIssue,
@@ -13,41 +14,56 @@ const {
 const router = express.Router();
 
 
-/*
- * CREATE ISSUE
- *
- * POST /api/issues
- */
+// ==========================================
+// CREATE NEW COMPLAINT
+// ==========================================
+// Supports:
+// - Text fields
+// - Optional complaint photo
+//
+// Request flow:
+// Firebase Auth
+//      ↓
+// authenticateUser
+//      ↓
+// upload.single('photo')
+//      ↓
+// createIssue
+//
 router.post(
   '/',
   authenticateUser,
+  upload.single('photo'),
   createIssue
 );
 
 
-/*
- * GET MY ISSUES
- *
- * GET /api/issues/my
- */
+// ==========================================
+// GET MY COMPLAINTS
+// ==========================================
+
 router.get(
   '/my',
   authenticateUser,
   getMyIssues
 );
+
+
+// ==========================================
+// TRACK COMPLAINT BY COMPLAINT ID
+// ==========================================
+
 router.get(
   '/track/:complaintId',
   authenticateUser,
   trackIssueByComplaintId
 );
 
-/*
- * DELETE ISSUE
- *
- * DELETE /api/issues/:id
- *
- * Must come before /:id.
- */
+
+// ==========================================
+// DELETE COMPLAINT
+// ==========================================
+
 router.delete(
   '/:id',
   authenticateUser,
@@ -55,11 +71,10 @@ router.delete(
 );
 
 
-/*
- * GET SINGLE ISSUE
- *
- * GET /api/issues/:id
- */
+// ==========================================
+// GET SINGLE COMPLAINT
+// ==========================================
+
 router.get(
   '/:id',
   authenticateUser,

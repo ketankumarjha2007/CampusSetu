@@ -1,4 +1,6 @@
 const Issue = require('../models/Issue');
+const cloudinary = require('../config/cloudinary');
+const { Readable } = require('stream');
 
 /*
  * Generate the next human-readable complaint ID.
@@ -41,7 +43,6 @@ const generateComplaintId = async () => {
   )}`;
 };
 
-
 /*
  * Make sure an old issue has a complaint ID.
  *
@@ -79,11 +80,45 @@ const ensureComplaintId = async (issue) => {
   return issue;
 };
 
+/*
+ * Upload image buffer to Cloudinary.
+ */
+const uploadImageToCloudinary = async (
+  buffer
+) => {
+  return new Promise(
+    (resolve, reject) => {
+      const uploadStream =
+        cloudinary.uploader.upload_stream(
+          {
+            folder: 'campussetu/complaints',
+            resource_type: 'image',
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+
+            resolve(result);
+          }
+        );
+
+      Readable.from(buffer).pipe(
+        uploadStream
+      );
+    }
+  );
+};
 
 /*
  * CREATE ISSUE
  *
  * POST /api/issues
+ *
+ * Supports:
+ * - JSON without photo
+ * - multipart/form-data with photo
  */
 const createIssue = async (req, res) => {
   try {
@@ -109,6 +144,46 @@ const createIssue = async (req, res) => {
       });
     }
 
+    /*
+     * Upload selected photo to Cloudinary.
+     *
+     * req.file is provided by multer.
+     */
+    let finalPhotoUrl = photoUrl || '';
+
+    if (req.file) {
+      console.log(
+        'Issue photo received:',
+        req.file.originalname
+      );
+
+      try {
+        const uploadResult =
+          await uploadImageToCloudinary(
+            req.file.buffer
+          );
+
+        finalPhotoUrl =
+          uploadResult.secure_url;
+
+        console.log(
+          'Cloudinary upload successful:',
+          finalPhotoUrl
+        );
+      } catch (uploadError) {
+        console.error(
+          'Cloudinary upload error:',
+          uploadError.message
+        );
+
+        return res.status(500).json({
+          success: false,
+          message:
+            'Failed to upload complaint photo',
+        });
+      }
+    }
+
     const complaintId =
       await generateComplaintId();
 
@@ -127,7 +202,7 @@ const createIssue = async (req, res) => {
         location.trim(),
 
       photoUrl:
-        photoUrl || '',
+        finalPhotoUrl,
 
       reportedBy:
         req.user._id,
@@ -190,7 +265,6 @@ const createIssue = async (req, res) => {
   }
 };
 
-
 /*
  * GET MY ISSUES
  *
@@ -240,7 +314,6 @@ const getMyIssues = async (req, res) => {
     });
   }
 };
-
 
 /*
  * GET SINGLE ISSUE
@@ -347,7 +420,6 @@ const getIssueById = async (req, res) => {
   }
 };
 
-
 /*
  * DELETE ISSUE
  *
@@ -396,9 +468,6 @@ const deleteIssue = async (req, res) => {
 
     /*
      * Students can delete only pending complaints.
-     *
-     * Once an official has started processing the
-     * complaint, it should remain in the system.
      */
     if (issue.status !== 'pending') {
       return res.status(400).json({
@@ -425,7 +494,8 @@ const deleteIssue = async (req, res) => {
       success: true,
       message:
         'Complaint deleted successfully',
-      deletedIssueId: issue._id,
+      deletedIssueId:
+        issue._id,
       complaintId:
         issue.complaintId || null,
     });
@@ -453,20 +523,37 @@ const deleteIssue = async (req, res) => {
   }
 };
 
-const trackIssueByComplaintId = async (req, res) => {
+/*
+ * TRACK ISSUE BY COMPLAINT ID
+ *
+ * GET /api/issues/track/:complaintId
+ *
+ * Students can only track their own complaints.
+ */
+const trackIssueByComplaintId = async (
+  req,
+  res
+) => {
   try {
-    const { complaintId } = req.params;
+    const {
+      complaintId,
+    } = req.params;
 
-    if (!complaintId || !complaintId.trim()) {
+    if (
+      !complaintId ||
+      !complaintId.trim()
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Complaint ID is required',
+        message:
+          'Complaint ID is required',
       });
     }
 
-    const normalizedComplaintId = complaintId
-      .trim()
-      .toUpperCase();
+    const normalizedComplaintId =
+      complaintId
+        .trim()
+        .toUpperCase();
 
     console.log(
       'Track Issue: Searching for:',
@@ -474,8 +561,11 @@ const trackIssueByComplaintId = async (req, res) => {
     );
 
     const issue = await Issue.findOne({
-      complaintId: normalizedComplaintId,
-      reportedBy: req.user._id,
+      complaintId:
+        normalizedComplaintId,
+
+      reportedBy:
+        req.user._id,
     })
       .populate(
         'reportedBy',
@@ -501,7 +591,8 @@ const trackIssueByComplaintId = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Complaint found successfully',
+      message:
+        'Complaint found successfully',
       issue,
     });
   } catch (error) {
@@ -512,7 +603,8 @@ const trackIssueByComplaintId = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to track complaint',
+      message:
+        'Failed to track complaint',
     });
   }
 };

@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Image,
 } from 'react-native';
 
 import styles from './IssueDetailsScreen.styles';
@@ -19,10 +20,10 @@ import styles from './IssueDetailsScreen.styles';
 import { apiRequest } from '../services/api';
 
 
-/*
- * Convert backend status into
- * user-friendly status text.
- */
+// ==========================================
+// DISPLAY STATUS
+// ==========================================
+
 const getDisplayStatus = (status) => {
   switch (status) {
     case 'pending':
@@ -46,9 +47,10 @@ const getDisplayStatus = (status) => {
 };
 
 
-/*
- * Format date.
- */
+// ==========================================
+// FORMAT DATE
+// ==========================================
+
 const formatDate = (dateValue) => {
   if (!dateValue) {
     return 'Date unavailable';
@@ -60,17 +62,21 @@ const formatDate = (dateValue) => {
     return 'Date unavailable';
   }
 
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return date.toLocaleDateString(
+    'en-IN',
+    {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }
+  );
 };
 
 
-/*
- * Format date + time.
- */
+// ==========================================
+// FORMAT DATE + TIME
+// ==========================================
+
 const formatDateTime = (dateValue) => {
   if (!dateValue) {
     return 'Date unavailable';
@@ -82,106 +88,146 @@ const formatDateTime = (dateValue) => {
     return 'Date unavailable';
   }
 
-  return `${date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })} • ${date.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-  })}`;
+  return `${date.toLocaleDateString(
+    'en-IN',
+    {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }
+  )} • ${date.toLocaleTimeString(
+    'en-IN',
+    {
+      hour: '2-digit',
+      minute: '2-digit',
+    }
+  )}`;
 };
 
 
-/*
- * Priority styling.
- */
+// ==========================================
+// PRIORITY STYLING
+// ==========================================
+
 const getPriorityStyle = (priority) => {
   switch (priority) {
     case 'high':
       return {
-        background: styles.priorityHigh,
-        text: styles.priorityHighText,
+        background:
+          styles.priorityHigh,
+        text:
+          styles.priorityHighText,
       };
 
     case 'critical':
       return {
-        background: styles.priorityCritical,
-        text: styles.priorityCriticalText,
+        background:
+          styles.priorityCritical,
+        text:
+          styles.priorityCriticalText,
       };
 
     case 'low':
       return {
-        background: styles.priorityLow,
-        text: styles.priorityLowText,
+        background:
+          styles.priorityLow,
+        text:
+          styles.priorityLowText,
       };
 
     default:
       return {
-        background: styles.priorityMedium,
-        text: styles.priorityMediumText,
+        background:
+          styles.priorityMedium,
+        text:
+          styles.priorityMediumText,
       };
   }
 };
 
 
-/*
- * Timeline styling.
- */
+// ==========================================
+// TIMELINE STYLING
+// ==========================================
+
 const getTimelineStyle = (status) => {
   switch (status) {
     case 'pending':
       return {
-        dot: styles.timelineDotPending,
-        line: styles.timelineLine,
-        title: styles.timelineTitlePending,
+        dot:
+          styles.timelineDotPending,
+        line:
+          styles.timelineLine,
+        title:
+          styles.timelineTitlePending,
       };
 
     case 'assigned':
       return {
-        dot: styles.timelineDotAssigned,
-        line: styles.timelineLine,
-        title: styles.timelineTitleAssigned,
+        dot:
+          styles.timelineDotAssigned,
+        line:
+          styles.timelineLine,
+        title:
+          styles.timelineTitleAssigned,
       };
 
     case 'in_progress':
       return {
-        dot: styles.timelineDotProgress,
-        line: styles.timelineLine,
-        title: styles.timelineTitleProgress,
+        dot:
+          styles.timelineDotProgress,
+        line:
+          styles.timelineLine,
+        title:
+          styles.timelineTitleProgress,
       };
 
     case 'resolved':
       return {
-        dot: styles.timelineDotResolved,
-        line: styles.timelineLine,
-        title: styles.timelineTitleResolved,
+        dot:
+          styles.timelineDotResolved,
+        line:
+          styles.timelineLine,
+        title:
+          styles.timelineTitleResolved,
       };
 
     case 'rejected':
       return {
-        dot: styles.timelineDotRejected,
-        line: styles.timelineLine,
-        title: styles.timelineTitleRejected,
+        dot:
+          styles.timelineDotRejected,
+        line:
+          styles.timelineLine,
+        title:
+          styles.timelineTitleRejected,
       };
 
     default:
       return {
-        dot: styles.timelineDotPending,
-        line: styles.timelineLine,
-        title: styles.timelineTitlePending,
+        dot:
+          styles.timelineDotPending,
+        line:
+          styles.timelineLine,
+        title:
+          styles.timelineTitlePending,
       };
   }
 };
 
+
+// ==========================================
+// SCREEN
+// ==========================================
 
 export default function IssueDetailsScreen({
   navigation,
   route,
 }) {
-  const issueId = route?.params?.issueId;
+  const issueId =
+    route?.params?.issueId;
 
-  const [issue, setIssue] = useState(null);
+  const [issue, setIssue] =
+    useState(null);
 
   const [loading, setLoading] =
     useState(true);
@@ -196,9 +242,10 @@ export default function IssueDetailsScreen({
     useState(false);
 
 
-  /*
-   * Fetch one real complaint.
-   */
+  // ==========================================
+  // FETCH ISSUE
+  // ==========================================
+
   const fetchIssue = async (
     showLoader = true
   ) => {
@@ -234,13 +281,16 @@ export default function IssueDetailsScreen({
         response?.success &&
         response?.issue
       ) {
-        setIssue(response.issue);
+        setIssue(
+          response.issue
+        );
       } else {
         throw new Error(
           response?.message ||
             'Unable to load this issue.'
         );
       }
+
     } catch (requestError) {
       console.error(
         'Issue Details: Fetch failed:',
@@ -251,6 +301,7 @@ export default function IssueDetailsScreen({
         requestError.message ||
           'Unable to load this issue.'
       );
+
     } finally {
       if (showLoader) {
         setLoading(false);
@@ -259,35 +310,35 @@ export default function IssueDetailsScreen({
   };
 
 
-  /*
-   * Load issue when screen opens.
-   */
+  // ==========================================
+  // LOAD ISSUE
+  // ==========================================
+
   useEffect(() => {
     fetchIssue(true);
   }, [issueId]);
 
 
-  /*
-   * Pull-to-refresh.
-   */
+  // ==========================================
+  // REFRESH
+  // ==========================================
+
   const handleRefresh = async () => {
     try {
       setRefreshing(true);
 
       await fetchIssue(false);
+
     } finally {
       setRefreshing(false);
     }
   };
 
 
-  /*
-   * Delete complaint.
-   *
-   * Backend also verifies:
-   * 1. User owns the complaint
-   * 2. Complaint is still pending
-   */
+  // ==========================================
+  // DELETE ISSUE
+  // ==========================================
+
   const handleDeleteIssue = () => {
     if (!issueId || !issue) {
       return;
@@ -308,14 +359,17 @@ export default function IssueDetailsScreen({
         issue.complaintId ||
         'this complaint'
       }? This action cannot be undone.`,
+
       [
         {
           text: 'Cancel',
           style: 'cancel',
         },
+
         {
           text: 'Delete',
           style: 'destructive',
+
           onPress: async () => {
             try {
               setDeleting(true);
@@ -351,12 +405,14 @@ export default function IssueDetailsScreen({
                 [
                   {
                     text: 'OK',
+
                     onPress: () => {
                       navigation.goBack();
                     },
                   },
                 ]
               );
+
             } catch (deleteError) {
               console.error(
                 'Delete complaint error:',
@@ -368,6 +424,7 @@ export default function IssueDetailsScreen({
                 deleteError.message ||
                   'Unable to delete this complaint. Please try again.'
               );
+
             } finally {
               setDeleting(false);
             }
@@ -378,15 +435,18 @@ export default function IssueDetailsScreen({
   };
 
 
-  /*
-   * Loading state.
-   */
+  // ==========================================
+  // LOADING
+  // ==========================================
+
   if (loading) {
     return (
       <SafeAreaView
         style={styles.safeArea}
       >
-        <View style={styles.centerState}>
+        <View
+          style={styles.centerState}
+        >
           <ActivityIndicator
             size="large"
             color="#2563EB"
@@ -399,9 +459,12 @@ export default function IssueDetailsScreen({
           </Text>
 
           <Text
-            style={styles.centerSubtitle}
+            style={
+              styles.centerSubtitle
+            }
           >
-            Fetching the latest issue details.
+            Fetching the latest issue
+            details.
           </Text>
         </View>
       </SafeAreaView>
@@ -409,18 +472,25 @@ export default function IssueDetailsScreen({
   }
 
 
-  /*
-   * Error state.
-   */
+  // ==========================================
+  // ERROR
+  // ==========================================
+
   if (error || !issue) {
     return (
       <SafeAreaView
         style={styles.safeArea}
       >
-        <View style={styles.centerState}>
-          <View style={styles.errorIcon}>
+        <View
+          style={styles.centerState}
+        >
+          <View
+            style={styles.errorIcon}
+          >
             <Text
-              style={styles.errorIconText}
+              style={
+                styles.errorIconText
+              }
             >
               !
             </Text>
@@ -433,21 +503,27 @@ export default function IssueDetailsScreen({
           </Text>
 
           <Text
-            style={styles.centerSubtitle}
+            style={
+              styles.centerSubtitle
+            }
           >
             {error ||
               'The requested issue could not be found.'}
           </Text>
 
           <TouchableOpacity
-            style={styles.retryButton}
+            style={
+              styles.retryButton
+            }
             activeOpacity={0.8}
             onPress={() =>
               fetchIssue(true)
             }
           >
             <Text
-              style={styles.retryButtonText}
+              style={
+                styles.retryButtonText
+              }
             >
               Try Again
             </Text>
@@ -476,6 +552,10 @@ export default function IssueDetailsScreen({
   }
 
 
+  // ==========================================
+  // DATA
+  // ==========================================
+
   const priorityStyle =
     getPriorityStyle(
       issue.priority
@@ -487,30 +567,36 @@ export default function IssueDetailsScreen({
     );
 
 
-  /*
-   * Sort history from oldest to newest.
-   */
-  const history = Array.isArray(
-    issue.history
-  )
-    ? [...issue.history].sort(
-        (a, b) =>
-          new Date(
-            a.changedAt
-          ).getTime() -
-          new Date(
-            b.changedAt
-          ).getTime()
-      )
-    : [];
+  // ==========================================
+  // HISTORY
+  // ==========================================
 
+  const history =
+    Array.isArray(issue.history)
+      ? [...issue.history].sort(
+          (a, b) =>
+            new Date(
+              a.changedAt
+            ).getTime() -
+            new Date(
+              b.changedAt
+            ).getTime()
+        )
+      : [];
+
+
+  // ==========================================
+  // MAIN UI
+  // ==========================================
 
   return (
     <SafeAreaView
       style={styles.safeArea}
     >
 
-      {/* ================= HEADER ================= */}
+      {/* ======================================
+          HEADER
+      ====================================== */}
 
       <View style={styles.header}>
         <TouchableOpacity
@@ -531,13 +617,17 @@ export default function IssueDetailsScreen({
           style={styles.headerContent}
         >
           <Text
-            style={styles.headerEyebrow}
+            style={
+              styles.headerEyebrow
+            }
           >
             CAMPUSSETU
           </Text>
 
           <Text
-            style={styles.headerTitle}
+            style={
+              styles.headerTitle
+            }
           >
             Issue Details
           </Text>
@@ -549,14 +639,18 @@ export default function IssueDetailsScreen({
       </View>
 
 
-      {/* ================= CONTENT ================= */}
+      {/* ======================================
+          CONTENT
+      ====================================== */}
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={
           styles.container
         }
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          false
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -565,11 +659,17 @@ export default function IssueDetailsScreen({
         }
       >
 
-        {/* ================= ISSUE HERO ================= */}
+        {/* ====================================
+            ISSUE HERO
+        ==================================== */}
 
-        <View style={styles.heroCard}>
+        <View
+          style={styles.heroCard}
+        >
 
-          <View style={styles.heroTop}>
+          <View
+            style={styles.heroTop}
+          >
 
             <View
               style={
@@ -601,14 +701,19 @@ export default function IssueDetailsScreen({
                   ? issue.priority
                       .charAt(0)
                       .toUpperCase() +
-                    issue.priority.slice(1)
+                    issue.priority.slice(
+                      1
+                    )
                   : 'Medium'}
               </Text>
             </View>
+
           </View>
 
 
-          {/* ================= COMPLAINT ID ================= */}
+          {/* ==================================
+              COMPLAINT ID
+          ================================== */}
 
           <View
             style={{
@@ -649,7 +754,9 @@ export default function IssueDetailsScreen({
           </View>
 
 
-          {/* ================= TITLE ================= */}
+          {/* ==================================
+              TITLE
+          ================================== */}
 
           <Text
             style={styles.issueTitle}
@@ -658,7 +765,9 @@ export default function IssueDetailsScreen({
           </Text>
 
 
-          {/* ================= CURRENT STATUS ================= */}
+          {/* ==================================
+              CURRENT STATUS
+          ================================== */}
 
           <View
             style={
@@ -683,7 +792,9 @@ export default function IssueDetailsScreen({
         </View>
 
 
-        {/* ================= DESCRIPTION ================= */}
+        {/* ====================================
+            DESCRIPTION
+        ==================================== */}
 
         <View
           style={styles.sectionCard}
@@ -702,7 +813,9 @@ export default function IssueDetailsScreen({
         </View>
 
 
-        {/* ================= DETAILS ================= */}
+        {/* ====================================
+            ISSUE INFORMATION
+        ==================================== */}
 
         <View
           style={styles.sectionCard}
@@ -716,7 +829,9 @@ export default function IssueDetailsScreen({
 
           {/* Complaint ID */}
 
-          <View style={styles.infoRow}>
+          <View
+            style={styles.infoRow}
+          >
             <Text
               style={styles.infoLabel}
             >
@@ -789,7 +904,7 @@ export default function IssueDetailsScreen({
           />
 
 
-          {/* Last updated */}
+          {/* Last Updated */}
 
           <View
             style={styles.infoRow}
@@ -810,25 +925,31 @@ export default function IssueDetailsScreen({
           </View>
 
 
-          {/* Assigned person */}
+          {/* Assigned Person */}
 
           {issue.assignedTo && (
             <>
               <View
-                style={styles.infoDivider}
+                style={
+                  styles.infoDivider
+                }
               />
 
               <View
                 style={styles.infoRow}
               >
                 <Text
-                  style={styles.infoLabel}
+                  style={
+                    styles.infoLabel
+                  }
                 >
                   Assigned to
                 </Text>
 
                 <Text
-                  style={styles.infoValue}
+                  style={
+                    styles.infoValue
+                  }
                 >
                   {issue.assignedTo.name ||
                     issue.assignedTo.email}
@@ -840,14 +961,86 @@ export default function IssueDetailsScreen({
         </View>
 
 
-        {/* ================= RESOLUTION ================= */}
+        {/* ====================================
+            ATTACHED PHOTO
+        ==================================== */}
+
+        {issue.photoUrl ? (
+          <View
+            style={{
+              marginTop: 16,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 18,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              shadowColor: '#000000',
+              shadowOffset: {
+                width: 0,
+                height: 3,
+              },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 2,
+            }}
+          >
+
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: '900',
+                letterSpacing: 1,
+                color: '#64748B',
+                marginBottom: 12,
+              }}
+            >
+              ATTACHED PHOTO
+            </Text>
+
+            <Image
+              source={{
+                uri: issue.photoUrl,
+              }}
+              style={{
+                width: '100%',
+                height: 240,
+                borderRadius: 14,
+                backgroundColor:
+                  '#F1F5F9',
+              }}
+              resizeMode="cover"
+            />
+
+            <Text
+              style={{
+                marginTop: 10,
+                fontSize: 11,
+                color: '#64748B',
+                lineHeight: 16,
+              }}
+            >
+              Photo submitted with this
+              complaint.
+            </Text>
+
+          </View>
+        ) : null}
+
+
+        {/* ====================================
+            RESOLUTION
+        ==================================== */}
 
         {issue.resolutionNote ? (
           <View
-            style={styles.resolutionCard}
+            style={
+              styles.resolutionCard
+            }
           >
             <Text
-              style={styles.sectionLabel}
+              style={
+                styles.sectionLabel
+              }
             >
               RESOLUTION
             </Text>
@@ -876,7 +1069,9 @@ export default function IssueDetailsScreen({
         ) : null}
 
 
-        {/* ================= STATUS TIMELINE ================= */}
+        {/* ====================================
+            STATUS TIMELINE
+        ==================================== */}
 
         <View
           style={styles.timelineCard}
@@ -896,7 +1091,8 @@ export default function IssueDetailsScreen({
                   styles.noHistoryText
                 }
               >
-                No status history available.
+                No status history
+                available.
               </Text>
             </View>
           ) : (
@@ -921,6 +1117,7 @@ export default function IssueDetailsScreen({
                       styles.timelineItem
                     }
                   >
+
                     <View
                       style={
                         styles.timelineLeft
@@ -940,6 +1137,7 @@ export default function IssueDetailsScreen({
                         />
                       )}
                     </View>
+
 
                     <View
                       style={
@@ -977,6 +1175,7 @@ export default function IssueDetailsScreen({
                         )}
                       </Text>
                     </View>
+
                   </View>
                 );
               }
@@ -985,7 +1184,9 @@ export default function IssueDetailsScreen({
         </View>
 
 
-        {/* ================= DELETE COMPLAINT ================= */}
+        {/* ====================================
+            DELETE COMPLAINT
+        ==================================== */}
 
         {issue.status === 'pending' && (
           <View
@@ -994,11 +1195,14 @@ export default function IssueDetailsScreen({
               marginBottom: 10,
               padding: 16,
               borderRadius: 18,
-              backgroundColor: '#FEF2F2',
+              backgroundColor:
+                '#FEF2F2',
               borderWidth: 1,
-              borderColor: '#FECACA',
+              borderColor:
+                '#FECACA',
             }}
           >
+
             <Text
               style={{
                 fontSize: 12,
@@ -1007,7 +1211,8 @@ export default function IssueDetailsScreen({
                 marginBottom: 5,
               }}
             >
-              Need to remove this complaint?
+              Need to remove this
+              complaint?
             </Text>
 
             <Text
@@ -1018,10 +1223,11 @@ export default function IssueDetailsScreen({
                 marginBottom: 14,
               }}
             >
-              Pending complaints can be deleted.
-              Once an official starts processing
-              the complaint, it can no longer be
-              deleted.
+              Pending complaints can be
+              deleted. Once an official
+              starts processing the
+              complaint, it can no longer
+              be deleted.
             </Text>
 
             <TouchableOpacity
@@ -1038,10 +1244,12 @@ export default function IssueDetailsScreen({
                     ? '#FCA5A5'
                     : '#DC2626',
                 alignItems: 'center',
-                justifyContent: 'center',
+                justifyContent:
+                  'center',
                 flexDirection: 'row',
               }}
             >
+
               {deleting ? (
                 <>
                   <ActivityIndicator
@@ -1085,16 +1293,23 @@ export default function IssueDetailsScreen({
                   </Text>
                 </>
               )}
+
             </TouchableOpacity>
+
           </View>
         )}
 
+
+        {/* ====================================
+            BOTTOM SPACE
+        ==================================== */}
 
         <View
           style={styles.bottomSpace}
         />
 
       </ScrollView>
+
     </SafeAreaView>
   );
 }
