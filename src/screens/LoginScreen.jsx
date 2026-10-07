@@ -20,7 +20,7 @@ import {
 } from 'firebase/auth';
 
 import { auth } from '../config/firebase';
-
+import { getCurrentUser } from '../services/api';
 import styles from './LoginScreen.styles';
 
 const ROLES = [
@@ -198,6 +198,9 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
 
     try {
+      // ----------------------------------------
+      // 1. Firebase authentication
+      // ----------------------------------------
       const userCredential =
         await signInWithEmailAndPassword(
           auth,
@@ -207,10 +210,9 @@ export default function LoginScreen({ navigation }) {
 
       const user = userCredential.user;
 
-      /*
-       * CampusSetu requires verified email
-       */
-
+      // ----------------------------------------
+      // 2. CampusSetu requires verified email
+      // ----------------------------------------
       if (!user.emailVerified) {
         Alert.alert(
           'Email not verified',
@@ -228,18 +230,49 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
-      console.log('CampusSetu login successful:', {
+      console.log('CampusSetu Firebase login successful:', {
         uid: user.uid,
         email: user.email,
         selectedRole,
       });
 
-      /*
-       * The selected role is currently only a UI selection.
-       * Later MongoDB/backend will determine the real role.
-       */
+      // ----------------------------------------
+      // 3. Connect to CampusSetu backend
+      // ----------------------------------------
+      try {
+        const backendResponse = await getCurrentUser();
 
+        console.log(
+          'CampusSetu backend user:',
+          backendResponse.user,
+        );
+
+        // The backend/database role is authoritative.
+        const backendRole = backendResponse.user?.role;
+
+        console.log(
+          'CampusSetu authenticated role:',
+          backendRole,
+        );
+      } catch (backendError) {
+        console.error(
+          'CampusSetu backend connection failed:',
+          backendError.message,
+        );
+
+        Alert.alert(
+          'Backend connection failed',
+          'Your Firebase login was successful, but CampusSetu could not connect to the server. Please make sure the backend is running and your phone is connected to the same Wi-Fi as your computer.',
+        );
+
+        return;
+      }
+
+      // ----------------------------------------
+      // 4. Continue to Student Home
+      // ----------------------------------------
       navigation.replace('StudentHome');
+
     } catch (error) {
       console.log(
         'Firebase login error:',
@@ -279,7 +312,7 @@ export default function LoginScreen({ navigation }) {
         contentContainerStyle={[
           styles.container,
           isSmallPhone &&
-            styles.smallPhoneContainer,
+          styles.smallPhoneContainer,
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -421,7 +454,7 @@ export default function LoginScreen({ navigation }) {
                   style={[
                     styles.roleCard,
                     isSelected &&
-                      styles.roleCardSelected,
+                    styles.roleCardSelected,
                   ]}
                   onPress={() =>
                     handleRoleChange(
@@ -433,14 +466,14 @@ export default function LoginScreen({ navigation }) {
                     style={[
                       styles.roleIcon,
                       isSelected &&
-                        styles.roleIconSelected,
+                      styles.roleIconSelected,
                     ]}
                   >
                     <Text
                       style={[
                         styles.roleIconText,
                         isSelected &&
-                          styles.roleIconTextSelected,
+                        styles.roleIconTextSelected,
                       ]}
                     >
                       {role.icon}
@@ -454,7 +487,7 @@ export default function LoginScreen({ navigation }) {
                       style={[
                         styles.roleTitle,
                         isSelected &&
-                          styles.roleTitleSelected,
+                        styles.roleTitleSelected,
                       ]}
                       numberOfLines={1}
                     >
@@ -465,7 +498,7 @@ export default function LoginScreen({ navigation }) {
                       style={[
                         styles.roleSubtitle,
                         isSelected &&
-                          styles.roleSubtitleSelected,
+                        styles.roleSubtitleSelected,
                       ]}
                       numberOfLines={1}
                     >
@@ -477,7 +510,7 @@ export default function LoginScreen({ navigation }) {
                     style={[
                       styles.selectionIndicator,
                       isSelected &&
-                        styles.selectionIndicatorSelected,
+                      styles.selectionIndicatorSelected,
                     ]}
                   >
                     {isSelected && (
@@ -523,7 +556,7 @@ export default function LoginScreen({ navigation }) {
               style={[
                 styles.inputContainer,
                 focusedField === 'email' &&
-                  styles.inputContainerFocused,
+                styles.inputContainerFocused,
               ]}
             >
               <View style={styles.inputIcon}>
@@ -592,7 +625,7 @@ export default function LoginScreen({ navigation }) {
               style={[
                 styles.inputContainer,
                 focusedField === 'password' &&
-                  styles.inputContainerFocused,
+                styles.inputContainerFocused,
               ]}
             >
               <View style={styles.inputIcon}>
@@ -652,7 +685,7 @@ export default function LoginScreen({ navigation }) {
             style={[
               styles.signInButton,
               loading &&
-                styles.signInButtonLoading,
+              styles.signInButtonLoading,
             ]}
             activeOpacity={0.86}
             disabled={loading}
@@ -666,13 +699,12 @@ export default function LoginScreen({ navigation }) {
               <Text style={styles.signInText}>
                 {loading
                   ? 'Signing in...'
-                  : `Sign in as ${
-                      ROLES.find(
-                        (role) =>
-                          role.id ===
-                          selectedRole,
-                      )?.title
-                    }`}
+                  : `Sign in as ${ROLES.find(
+                    (role) =>
+                      role.id ===
+                      selectedRole,
+                  )?.title
+                  }`}
               </Text>
             </View>
 
