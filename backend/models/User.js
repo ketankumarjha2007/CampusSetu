@@ -58,10 +58,22 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    // ==========================================
+    // PUSH NOTIFICATIONS
+    // ==========================================
+
+    pushToken: {
+      type: String,
+      default: '',
+      trim: true,
+    },
   },
+
   {
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model('User', userSchema);
+module.exports =
+  mongoose.model('User', userSchema);

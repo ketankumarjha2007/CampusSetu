@@ -4,6 +4,10 @@ const cloudinary = require('../config/cloudinary');
 
 const { Readable } = require('stream');
 
+const {
+  sendPushNotification,
+} = require('../services/notificationService');
+
 /*
  * ==========================================
  * COMPLAINT ID GENERATOR
@@ -640,6 +644,67 @@ const createIssue = async (req, res) => {
       `Complaint created: ${complaintId}`
     );
 
+    /*
+     * ==========================================
+     * PUSH NOTIFICATION
+     * ==========================================
+     *
+     * Send confirmation notification to
+     * the student after complaint creation.
+     *
+     * Push notification failure must NOT
+     * fail complaint creation.
+     */
+
+    if (req.user.pushToken) {
+      sendPushNotification({
+        pushToken:
+          req.user.pushToken,
+
+        title:
+          'Complaint Submitted 📝',
+
+        body:
+          `Your complaint ${complaintId} has been submitted successfully.`,
+
+        data: {
+          type:
+            'complaint_submitted',
+
+          issueId:
+            issue._id.toString(),
+
+          complaintId:
+            complaintId,
+
+          status:
+            'pending',
+        },
+      })
+        .then((result) => {
+          if (result.success) {
+            console.log(
+              `Submission notification sent for ${complaintId}`
+            );
+          } else {
+            console.log(
+              `Submission notification not sent for ${complaintId}:`,
+              result.message
+            );
+          }
+        })
+        .catch((error) => {
+          console.error(
+            `Submission notification error for ${complaintId}:`,
+            error.message
+          );
+        });
+    } else {
+      console.log(
+        `No push token available for ${complaintId}`
+      );
+    }
+
     return res.status(201).json({
       success: true,
 
@@ -923,9 +988,8 @@ const deleteIssue = async (req, res) => {
     });
 
     console.log(
-      `Complaint deleted: ${
-        issue.complaintId ||
-        issue._id
+      `Complaint deleted: ${issue.complaintId ||
+      issue._id
       }`
     );
 

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "622297063782",
+    "project_id": "campussetu-948e4",
+    "storage_bucket": "campussetu-948e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:622297063782:android:7c5c2e4fbaca532a8ee8a7",
+        "android_client_info": {
+          "package_name": "com.campussetu.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "622297063782-u1cfsqrogso9q1gl73odfasqfhq74l5j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDafgBVb30vZlV7tRwWf69Fsp_3i7JUIxE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "622297063782-u1cfsqrogso9q1gl73odfasqfhq74l5j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

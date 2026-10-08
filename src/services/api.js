@@ -1,10 +1,9 @@
-import { getAuth } from 'firebase/auth';
+import { auth } from '../config/firebase';
 
-const API_BASE_URL ='http://192.168.1.20:5000/api';
+const API_BASE_URL =
+  'http://192.168.1.20:5000/api';
 
 export const getFirebaseToken = async () => {
-  const auth = getAuth();
-
   console.log(
     'API: Firebase current user:',
     auth.currentUser?.email || 'NO USER'
@@ -103,7 +102,8 @@ export const apiRequest = async (
         `Server returned invalid JSON. Status: ${response.status}`
       );
 
-      error.status = response.status;
+      error.status =
+        response.status;
 
       throw error;
     }
@@ -114,10 +114,12 @@ export const apiRequest = async (
           `API request failed with status ${response.status}`
       );
 
-      // IMPORTANT:
-      // Preserve backend response so screens
-      // can handle special cases like duplicate complaints.
-      error.status = response.status;
+      // Preserve backend response so
+      // screens can handle special cases
+      // like duplicate complaints.
+      error.status =
+        response.status;
+
       error.data = data;
 
       throw error;
@@ -139,12 +141,13 @@ export const apiRequest = async (
   }
 };
 
-export const getCurrentUser = async () => {
-  console.log(
-    'API: Fetching current CampusSetu user...'
-  );
+export const getCurrentUser =
+  async () => {
+    console.log(
+      'API: Fetching current CampusSetu user...'
+    );
 
-  return await apiRequest(
-    '/users/me'
-  );
-};
+    return await apiRequest(
+      '/users/me'
+    );
+  };
