@@ -22,6 +22,7 @@ import TrackComplaintScreen from '../screens/TrackComplaintScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import HelpScreen from '../screens/HelpScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import TeacherDashboardScreen from '../screens/TeacherDashboardScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -96,6 +97,10 @@ export default function AppNavigator() {
           options={{
             headerShown: false,
           }}
+        />
+        <Stack.Screen
+          name="TeacherDashboard"
+          component={TeacherDashboardScreen}
         />
 
       </Stack.Navigator>

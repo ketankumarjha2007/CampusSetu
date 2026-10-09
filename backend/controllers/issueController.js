@@ -183,11 +183,11 @@ const hasStructuredLocation = (issue) => {
 const sameStructuredLocation = (first, second) => {
   return (
     normalizeText(first.building) ===
-      normalizeText(second.building) &&
+    normalizeText(second.building) &&
     normalizeText(first.floor) ===
-      normalizeText(second.floor) &&
+    normalizeText(second.floor) &&
     normalizeText(first.roomNumber) ===
-      normalizeText(second.roomNumber)
+    normalizeText(second.roomNumber)
   );
 };
 
@@ -791,8 +791,7 @@ const deleteIssue = async (req, res) => {
     await Issue.deleteOne({ _id: issue._id });
 
     console.log(
-      `Complaint deleted: ${
-        issue.complaintId || issue._id
+      `Complaint deleted: ${issue.complaintId || issue._id
       }`
     );
 
@@ -895,7 +894,273 @@ const trackIssueByComplaintId = async (req, res) => {
     });
   }
 };
+// ==========================================
+// GET COMPLAINTS ASSIGNED TO THE TEACHER
+// ==========================================
+// GET /api/issues/teacher/assigned
 
+const getTeacherAssignedIssues = async (req, res) => {
+  try {
+    const issues = await Issue.find({
+      assignedTo: req.user._id,
+    })
+      .populate(
+        'reportedBy',
+        'name email usn department'
+      )
+      .populate(
+        'assignedTo',
+        'name email role department'
+      )
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: issues.length,
+      issues,
+    });
+  } catch (error) {
+    console.error(
+      'Get teacher assigned issues error:',
+      error.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch assigned complaints',
+    });
+  }
+};
+// ==========================================
+// GET ALL COMPLAINTS FOR ADMIN DASHBOARD
+// ==========================================
+// GET /api/issues/admin/all
+//
+// Access: college_admin, cluster_head, principal
+// Returns real complaints from MongoDB.
+
+const getAllIssues = async (req, res) => {
+  try {
+    const issues = await Issue.find({})
+      .populate('reportedBy', 'name email usn department')
+      .populate('assignedTo', 'name email role department')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: issues.length,
+      issues,
+    });
+  } catch (error) {
+    console.error('Get all issues error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch complaints',
+    });
+  }
+};
+// ==========================================
+// ASSIGN COMPLAINT TO TEACHER
+// ==========================================
+// PATCH /api/issues/:id/assign
+// Access: college_admin, principal
+
+const assignIssueToTeacher = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { teacherId } = req.body;
+
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint ID',
+      });
+    }
+
+    if (!teacherId || !/^[0-9a-fA-F]{24}$/.test(teacherId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid teacher ID is required',
+      });
+    }
+
+    const teacher = await require('../models/User').findOne({
+      _id: teacherId,
+      role: 'teacher',
+      isActive: true,
+    });
+
+    if (!teacher) {
+      return res.status(404).json({
+        success: false,
+        message: 'Active teacher not found',
+      });
+    }
+
+    const issue = await Issue.findById(id);
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Complaint not found',
+      });
+    }
+
+    issue.assignedTo = teacher._id;
+    issue.status = 'assigned';
+
+    issue.history.push({
+      status: 'assigned',
+      note: `Complaint assigned to ${teacher.name}`,
+      changedBy: req.user._id,
+    });
+
+    await issue.save();
+
+    const updatedIssue = await Issue.findById(issue._id)
+      .populate('reportedBy', 'name email usn department')
+      .populate('assignedTo', 'name email role department')
+      .populate('history.changedBy', 'name email role');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Complaint assigned successfully',
+      issue: updatedIssue,
+    });
+  } catch (error) {
+    console.error('Assign complaint error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to assign complaint',
+    });
+  }
+};
+// ==========================================
+// GET ACTIVE TEACHERS FOR ADMIN DASHBOARD
+// ==========================================
+// GET /api/issues/admin/teachers
+
+const getActiveTeachers = async (req, res) => {
+  try {
+    const User = require('../models/User');
+
+    const teachers = await User.find({
+      role: 'teacher',
+      isActive: true,
+    })
+      .select('_id name email department')
+      .sort({ name: 1 });
+
+    return res.status(200).json({
+      success: true,
+      count: teachers.length,
+      teachers,
+    });
+  } catch (error) {
+    console.error('Get active teachers error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch teachers',
+    });
+  }
+};
+const updateIssueStatus = async (req, res) => {
+  try {
+    const { status, resolutionNote } = req.body;
+
+    const validStatuses = [
+      'pending',
+      'assigned',
+      'in_progress',
+      'resolved',
+      'rejected',
+    ];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint status',
+      });
+    }
+
+    const issue = await Issue.findById(req.params.id);
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Complaint not found',
+      });
+    }
+
+    if (issue.status === status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Complaint already has this status',
+      });
+    }
+
+    if (
+      status === 'resolved' &&
+      (!resolutionNote || !resolutionNote.trim())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a resolution note',
+      });
+    }
+
+    const previousStatus = issue.status;
+
+    issue.status = status;
+
+    if (resolutionNote !== undefined) {
+      issue.resolutionNote = resolutionNote.trim();
+    }
+
+    issue.resolvedAt =
+      status === 'resolved' ? new Date() : null;
+
+    issue.history.push({
+      status,
+      note:
+        resolutionNote?.trim() ||
+        `Status changed from ${previousStatus} to ${status}`,
+      changedBy: req.user._id,
+      changedAt: new Date(),
+    });
+
+    await issue.save();
+
+    await issue.populate(
+      'reportedBy',
+      'name email usn department'
+    );
+
+    await issue.populate(
+      'assignedTo',
+      'name email role department'
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Complaint status updated successfully',
+      issue,
+    });
+  } catch (error) {
+    console.error(
+      'Update issue status error:',
+      error.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update complaint status',
+    });
+  }
+};
 /*
  * ==========================================
  * EXPORTS
@@ -908,4 +1173,9 @@ module.exports = {
   getIssueById,
   deleteIssue,
   trackIssueByComplaintId,
+  getTeacherAssignedIssues,
+  getAllIssues,
+  assignIssueToTeacher,
+  updateIssueStatus,
+  getActiveTeachers,
 };

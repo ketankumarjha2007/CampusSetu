@@ -14,7 +14,11 @@ const authenticateUser = async (req, res, next) => {
 
     const idToken = authHeader.split('Bearer ')[1];
 
+    console.log('Step A: Starting Firebase token verification');
+
     const decodedToken = await firebaseAuth.verifyIdToken(idToken);
+
+    console.log('Step B: Firebase token verified successfully');
 
     req.firebaseUser = decodedToken;
 
