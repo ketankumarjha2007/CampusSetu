@@ -331,7 +331,7 @@ export default function LoginScreen({ navigation }) {
             backendRole
           );
         } catch (
-          backendError
+        backendError
         ) {
           console.error(
             'CampusSetu backend connection failed:',
@@ -379,7 +379,7 @@ export default function LoginScreen({ navigation }) {
             );
           }
         } catch (
-          notificationError
+        notificationError
         ) {
           // Notification failure must NOT prevent
           // the student from entering CampusSetu.
@@ -441,7 +441,7 @@ export default function LoginScreen({ navigation }) {
         contentContainerStyle={[
           styles.container,
           isSmallPhone &&
-            styles.smallPhoneContainer,
+          styles.smallPhoneContainer,
         ]}
         showsVerticalScrollIndicator={
           false
@@ -669,7 +669,7 @@ export default function LoginScreen({ navigation }) {
                     style={[
                       styles.roleCard,
                       isSelected &&
-                        styles.roleCardSelected,
+                      styles.roleCardSelected,
                     ]}
                     onPress={() =>
                       handleRoleChange(
@@ -681,14 +681,14 @@ export default function LoginScreen({ navigation }) {
                       style={[
                         styles.roleIcon,
                         isSelected &&
-                          styles.roleIconSelected,
+                        styles.roleIconSelected,
                       ]}
                     >
                       <Text
                         style={[
                           styles.roleIconText,
                           isSelected &&
-                            styles.roleIconTextSelected,
+                          styles.roleIconTextSelected,
                         ]}
                       >
                         {
@@ -706,7 +706,7 @@ export default function LoginScreen({ navigation }) {
                         style={[
                           styles.roleTitle,
                           isSelected &&
-                            styles.roleTitleSelected,
+                          styles.roleTitleSelected,
                         ]}
                         numberOfLines={
                           1
@@ -721,7 +721,7 @@ export default function LoginScreen({ navigation }) {
                         style={[
                           styles.roleSubtitle,
                           isSelected &&
-                            styles.roleSubtitleSelected,
+                          styles.roleSubtitleSelected,
                         ]}
                         numberOfLines={
                           1
@@ -737,7 +737,7 @@ export default function LoginScreen({ navigation }) {
                       style={[
                         styles.selectionIndicator,
                         isSelected &&
-                          styles.selectionIndicatorSelected,
+                        styles.selectionIndicatorSelected,
                       ]}
                     >
                       {isSelected && (
@@ -792,8 +792,8 @@ export default function LoginScreen({ navigation }) {
               style={[
                 styles.inputContainer,
                 focusedField ===
-                  'email' &&
-                  styles.inputContainerFocused,
+                'email' &&
+                styles.inputContainerFocused,
               ]}
             >
               <View
@@ -871,12 +871,11 @@ export default function LoginScreen({ navigation }) {
                 disabled={
                   loading
                 }
-                onPress={() =>
-                  Alert.alert(
-                    'Forgot password',
-                    'Password recovery will be connected next.'
-                  )
-                }
+                onPress={() => {
+                  navigation.navigate('ForgotPassword', {
+                    email: email.trim().toLowerCase(),
+                  });
+                }}
               >
                 <Text
                   style={
@@ -892,8 +891,8 @@ export default function LoginScreen({ navigation }) {
               style={[
                 styles.inputContainer,
                 focusedField ===
-                  'password' &&
-                  styles.inputContainerFocused,
+                'password' &&
+                styles.inputContainerFocused,
               ]}
             >
               <View
@@ -983,7 +982,7 @@ export default function LoginScreen({ navigation }) {
             style={[
               styles.signInButton,
               loading &&
-                styles.signInButtonLoading,
+              styles.signInButtonLoading,
             ]}
             activeOpacity={0.86}
             disabled={
@@ -1009,13 +1008,12 @@ export default function LoginScreen({ navigation }) {
               >
                 {loading
                   ? 'Signing in...'
-                  : `Sign in as ${
-                      ROLES.find(
-                        (role) =>
-                          role.id ===
-                          selectedRole
-                      )?.title
-                    }`}
+                  : `Sign in as ${ROLES.find(
+                    (role) =>
+                      role.id ===
+                      selectedRole
+                  )?.title
+                  }`}
               </Text>
             </View>
 

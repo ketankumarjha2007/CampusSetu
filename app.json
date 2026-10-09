@@ -5,8 +5,16 @@
     "version": "1.0.0",
     "scheme": "campussetu",
     "orientation": "portrait",
+
     "icon": "./assets/icon.png",
+
     "userInterfaceStyle": "light",
+
+    "splash": {
+      "image": "./assets/campussetu-splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F4F6E8"
+    },
 
     "ios": {
       "supportsTablet": true
@@ -15,18 +23,11 @@
     "android": {
       "package": "com.campussetu.app",
       "googleServicesFile": "./google-services.json",
-      "softwareKeyboardLayoutMode": "resize",
-
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      "softwareKeyboardLayoutMode": "resize"
     },
 
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icon.png"
     },
 
     "plugins": [

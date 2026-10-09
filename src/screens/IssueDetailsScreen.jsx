@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   useEffect,
   useState,
 } from 'react';
@@ -13,418 +14,305 @@ import {
   RefreshControl,
   Alert,
   Image,
+  StatusBar,
 } from 'react-native';
 
 import styles from './IssueDetailsScreen.styles';
-
 import { apiRequest } from '../services/api';
 
-
-// ==========================================
-// DISPLAY STATUS
-// ==========================================
-
-const getDisplayStatus = (status) => {
-  switch (status) {
-    case 'pending':
-      return 'Pending';
-
-    case 'assigned':
-      return 'Assigned';
-
-    case 'in_progress':
-      return 'In Progress';
-
-    case 'resolved':
-      return 'Resolved';
-
-    case 'rejected':
-      return 'Rejected';
-
-    default:
-      return status || 'Unknown';
-  }
+const COLORS = {
+  green: '#176B4D',
+  darkGreen: '#104B38',
+  background: '#F5F7F2',
+  text: '#172820',
+  muted: '#77847B',
+  border: '#E5EAE3',
+  white: '#FFFFFF',
 };
 
+const STATUS_CONFIG = {
+  pending: {
+    label: 'Pending',
+    description: 'Your complaint is waiting for review.',
+    color: '#B7791F',
+    background: '#FFF4D9',
+    icon: '◷',
+  },
+  assigned: {
+    label: 'Assigned',
+    description: 'An official has been assigned to your complaint.',
+    color: '#3567C8',
+    background: '#EAF1FF',
+    icon: '↗',
+  },
+  in_progress: {
+    label: 'In Progress',
+    description: 'Your complaint is currently being addressed.',
+    color: '#8B5BC7',
+    background: '#F2EAFE',
+    icon: '↻',
+  },
+  resolved: {
+    label: 'Resolved',
+    description: 'Your complaint has been marked as resolved.',
+    color: '#16815D',
+    background: '#E0F5EA',
+    icon: '✓',
+  },
+  rejected: {
+    label: 'Rejected',
+    description: 'Your complaint was not approved for processing.',
+    color: '#C24141',
+    background: '#FDE8E7',
+    icon: '!',
+  },
+};
 
-// ==========================================
-// FORMAT DATE
-// ==========================================
+const PRIORITY_CONFIG = {
+  low: {
+    label: 'Low',
+    color: '#28764E',
+    background: '#E4F5E9',
+  },
+  medium: {
+    label: 'Medium',
+    color: '#946317',
+    background: '#FFF1D3',
+  },
+  high: {
+    label: 'High',
+    color: '#BD5A25',
+    background: '#FCE8DC',
+  },
+  critical: {
+    label: 'Critical',
+    color: '#BD3434',
+    background: '#FDE5E5',
+  },
+};
 
-const formatDate = (dateValue) => {
-  if (!dateValue) {
-    return 'Date unavailable';
+const getStatus = (status) => {
+  if (STATUS_CONFIG[status]) {
+    return STATUS_CONFIG[status];
   }
 
-  const date = new Date(dateValue);
+  return {
+    label: status
+      ? status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+      : 'Unknown',
+    description: 'The current status is available below.',
+    color: '#66736A',
+    background: '#EDF0EC',
+    icon: '•',
+  };
+};
 
-  if (Number.isNaN(date.getTime())) {
-    return 'Date unavailable';
-  }
-
-  return date.toLocaleDateString(
-    'en-IN',
-    {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    }
+const getPriority = (priority) => {
+  return (
+    PRIORITY_CONFIG[String(priority || '').toLowerCase()] ||
+    PRIORITY_CONFIG.medium
   );
 };
 
+const formatDate = (value) => {
+  if (!value) return 'Not available';
 
-// ==========================================
-// FORMAT DATE + TIME
-// ==========================================
-
-const formatDateTime = (dateValue) => {
-  if (!dateValue) {
-    return 'Date unavailable';
-  }
-
-  const date = new Date(dateValue);
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return 'Date unavailable';
+    return 'Not available';
   }
 
-  return `${date.toLocaleDateString(
-    'en-IN',
-    {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    }
-  )} • ${date.toLocaleTimeString(
-    'en-IN',
-    {
-      hour: '2-digit',
-      minute: '2-digit',
-    }
-  )}`;
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 };
 
+const formatDateTime = (value) => {
+  if (!value) return 'Date not available';
 
-// ==========================================
-// PRIORITY STYLING
-// ==========================================
+  const date = new Date(value);
 
-const getPriorityStyle = (priority) => {
-  switch (priority) {
-    case 'high':
-      return {
-        background:
-          styles.priorityHigh,
-        text:
-          styles.priorityHighText,
-      };
-
-    case 'critical':
-      return {
-        background:
-          styles.priorityCritical,
-        text:
-          styles.priorityCriticalText,
-      };
-
-    case 'low':
-      return {
-        background:
-          styles.priorityLow,
-        text:
-          styles.priorityLowText,
-      };
-
-    default:
-      return {
-        background:
-          styles.priorityMedium,
-        text:
-          styles.priorityMediumText,
-      };
+  if (Number.isNaN(date.getTime())) {
+    return 'Date not available';
   }
+
+  return `${date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })} · ${date.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
 };
 
+const getLocationDetails = (issue) => {
+  const parts = [
+    issue?.building,
+    issue?.floor,
+    issue?.roomNumber,
+  ]
+    .filter((value) => value !== undefined && value !== null && String(value).trim())
+    .map((value, index) => {
+      if (index === 0) return String(value);
+      return String(value);
+    });
 
-// ==========================================
-// TIMELINE STYLING
-// ==========================================
+  return parts;
+};
 
-const getTimelineStyle = (status) => {
-  switch (status) {
-    case 'pending':
-      return {
-        dot:
-          styles.timelineDotPending,
-        line:
-          styles.timelineLine,
-        title:
-          styles.timelineTitlePending,
-      };
-
-    case 'assigned':
-      return {
-        dot:
-          styles.timelineDotAssigned,
-        line:
-          styles.timelineLine,
-        title:
-          styles.timelineTitleAssigned,
-      };
-
-    case 'in_progress':
-      return {
-        dot:
-          styles.timelineDotProgress,
-        line:
-          styles.timelineLine,
-        title:
-          styles.timelineTitleProgress,
-      };
-
-    case 'resolved':
-      return {
-        dot:
-          styles.timelineDotResolved,
-        line:
-          styles.timelineLine,
-        title:
-          styles.timelineTitleResolved,
-      };
-
-    case 'rejected':
-      return {
-        dot:
-          styles.timelineDotRejected,
-        line:
-          styles.timelineLine,
-        title:
-          styles.timelineTitleRejected,
-      };
-
-    default:
-      return {
-        dot:
-          styles.timelineDotPending,
-        line:
-          styles.timelineLine,
-        title:
-          styles.timelineTitlePending,
-      };
+const InfoRow = ({ icon, label, value, last = false }) => {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return null;
   }
+
+  return (
+    <View style={[styles.infoRow, last && styles.infoRowLast]}>
+      <View style={styles.infoIconBox}>
+        <Text style={styles.infoIcon}>{icon}</Text>
+      </View>
+
+      <View style={styles.infoTextContainer}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text style={styles.infoValue}>{String(value)}</Text>
+      </View>
+    </View>
+  );
 };
 
+const SectionHeading = ({ eyebrow, title, right }) => (
+  <View style={styles.sectionHeading}>
+    <View style={styles.sectionHeadingText}>
+      {eyebrow ? (
+        <Text style={styles.sectionEyebrow}>{eyebrow}</Text>
+      ) : null}
 
-// ==========================================
-// SCREEN
-// ==========================================
+      <Text style={styles.sectionTitle}>{title}</Text>
+    </View>
 
-export default function IssueDetailsScreen({
-  navigation,
-  route,
-}) {
-  const issueId =
-    route?.params?.issueId;
+    {right || null}
+  </View>
+);
 
-  const [issue, setIssue] =
-    useState(null);
+export default function IssueDetailsScreen({ navigation, route }) {
+  const issueId = route?.params?.issueId;
 
-  const [loading, setLoading] =
-    useState(true);
+  const [issue, setIssue] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+  const fetchIssue = useCallback(
+    async (showLoader = true) => {
+      try {
+        if (!issueId) {
+          throw new Error('Complaint information is missing.');
+        }
 
-  const [error, setError] =
-    useState('');
+        if (showLoader) {
+          setLoading(true);
+        }
 
-  const [deleting, setDeleting] =
-    useState(false);
+        setError('');
 
+        const response = await apiRequest(`/issues/${issueId}`);
 
-  // ==========================================
-  // FETCH ISSUE
-  // ==========================================
+        if (response?.success && response?.issue) {
+          setIssue(response.issue);
+        } else {
+          throw new Error(
+            response?.message || 'Unable to load this complaint.'
+          );
+        }
+      } catch (requestError) {
+        console.error('Issue details fetch failed:', requestError);
 
-  const fetchIssue = async (
-    showLoader = true
-  ) => {
-    try {
-      if (!issueId) {
-        throw new Error(
-          'Issue information is missing.'
+        setError(
+          requestError?.message ||
+            'Unable to load this complaint. Please try again.'
         );
+      } finally {
+        if (showLoader) {
+          setLoading(false);
+        }
       }
-
-      if (showLoader) {
-        setLoading(true);
-      }
-
-      setError('');
-
-      console.log(
-        'Issue Details: Fetching issue:',
-        issueId
-      );
-
-      const response =
-        await apiRequest(
-          `/issues/${issueId}`
-        );
-
-      console.log(
-        'Issue Details: API response:',
-        response
-      );
-
-      if (
-        response?.success &&
-        response?.issue
-      ) {
-        setIssue(
-          response.issue
-        );
-      } else {
-        throw new Error(
-          response?.message ||
-            'Unable to load this issue.'
-        );
-      }
-
-    } catch (requestError) {
-      console.error(
-        'Issue Details: Fetch failed:',
-        requestError.message
-      );
-
-      setError(
-        requestError.message ||
-          'Unable to load this issue.'
-      );
-
-    } finally {
-      if (showLoader) {
-        setLoading(false);
-      }
-    }
-  };
-
-
-  // ==========================================
-  // LOAD ISSUE
-  // ==========================================
+    },
+    [issueId]
+  );
 
   useEffect(() => {
     fetchIssue(true);
-  }, [issueId]);
+  }, [fetchIssue]);
 
-
-  // ==========================================
-  // REFRESH
-  // ==========================================
-
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     try {
       setRefreshing(true);
-
       await fetchIssue(false);
-
     } finally {
       setRefreshing(false);
     }
-  };
-
-
-  // ==========================================
-  // DELETE ISSUE
-  // ==========================================
+  }, [fetchIssue]);
 
   const handleDeleteIssue = () => {
-    if (!issueId || !issue) {
-      return;
-    }
+    if (!issueId || !issue) return;
 
     if (issue.status !== 'pending') {
       Alert.alert(
-        'Cannot Delete',
+        'Cannot delete complaint',
         'Only pending complaints can be deleted.'
       );
-
       return;
     }
 
     Alert.alert(
-      'Delete Complaint?',
+      'Delete complaint?',
       `Are you sure you want to delete ${
-        issue.complaintId ||
-        'this complaint'
+        issue.complaintId || 'this complaint'
       }? This action cannot be undone.`,
-
       [
         {
-          text: 'Cancel',
+          text: 'Keep complaint',
           style: 'cancel',
         },
-
         {
           text: 'Delete',
           style: 'destructive',
-
           onPress: async () => {
             try {
               setDeleting(true);
 
-              console.log(
-                'Issue Details: Deleting issue:',
-                issueId
-              );
-
-              const response =
-                await apiRequest(
-                  `/issues/${issueId}`,
-                  {
-                    method: 'DELETE',
-                  }
-                );
-
-              console.log(
-                'Issue Details: Delete response:',
-                response
-              );
+              const response = await apiRequest(`/issues/${issueId}`, {
+                method: 'DELETE',
+              });
 
               if (!response?.success) {
                 throw new Error(
-                  response?.message ||
-                    'Failed to delete complaint'
+                  response?.message || 'Unable to delete the complaint.'
                 );
               }
 
               Alert.alert(
-                'Complaint Deleted',
+                'Complaint deleted',
                 'Your complaint has been deleted successfully.',
                 [
                   {
-                    text: 'OK',
-
-                    onPress: () => {
-                      navigation.goBack();
-                    },
+                    text: 'Done',
+                    onPress: () => navigation.goBack(),
                   },
                 ]
               );
-
             } catch (deleteError) {
-              console.error(
-                'Delete complaint error:',
-                deleteError
-              );
+              console.error('Delete complaint failed:', deleteError);
 
               Alert.alert(
-                'Delete Failed',
-                deleteError.message ||
+                'Delete failed',
+                deleteError?.message ||
                   'Unable to delete this complaint. Please try again.'
               );
-
             } finally {
               setDeleting(false);
             }
@@ -434,882 +322,600 @@ export default function IssueDetailsScreen({
     );
   };
 
-
-  // ==========================================
-  // LOADING
-  // ==========================================
-
   if (loading) {
     return (
-      <SafeAreaView
-        style={styles.safeArea}
-      >
-        <View
-          style={styles.centerState}
-        >
-          <ActivityIndicator
-            size="large"
-            color="#2563EB"
-          />
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar
+          backgroundColor={COLORS.background}
+          barStyle="dark-content"
+        />
 
-          <Text
-            style={styles.centerTitle}
-          >
-            Loading issue...
-          </Text>
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingIcon}>
+            <ActivityIndicator size="large" color={COLORS.green} />
+          </View>
 
-          <Text
-            style={
-              styles.centerSubtitle
-            }
-          >
-            Fetching the latest issue
-            details.
+          <Text style={styles.loadingTitle}>Loading your complaint</Text>
+          <Text style={styles.loadingSubtitle}>
+            Getting the latest status and details...
           </Text>
         </View>
       </SafeAreaView>
     );
   }
-
-
-  // ==========================================
-  // ERROR
-  // ==========================================
 
   if (error || !issue) {
     return (
-      <SafeAreaView
-        style={styles.safeArea}
-      >
-        <View
-          style={styles.centerState}
-        >
-          <View
-            style={styles.errorIcon}
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar
+          backgroundColor={COLORS.background}
+          barStyle="dark-content"
+        />
+
+        <View style={styles.errorContainer}>
+          <TouchableOpacity
+            style={styles.errorBackButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.8}
           >
-            <Text
-              style={
-                styles.errorIconText
-              }
-            >
-              !
-            </Text>
+            <Text style={styles.errorBackArrow}>‹</Text>
+          </TouchableOpacity>
+
+          <View style={styles.errorIllustration}>
+            <Text style={styles.errorIllustrationText}>!</Text>
           </View>
 
-          <Text
-            style={styles.centerTitle}
-          >
-            Unable to load issue
-          </Text>
-
-          <Text
-            style={
-              styles.centerSubtitle
-            }
-          >
-            {error ||
-              'The requested issue could not be found.'}
+          <Text style={styles.errorTitle}>We couldn't load this</Text>
+          <Text style={styles.errorSubtitle}>
+            {error || 'The requested complaint could not be found.'}
           </Text>
 
           <TouchableOpacity
-            style={
-              styles.retryButton
-            }
-            activeOpacity={0.8}
-            onPress={() =>
-              fetchIssue(true)
-            }
+            style={styles.primaryButton}
+            onPress={() => fetchIssue(true)}
+            activeOpacity={0.85}
           >
-            <Text
-              style={
-                styles.retryButtonText
-              }
-            >
-              Try Again
-            </Text>
+            <Text style={styles.primaryButtonText}>Try again</Text>
+            <Text style={styles.primaryButtonArrow}>↻</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={
-              styles.backFromErrorButton
-            }
-            activeOpacity={0.8}
-            onPress={() =>
-              navigation.goBack()
-            }
+            style={styles.secondaryButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.85}
           >
-            <Text
-              style={
-                styles.backFromErrorText
-              }
-            >
-              Go Back
-            </Text>
+            <Text style={styles.secondaryButtonText}>Go back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
+  const status = getStatus(issue.status);
+  const priority = getPriority(issue.priority);
 
-  // ==========================================
-  // DATA
-  // ==========================================
+  const history = Array.isArray(issue.history)
+    ? [...issue.history].sort((a, b) => {
+        const aTime = new Date(a.changedAt || 0).getTime();
+        const bTime = new Date(b.changedAt || 0).getTime();
+        return aTime - bTime;
+      })
+    : [];
 
-  const priorityStyle =
-    getPriorityStyle(
-      issue.priority
-    );
-
-  const currentStatus =
-    getDisplayStatus(
-      issue.status
-    );
-
-
-  // ==========================================
-  // HISTORY
-  // ==========================================
-
-  const history =
-    Array.isArray(issue.history)
-      ? [...issue.history].sort(
-          (a, b) =>
-            new Date(
-              a.changedAt
-            ).getTime() -
-            new Date(
-              b.changedAt
-            ).getTime()
-        )
-      : [];
-
-
-  // ==========================================
-  // MAIN UI
-  // ==========================================
+  const locationDetails = getLocationDetails(issue);
+  const complaintId = issue.complaintId || 'Generating...';
 
   return (
-    <SafeAreaView
-      style={styles.safeArea}
-    >
-
-      {/* ======================================
-          HEADER
-      ====================================== */}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar
+        backgroundColor={COLORS.background}
+        barStyle="dark-content"
+      />
 
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.backButton}
-          activeOpacity={0.8}
-          onPress={() =>
-            navigation.goBack()
-          }
+          style={styles.headerBackButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
         >
-          <Text
-            style={styles.backArrow}
-          >
-            ‹
-          </Text>
+          <Text style={styles.headerBackArrow}>‹</Text>
         </TouchableOpacity>
 
-        <View
-          style={styles.headerContent}
-        >
-          <Text
-            style={
-              styles.headerEyebrow
-            }
-          >
-            CAMPUSSETU
-          </Text>
-
-          <Text
-            style={
-              styles.headerTitle
-            }
-          >
-            Issue Details
-          </Text>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerEyebrow}>CAMPUSSETU</Text>
+          <Text style={styles.headerTitle}>Complaint details</Text>
         </View>
 
-        <View
-          style={styles.headerSpacer}
-        />
+        <TouchableOpacity
+          style={styles.headerRefreshButton}
+          onPress={handleRefresh}
+          disabled={refreshing}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel="Refresh complaint"
+        >
+          {refreshing ? (
+            <ActivityIndicator size="small" color={COLORS.green} />
+          ) : (
+            <Text style={styles.headerRefreshIcon}>↻</Text>
+          )}
+        </TouchableOpacity>
       </View>
-
-
-      {/* ======================================
-          CONTENT
-      ====================================== */}
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={
-          styles.container
-        }
-        showsVerticalScrollIndicator={
-          false
-        }
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
+            tintColor={COLORS.green}
+            colors={[COLORS.green]}
           />
         }
       >
+        {/* Complaint overview */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroDecorCircle} />
 
-        {/* ====================================
-            ISSUE HERO
-        ==================================== */}
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroBrandMark}>
+              <Text style={styles.heroBrandMarkText}>C</Text>
+            </View>
 
-        <View
-          style={styles.heroCard}
-        >
-
-          <View
-            style={styles.heroTop}
-          >
-
-            <View
-              style={
-                styles.categoryBadge
-              }
-            >
-              <Text
-                style={
-                  styles.categoryBadgeText
-                }
-              >
-                {issue.category}
-              </Text>
+            <View style={styles.heroTopText}>
+              <Text style={styles.heroEyebrow}>YOUR CAMPUS · YOUR VOICE</Text>
+              <Text style={styles.heroHeading}>Complaint overview</Text>
             </View>
 
             <View
               style={[
-                styles.priorityBadge,
-                priorityStyle.background,
+                styles.statusBadge,
+                { backgroundColor: status.background },
               ]}
             >
-              <Text
+              <View
                 style={[
-                  styles.priorityText,
-                  priorityStyle.text,
+                  styles.statusBadgeDot,
+                  { backgroundColor: status.color },
                 ]}
-              >
-                {issue.priority
-                  ? issue.priority
-                      .charAt(0)
-                      .toUpperCase() +
-                    issue.priority.slice(
-                      1
-                    )
-                  : 'Medium'}
+              />
+              <Text style={[styles.statusBadgeText, { color: status.color }]}>
+                {status.label}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.heroDivider} />
+
+          <Text style={styles.complaintIdLabel}>COMPLAINT REFERENCE</Text>
+
+          <View style={styles.complaintIdRow}>
+            <Text style={styles.complaintIdValue}>{complaintId}</Text>
+            <View style={styles.referenceIcon}>
+              <Text style={styles.referenceIconText}>#</Text>
+            </View>
+          </View>
+
+          <Text style={styles.heroDescription}>
+            Keep this reference handy when following up on your complaint.
+          </Text>
+
+          <View style={styles.heroBottomRow}>
+            <View style={styles.heroMeta}>
+              <Text style={styles.heroMetaIcon}>▦</Text>
+              <Text style={styles.heroMetaText}>
+                {issue.category || 'General'}
               </Text>
             </View>
 
-          </View>
+            <View style={styles.heroMetaDivider} />
 
-
-          {/* ==================================
-              COMPLAINT ID
-          ================================== */}
-
-          <View
-            style={{
-              marginTop: 16,
-              marginBottom: 10,
-              paddingVertical: 12,
-              paddingHorizontal: 14,
-              borderRadius: 12,
-              backgroundColor:
-                'rgba(37, 99, 235, 0.08)',
-              borderWidth: 1,
-              borderColor:
-                'rgba(37, 99, 235, 0.15)',
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 10,
-                fontWeight: '700',
-                letterSpacing: 1,
-                opacity: 0.55,
-                marginBottom: 4,
-              }}
-            >
-              COMPLAINT ID
-            </Text>
-
-            <Text
-              style={{
-                fontSize: 19,
-                fontWeight: '800',
-                letterSpacing: 0.8,
-              }}
-            >
-              {issue.complaintId ||
-                'Generating...'}
-            </Text>
-          </View>
-
-
-          {/* ==================================
-              TITLE
-          ================================== */}
-
-          <Text
-            style={styles.issueTitle}
-          >
-            {issue.title}
-          </Text>
-
-
-          {/* ==================================
-              CURRENT STATUS
-          ================================== */}
-
-          <View
-            style={
-              styles.currentStatusRow
-            }
-          >
-            <View
-              style={
-                styles.currentStatusDot
-              }
-            />
-
-            <Text
-              style={
-                styles.currentStatusLabel
-              }
-            >
-              {currentStatus}
-            </Text>
-          </View>
-
-        </View>
-
-
-        {/* ====================================
-            DESCRIPTION
-        ==================================== */}
-
-        <View
-          style={styles.sectionCard}
-        >
-          <Text
-            style={styles.sectionLabel}
-          >
-            DESCRIPTION
-          </Text>
-
-          <Text
-            style={styles.description}
-          >
-            {issue.description}
-          </Text>
-        </View>
-
-
-        {/* ====================================
-            ISSUE INFORMATION
-        ==================================== */}
-
-        <View
-          style={styles.sectionCard}
-        >
-          <Text
-            style={styles.sectionLabel}
-          >
-            ISSUE INFORMATION
-          </Text>
-
-
-          {/* Complaint ID */}
-
-          <View
-            style={styles.infoRow}
-          >
-            <Text
-              style={styles.infoLabel}
-            >
-              Complaint ID
-            </Text>
-
-            <Text
-              style={
-                styles.complaintIdInfoValue
-              }
-            >
-              {issue.complaintId ||
-                'Generating...'}
-            </Text>
-          </View>
-
-
-          <View
-            style={styles.infoDivider}
-          />
-
-
-          {/* Location */}
-
-          <View
-            style={styles.infoRow}
-          >
-            <Text
-              style={styles.infoLabel}
-            >
-              Location
-            </Text>
-
-            <Text
-              style={styles.infoValue}
-            >
-              {issue.location}
-            </Text>
-          </View>
-
-
-          <View
-            style={styles.infoDivider}
-          />
-
-
-          {/* Reported */}
-
-          <View
-            style={styles.infoRow}
-          >
-            <Text
-              style={styles.infoLabel}
-            >
-              Reported
-            </Text>
-
-            <Text
-              style={styles.infoValue}
-            >
-              {formatDate(
-                issue.createdAt
-              )}
-            </Text>
-          </View>
-
-
-          <View
-            style={styles.infoDivider}
-          />
-
-
-          {/* Last Updated */}
-
-          <View
-            style={styles.infoRow}
-          >
-            <Text
-              style={styles.infoLabel}
-            >
-              Last updated
-            </Text>
-
-            <Text
-              style={styles.infoValue}
-            >
-              {formatDate(
-                issue.updatedAt
-              )}
-            </Text>
-          </View>
-
-
-          {/* Assigned Person */}
-
-          {issue.assignedTo && (
-            <>
+            <View style={styles.heroMeta}>
               <View
-                style={
-                  styles.infoDivider
-                }
+                style={[
+                  styles.priorityDot,
+                  { backgroundColor: priority.color },
+                ]}
               />
+              <Text style={styles.heroMetaText}>
+                {priority.label} priority
+              </Text>
+            </View>
+          </View>
+        </View>
 
-              <View
-                style={styles.infoRow}
-              >
-                <Text
-                  style={
-                    styles.infoLabel
-                  }
-                >
-                  Assigned to
-                </Text>
+        {/* Status summary */}
+        <View style={styles.statusSummaryCard}>
+          <View
+            style={[
+              styles.statusSummaryIcon,
+              { backgroundColor: status.background },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusSummaryIconText,
+                { color: status.color },
+              ]}
+            >
+              {status.icon}
+            </Text>
+          </View>
 
-                <Text
-                  style={
-                    styles.infoValue
-                  }
-                >
-                  {issue.assignedTo.name ||
-                    issue.assignedTo.email}
+          <View style={styles.statusSummaryContent}>
+            <Text style={styles.statusSummaryEyebrow}>CURRENT STATUS</Text>
+            <Text style={styles.statusSummaryTitle}>{status.label}</Text>
+            <Text style={styles.statusSummaryDescription}>
+              {status.description}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.statusSummaryAccent,
+              { backgroundColor: status.color },
+            ]}
+          />
+        </View>
+
+        {/* Issue description */}
+        <View style={styles.section}>
+          <SectionHeading
+            eyebrow="THE DETAILS"
+            title="What happened?"
+          />
+
+          <View style={styles.card}>
+            <Text style={styles.issueTitle}>
+              {issue.title || 'Untitled complaint'}
+            </Text>
+
+            <Text style={styles.description}>
+              {issue.description || 'No description was provided.'}
+            </Text>
+
+            <View style={styles.descriptionFooter}>
+              <View style={styles.descriptionCategory}>
+                <Text style={styles.descriptionCategoryIcon}>▦</Text>
+                <Text style={styles.descriptionCategoryText}>
+                  {issue.category || 'General'}
                 </Text>
               </View>
-            </>
-          )}
 
+              <View
+                style={[
+                  styles.priorityBadge,
+                  { backgroundColor: priority.background },
+                ]}
+              >
+                <Text
+                  style={[styles.priorityBadgeText, { color: priority.color }]}
+                >
+                  {priority.label} priority
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
 
+        {/* Location */}
+        <View style={styles.section}>
+          <SectionHeading
+            eyebrow="WHERE IT HAPPENED"
+            title="Location details"
+          />
 
-        {/* ====================================
-            ATTACHED PHOTO
-        ==================================== */}
-
-        {issue.photoUrl ? (
-          <View
-            style={{
-              marginTop: 16,
-              backgroundColor: '#FFFFFF',
-              borderRadius: 18,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: '#E2E8F0',
-              shadowColor: '#000000',
-              shadowOffset: {
-                width: 0,
-                height: 3,
-              },
-              shadowOpacity: 0.05,
-              shadowRadius: 8,
-              elevation: 2,
-            }}
-          >
-
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: '900',
-                letterSpacing: 1,
-                color: '#64748B',
-                marginBottom: 12,
-              }}
-            >
-              ATTACHED PHOTO
-            </Text>
-
-            <Image
-              source={{
-                uri: issue.photoUrl,
-              }}
-              style={{
-                width: '100%',
-                height: 240,
-                borderRadius: 14,
-                backgroundColor:
-                  '#F1F5F9',
-              }}
-              resizeMode="cover"
+          <View style={styles.card}>
+            <InfoRow
+              icon="⌖"
+              label="Reported location"
+              value={issue.location}
             />
 
-            <Text
-              style={{
-                marginTop: 10,
-                fontSize: 11,
-                color: '#64748B',
-                lineHeight: 16,
-              }}
-            >
-              Photo submitted with this
-              complaint.
-            </Text>
+            {issue.building ? (
+              <InfoRow icon="▤" label="Building" value={issue.building} />
+            ) : null}
 
+            {issue.floor ? (
+              <InfoRow icon="↕" label="Floor" value={issue.floor} />
+            ) : null}
+
+            {issue.roomNumber ? (
+              <InfoRow
+                icon="▣"
+                label="Room number"
+                value={issue.roomNumber}
+                last
+              />
+            ) : null}
+
+            {!issue.building && !issue.floor && !issue.roomNumber ? (
+              <View style={styles.locationNote}>
+                <Text style={styles.locationNoteText}>
+                  Additional building details were not provided.
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Complaint information */}
+        <View style={styles.section}>
+          <SectionHeading
+            eyebrow="RECORD INFORMATION"
+            title="Complaint information"
+          />
+
+          <View style={styles.card}>
+            <InfoRow
+              icon="#"
+              label="Complaint reference"
+              value={complaintId}
+            />
+
+            <InfoRow
+              icon="▦"
+              label="Category"
+              value={issue.category || 'General'}
+            />
+
+            <InfoRow
+              icon="◷"
+              label="Reported on"
+              value={formatDateTime(issue.createdAt)}
+            />
+
+            <InfoRow
+              icon="↻"
+              label="Last updated"
+              value={formatDateTime(issue.updatedAt)}
+            />
+
+            {issue.assignedTo ? (
+              <InfoRow
+                icon="♙"
+                label="Assigned official"
+                value={
+                  issue.assignedTo.name ||
+                  issue.assignedTo.email ||
+                  'Assigned official'
+                }
+                last
+              />
+            ) : null}
+          </View>
+        </View>
+
+        {/* Photo */}
+        {issue.photoUrl ? (
+          <View style={styles.section}>
+            <SectionHeading
+              eyebrow="VISUAL EVIDENCE"
+              title="Attached photo"
+            />
+
+            <View style={styles.photoCard}>
+              <Image
+                source={{ uri: issue.photoUrl }}
+                style={styles.issuePhoto}
+                resizeMode="cover"
+                accessibilityLabel="Photo submitted with this complaint"
+              />
+
+              <View style={styles.photoCaption}>
+                <View style={styles.photoCaptionIcon}>
+                  <Text style={styles.photoCaptionIconText}>✓</Text>
+                </View>
+
+                <View style={styles.photoCaptionContent}>
+                  <Text style={styles.photoCaptionTitle}>
+                    Submitted evidence
+                  </Text>
+                  <Text style={styles.photoCaptionDescription}>
+                    Photo attached to the original complaint.
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
         ) : null}
 
+        {/* Resolution */}
+        {issue.resolutionNote || issue.resolvedAt ? (
+          <View style={styles.section}>
+            <SectionHeading
+              eyebrow="OFFICIAL UPDATE"
+              title="Resolution details"
+            />
 
-        {/* ====================================
-            RESOLUTION
-        ==================================== */}
+            <View style={styles.resolutionCard}>
+              <View style={styles.resolutionHeader}>
+                <View style={styles.resolutionIcon}>
+                  <Text style={styles.resolutionIconText}>✓</Text>
+                </View>
 
-        {issue.resolutionNote ? (
-          <View
-            style={
-              styles.resolutionCard
-            }
-          >
-            <Text
-              style={
-                styles.sectionLabel
-              }
-            >
-              RESOLUTION
-            </Text>
+                <View style={styles.resolutionHeaderContent}>
+                  <Text style={styles.resolutionTitle}>
+                    {issue.status === 'resolved'
+                      ? 'Complaint resolved'
+                      : 'Resolution update'}
+                  </Text>
 
-            <Text
-              style={
-                styles.resolutionText
-              }
-            >
-              {issue.resolutionNote}
-            </Text>
+                  {issue.resolvedAt ? (
+                    <Text style={styles.resolutionDate}>
+                      {formatDateTime(issue.resolvedAt)}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
 
-            {issue.resolvedAt && (
-              <Text
-                style={
-                  styles.resolutionDate
-                }
-              >
-                Resolved on{' '}
-                {formatDate(
-                  issue.resolvedAt
-                )}
-              </Text>
-            )}
-          </View>
-        ) : null}
+              <View style={styles.resolutionDivider} />
 
-
-        {/* ====================================
-            STATUS TIMELINE
-        ==================================== */}
-
-        <View
-          style={styles.timelineCard}
-        >
-          <Text
-            style={styles.sectionLabel}
-          >
-            STATUS TIMELINE
-          </Text>
-
-          {history.length === 0 ? (
-            <View
-              style={styles.noHistory}
-            >
-              <Text
-                style={
-                  styles.noHistoryText
-                }
-              >
-                No status history
-                available.
+              <Text style={styles.resolutionLabel}>OFFICIAL NOTE</Text>
+              <Text style={styles.resolutionText}>
+                {issue.resolutionNote ||
+                  'No resolution note has been provided yet.'}
               </Text>
             </View>
-          ) : (
-            history.map(
-              (entry, index) => {
-                const timelineStyle =
-                  getTimelineStyle(
-                    entry.status
-                  );
+          </View>
+        ) : null}
 
-                const isLast =
-                  index ===
-                  history.length - 1;
+        {/* Timeline */}
+        <View style={styles.section}>
+          <SectionHeading
+            eyebrow="FOLLOW THE PROGRESS"
+            title="Status timeline"
+            right={
+              <View style={styles.eventCountBadge}>
+                <Text style={styles.eventCountText}>
+                  {history.length} {history.length === 1 ? 'UPDATE' : 'UPDATES'}
+                </Text>
+              </View>
+            }
+          />
+
+          <View style={styles.timelineCard}>
+            {history.length === 0 ? (
+              <View style={styles.timelineEmpty}>
+                <View style={styles.timelineEmptyIcon}>
+                  <Text style={styles.timelineEmptyIconText}>◷</Text>
+                </View>
+
+                <Text style={styles.timelineEmptyTitle}>
+                  No status updates yet
+                </Text>
+
+                <Text style={styles.timelineEmptyDescription}>
+                  Updates will appear here as your complaint moves through the
+                  process.
+                </Text>
+              </View>
+            ) : (
+              history.map((entry, index) => {
+                const entryStatus = getStatus(entry.status);
+                const isLast = index === history.length - 1;
 
                 return (
                   <View
                     key={
                       entry._id ||
-                      `${entry.status}-${index}`
+                      `${entry.status || 'status'}-${entry.changedAt || index}`
                     }
-                    style={
-                      styles.timelineItem
-                    }
+                    style={styles.timelineItem}
                   >
-
-                    <View
-                      style={
-                        styles.timelineLeft
-                      }
-                    >
+                    <View style={styles.timelineRail}>
                       <View
-                        style={
-                          timelineStyle.dot
-                        }
-                      />
-
-                      {!isLast && (
-                        <View
-                          style={
-                            timelineStyle.line
-                          }
-                        />
-                      )}
-                    </View>
-
-
-                    <View
-                      style={
-                        styles.timelineContent
-                      }
-                    >
-                      <Text
                         style={[
-                          styles.timelineTitle,
-                          timelineStyle.title,
+                          styles.timelineDot,
+                          { backgroundColor: entryStatus.color },
+                          index === history.length - 1 &&
+                            styles.timelineDotLatest,
                         ]}
                       >
-                        {getDisplayStatus(
-                          entry.status
-                        )}
-                      </Text>
+                        {index === history.length - 1 ? (
+                          <View style={styles.timelineDotInner} />
+                        ) : null}
+                      </View>
 
-                      {entry.note ? (
-                        <Text
-                          style={
-                            styles.timelineNote
-                          }
-                        >
-                          {entry.note}
-                        </Text>
+                      {!isLast ? (
+                        <View style={styles.timelineConnector} />
                       ) : null}
-
-                      <Text
-                        style={
-                          styles.timelineDate
-                        }
-                      >
-                        {formatDateTime(
-                          entry.changedAt
-                        )}
-                      </Text>
                     </View>
 
+                    <View
+                      style={[
+                        styles.timelineEntry,
+                        isLast && styles.timelineEntryLast,
+                      ]}
+                    >
+                      <View style={styles.timelineEntryTop}>
+                        <Text style={styles.timelineTitle}>
+                          {entryStatus.label}
+                        </Text>
+
+                        {index === history.length - 1 ? (
+                          <View style={styles.latestBadge}>
+                            <Text style={styles.latestBadgeText}>LATEST</Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      {entry.note ? (
+                        <Text style={styles.timelineNote}>{entry.note}</Text>
+                      ) : null}
+
+                      <Text style={styles.timelineDate}>
+                        {formatDateTime(entry.changedAt)}
+                      </Text>
+                    </View>
                   </View>
                 );
-              }
-            )
-          )}
+              })
+            )}
+          </View>
         </View>
 
+        {/* Delete pending complaint */}
+        {issue.status === 'pending' ? (
+          <View style={styles.deleteCard}>
+            <View style={styles.deleteHeader}>
+              <View style={styles.deleteIcon}>
+                <Text style={styles.deleteIconText}>!</Text>
+              </View>
 
-        {/* ====================================
-            DELETE COMPLAINT
-        ==================================== */}
-
-        {issue.status === 'pending' && (
-          <View
-            style={{
-              marginTop: 18,
-              marginBottom: 10,
-              padding: 16,
-              borderRadius: 18,
-              backgroundColor:
-                '#FEF2F2',
-              borderWidth: 1,
-              borderColor:
-                '#FECACA',
-            }}
-          >
-
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: '900',
-                color: '#991B1B',
-                marginBottom: 5,
-              }}
-            >
-              Need to remove this
-              complaint?
-            </Text>
-
-            <Text
-              style={{
-                fontSize: 11,
-                lineHeight: 17,
-                color: '#B91C1C',
-                marginBottom: 14,
-              }}
-            >
-              Pending complaints can be
-              deleted. Once an official
-              starts processing the
-              complaint, it can no longer
-              be deleted.
-            </Text>
+              <View style={styles.deleteHeaderContent}>
+                <Text style={styles.deleteTitle}>Need to withdraw this?</Text>
+                <Text style={styles.deleteSubtitle}>
+                  Pending complaints can be deleted. Once processing begins,
+                  deletion may no longer be available.
+                </Text>
+              </View>
+            </View>
 
             <TouchableOpacity
-              activeOpacity={0.85}
+              style={[
+                styles.deleteButton,
+                deleting && styles.deleteButtonDisabled,
+              ]}
+              onPress={handleDeleteIssue}
               disabled={deleting}
-              onPress={
-                handleDeleteIssue
-              }
-              style={{
-                height: 50,
-                borderRadius: 14,
-                backgroundColor:
-                  deleting
-                    ? '#FCA5A5'
-                    : '#DC2626',
-                alignItems: 'center',
-                justifyContent:
-                  'center',
-                flexDirection: 'row',
-              }}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Delete complaint"
             >
-
               {deleting ? (
-                <>
-                  <ActivityIndicator
-                    size="small"
-                    color="#FFFFFF"
-                  />
-
-                  <Text
-                    style={{
-                      marginLeft: 9,
-                      color: '#FFFFFF',
-                      fontSize: 13,
-                      fontWeight: '900',
-                    }}
-                  >
-                    Deleting...
-                  </Text>
-                </>
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <>
-                  <Text
-                    style={{
-                      color: '#FFFFFF',
-                      fontSize: 18,
-                      fontWeight: '900',
-                      marginRight: 8,
-                    }}
-                  >
-                    🗑
-                  </Text>
-
-                  <Text
-                    style={{
-                      color: '#FFFFFF',
-                      fontSize: 13,
-                      fontWeight: '900',
-                      letterSpacing: 0.2,
-                    }}
-                  >
-                    Delete Complaint
-                  </Text>
-                </>
+                <Text style={styles.deleteButtonIcon}>⌫</Text>
               )}
 
+              <Text style={styles.deleteButtonText}>
+                {deleting ? 'Deleting complaint...' : 'Delete complaint'}
+              </Text>
             </TouchableOpacity>
-
           </View>
-        )}
+        ) : null}
 
+        {/* Closing note */}
+        <View style={styles.closingCard}>
+          <View style={styles.closingMark}>
+            <Text style={styles.closingMarkText}>C</Text>
+          </View>
 
-        {/* ====================================
-            BOTTOM SPACE
-        ==================================== */}
+          <Text style={styles.closingTitle}>Your voice matters.</Text>
 
-        <View
-          style={styles.bottomSpace}
-        />
+          <Text style={styles.closingDescription}>
+            CampusSetu helps bring your concerns and campus solutions closer
+            together.
+          </Text>
+        </View>
 
+        <View style={styles.bottomSpace} />
       </ScrollView>
-
     </SafeAreaView>
   );
 }

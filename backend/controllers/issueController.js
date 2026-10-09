@@ -1,7 +1,5 @@
 const Issue = require('../models/Issue');
-
 const cloudinary = require('../config/cloudinary');
-
 const { Readable } = require('stream');
 
 const {
@@ -13,10 +11,7 @@ const {
  * COMPLAINT ID GENERATOR
  * ==========================================
  *
- * Format:
- * CS-2026-000001
- * CS-2026-000002
- * CS-2026-000003
+ * Format: CS-2026-000001
  */
 
 const generateComplaintId = async () => {
@@ -26,36 +21,25 @@ const generateComplaintId = async () => {
     complaintId: {
       $regex: `^CS-${year}-`,
     },
-  }).sort({
-    complaintId: -1,
-  });
+  }).sort({ complaintId: -1 });
 
   let nextNumber = 1;
 
   if (lastIssue?.complaintId) {
-    const parts =
-      lastIssue.complaintId.split('-');
-
-    const lastNumber = parseInt(
-      parts[2],
-      10
-    );
+    const parts = lastIssue.complaintId.split('-');
+    const lastNumber = parseInt(parts[2], 10);
 
     if (!Number.isNaN(lastNumber)) {
       nextNumber = lastNumber + 1;
     }
   }
 
-  return `CS-${year}-${String(nextNumber).padStart(
-    6,
-    '0'
-  )}`;
+  return `CS-${year}-${String(nextNumber).padStart(6, '0')}`;
 };
-
 
 /*
  * ==========================================
- * ENSURE OLD COMPLAINT HAS COMPLAINT ID
+ * ENSURE OLD COMPLAINT HAS AN ID
  * ==========================================
  */
 
@@ -64,33 +48,20 @@ const ensureComplaintId = async (issue) => {
     return issue;
   }
 
-  let complaintId =
-    await generateComplaintId();
+  let complaintId = await generateComplaintId();
 
-  /*
-   * Extra protection against duplicate ID.
-   */
-
-  let existingIssue = await Issue.findOne({
-    complaintId,
-  });
+  let existingIssue = await Issue.findOne({ complaintId });
 
   while (existingIssue) {
-    complaintId =
-      await generateComplaintId();
-
-    existingIssue = await Issue.findOne({
-      complaintId,
-    });
+    complaintId = await generateComplaintId();
+    existingIssue = await Issue.findOne({ complaintId });
   }
 
   issue.complaintId = complaintId;
-
   await issue.save();
 
   return issue;
 };
-
 
 /*
  * ==========================================
@@ -98,60 +69,48 @@ const ensureComplaintId = async (issue) => {
  * ==========================================
  */
 
-const uploadImageToCloudinary = async (
-  buffer
-) => {
-  return new Promise(
-    (resolve, reject) => {
-      const uploadStream =
-        cloudinary.uploader.upload_stream(
-          {
-            folder: 'campussetu/complaints',
-            resource_type: 'image',
-          },
-          (error, result) => {
-            if (error) {
-              reject(error);
-              return;
-            }
+const uploadImageToCloudinary = async (buffer) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'campussetu/complaints',
+        resource_type: 'image',
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
 
-            resolve(result);
-          }
-        );
+        resolve(result);
+      }
+    );
 
-      Readable.from(buffer).pipe(
-        uploadStream
-      );
-    }
-  );
+    Readable.from(buffer).pipe(uploadStream);
+  });
 };
-
 
 /*
  * ==========================================
  * TEXT NORMALIZATION
  * ==========================================
- *
- * Used for duplicate complaint detection.
- *
- * Example:
- *
- * "CV Raman Block, Room 301"
- *
- * becomes:
- *
- * "cv raman block room 301"
  */
 
 const normalizeText = (value = '') => {
-  return value
-    .toString()
+  return String(value)
     .toLowerCase()
     .trim()
     .replace(/[^\w\s]/g, ' ')
     .replace(/\s+/g, ' ');
 };
 
+const cleanOptionalText = (value) => {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  return String(value).trim();
+};
 
 /*
  * ==========================================
@@ -163,48 +122,24 @@ const getTokens = (value = '') => {
   return new Set(
     normalizeText(value)
       .split(' ')
-      .filter(
-        (word) =>
-          word.length >= 3
-      )
+      .filter((word) => word.length >= 3)
   );
 };
-
 
 /*
  * ==========================================
  * CALCULATE TEXT SIMILARITY
  * ==========================================
  *
- * Uses Jaccard similarity:
- *
+ * Jaccard similarity:
  * common words / total unique words
- *
- * Example:
- *
- * "internet not working"
- *
- * and
- *
- * "internet is not working"
- *
- * will have high similarity.
  */
 
-const calculateSimilarity = (
-  firstText,
-  secondText
-) => {
-  const firstTokens =
-    getTokens(firstText);
+const calculateSimilarity = (firstText, secondText) => {
+  const firstTokens = getTokens(firstText);
+  const secondTokens = getTokens(secondText);
 
-  const secondTokens =
-    getTokens(secondText);
-
-  if (
-    firstTokens.size === 0 ||
-    secondTokens.size === 0
-  ) {
+  if (firstTokens.size === 0 || secondTokens.size === 0) {
     return 0;
   }
 
@@ -216,33 +151,87 @@ const calculateSimilarity = (
     }
   }
 
-  const union =
-    new Set([
-      ...firstTokens,
-      ...secondTokens,
-    ]).size;
+  const union = new Set([
+    ...firstTokens,
+    ...secondTokens,
+  ]).size;
 
-  if (union === 0) {
-    return 0;
-  }
-
-  return intersection / union;
+  return union === 0 ? 0 : intersection / union;
 };
 
+/*
+ * ==========================================
+ * LOCATION MATCHING
+ * ==========================================
+ *
+ * New complaints:
+ * Compare building, floor, and room when
+ * structured location fields are provided.
+ *
+ * Older complaints:
+ * Fall back to the existing location field.
+ */
+
+const hasStructuredLocation = (issue) => {
+  return Boolean(
+    cleanOptionalText(issue.building) ||
+    cleanOptionalText(issue.floor) ||
+    cleanOptionalText(issue.roomNumber)
+  );
+};
+
+const sameStructuredLocation = (first, second) => {
+  return (
+    normalizeText(first.building) ===
+      normalizeText(second.building) &&
+    normalizeText(first.floor) ===
+      normalizeText(second.floor) &&
+    normalizeText(first.roomNumber) ===
+      normalizeText(second.roomNumber)
+  );
+};
+
+const locationsMatch = (existingIssue, newLocation) => {
+  const newHasStructuredLocation =
+    hasStructuredLocation(newLocation);
+
+  const existingHasStructuredLocation =
+    hasStructuredLocation(existingIssue);
+
+  if (
+    newHasStructuredLocation &&
+    existingHasStructuredLocation
+  ) {
+    return sameStructuredLocation(
+      existingIssue,
+      newLocation
+    );
+  }
+
+  /*
+   * Backward compatibility for complaints
+   * created before structured location fields
+   * were introduced.
+   */
+  return (
+    normalizeText(existingIssue.location) ===
+    normalizeText(newLocation.location)
+  );
+};
 
 /*
  * ==========================================
  * DUPLICATE COMPLAINT DETECTION
  * ==========================================
  *
- * We only check active complaints:
+ * Checks active complaints only:
+ * - pending
+ * - assigned
+ * - in_progress
  *
- * pending
- * assigned
- * in_progress
- *
- * Resolved/rejected complaints do NOT block
- * students from reporting the issue again.
+ * A duplicate must belong to the same student,
+ * have the same category, match the location,
+ * and have sufficiently similar text.
  */
 
 const findDuplicateComplaint = async ({
@@ -251,107 +240,58 @@ const findDuplicateComplaint = async ({
   description,
   category,
   location,
+  building,
+  floor,
+  roomNumber,
 }) => {
-  const normalizedCategory =
-    normalizeText(category);
+  const normalizedCategory = normalizeText(category);
 
-  const normalizedLocation =
-    normalizeText(location);
+  const escapedCategory = normalizedCategory.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&'
+  );
 
-  /*
-   * First narrow the search using:
-   *
-   * - same student
-   * - same category
-   * - active complaint
-   */
-
-  const activeIssues =
-    await Issue.find({
-      reportedBy: userId,
-
-      status: {
-        $in: [
-          'pending',
-          'assigned',
-          'in_progress',
-        ],
-      },
-
-      category: {
-        $regex: `^${normalizedCategory.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          '\\$&'
-        )}$`,
-        $options: 'i',
-      },
-    })
-      .sort({
-        createdAt: -1,
-      })
-      .limit(50);
+  const activeIssues = await Issue.find({
+    reportedBy: userId,
+    status: {
+      $in: ['pending', 'assigned', 'in_progress'],
+    },
+    category: {
+      $regex: `^${escapedCategory}$`,
+      $options: 'i',
+    },
+  })
+    .sort({ createdAt: -1 })
+    .limit(50);
 
   if (!activeIssues.length) {
     return null;
   }
 
-  /*
-   * Normalize the new complaint text.
-   */
+  const newTitle = normalizeText(title);
+  const newDescription = normalizeText(description);
 
-  const newTitle =
-    normalizeText(title);
-
-  const newDescription =
-    normalizeText(description);
-
-  /*
-   * Compare against active complaints.
-   */
+  const newLocation = {
+    location,
+    building,
+    floor,
+    roomNumber,
+  };
 
   for (const existingIssue of activeIssues) {
-    const existingLocation =
-      normalizeText(
-        existingIssue.location
-      );
-
-    /*
-     * Location must match.
-     *
-     * This prevents blocking two different
-     * problems in different campus locations.
-     */
-
-    if (
-      existingLocation !==
-      normalizedLocation
-    ) {
+    if (!locationsMatch(existingIssue, newLocation)) {
       continue;
     }
 
-    const existingTitle =
-      normalizeText(
-        existingIssue.title
-      );
+    const existingTitle = normalizeText(existingIssue.title);
+    const existingDescription = normalizeText(
+      existingIssue.description
+    );
 
-    const existingDescription =
-      normalizeText(
-        existingIssue.description
-      );
-
-    /*
-     * Exact normalized title.
-     */
-
-    if (
-      newTitle === existingTitle
-    ) {
+    // Exact normalized title.
+    if (newTitle === existingTitle) {
       return existingIssue;
     }
-
-    /*
-     * Exact combined complaint.
-     */
 
     const newCombinedText =
       `${newTitle} ${newDescription}`;
@@ -359,39 +299,26 @@ const findDuplicateComplaint = async ({
     const existingCombinedText =
       `${existingTitle} ${existingDescription}`;
 
-    if (
-      newCombinedText ===
-      existingCombinedText
-    ) {
+    // Exact combined complaint.
+    if (newCombinedText === existingCombinedText) {
       return existingIssue;
     }
 
-    /*
-     * Calculate similarity.
-     */
+    const titleSimilarity = calculateSimilarity(
+      newTitle,
+      existingTitle
+    );
 
-    const titleSimilarity =
-      calculateSimilarity(
-        newTitle,
-        existingTitle
-      );
-
-    const combinedSimilarity =
-      calculateSimilarity(
-        newCombinedText,
-        existingCombinedText
-      );
+    const combinedSimilarity = calculateSimilarity(
+      newCombinedText,
+      existingCombinedText
+    );
 
     /*
-     * Duplicate if:
-     *
-     * title similarity >= 60%
-     *
-     * OR
-     *
-     * combined complaint similarity >= 50%
+     * Duplicate thresholds:
+     * Title similarity >= 60%, OR
+     * combined similarity >= 50%.
      */
-
     if (
       titleSimilarity >= 0.6 ||
       combinedSimilarity >= 0.5
@@ -403,7 +330,6 @@ const findDuplicateComplaint = async ({
   return null;
 };
 
-
 /*
  * ==========================================
  * CREATE ISSUE
@@ -412,9 +338,13 @@ const findDuplicateComplaint = async ({
  * POST /api/issues
  *
  * Supports:
+ * - JSON without a photo
+ * - multipart/form-data with a photo
  *
- * - JSON without photo
- * - multipart/form-data with photo
+ * New optional fields:
+ * - building
+ * - floor
+ * - roomNumber
  */
 
 const createIssue = async (req, res) => {
@@ -424,14 +354,18 @@ const createIssue = async (req, res) => {
       description,
       category,
       location,
+      building,
+      floor,
+      roomNumber,
       photoUrl,
       priority,
     } = req.body;
 
     /*
      * Validate required fields.
+     * Structured location fields remain optional
+     * for compatibility with existing clients.
      */
-
     if (
       !title ||
       !description ||
@@ -448,79 +382,72 @@ const createIssue = async (req, res) => {
     /*
      * Clean incoming values.
      */
+    const cleanTitle = String(title).trim();
+    const cleanDescription = String(description).trim();
+    const cleanCategory = String(category).trim();
+    const cleanLocation = String(location).trim();
 
-    const cleanTitle =
-      title.trim();
+    const cleanBuilding = cleanOptionalText(building);
+    const cleanFloor = cleanOptionalText(floor);
+    const cleanRoomNumber = cleanOptionalText(roomNumber);
 
-    const cleanDescription =
-      description.trim();
+    const cleanPriority = cleanOptionalText(priority)
+      .toLowerCase() || 'medium';
 
-    const cleanCategory =
-      category.trim();
+    const allowedPriorities = [
+      'low',
+      'medium',
+      'high',
+      'critical',
+    ];
 
-    const cleanLocation =
-      location.trim();
+    if (!allowedPriorities.includes(cleanPriority)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Invalid priority. Use low, medium, high, or critical.',
+      });
+    }
 
     /*
      * ==========================================
      * DUPLICATE CHECK
      * ==========================================
      *
-     * IMPORTANT:
-     * This happens BEFORE Cloudinary upload.
-     *
-     * So if the complaint is duplicate,
-     * we don't upload an unnecessary photo.
+     * Run before uploading a photo so duplicate
+     * submissions do not create unnecessary uploads.
      */
-
-    const duplicateIssue =
-      await findDuplicateComplaint({
-        userId: req.user._id,
-        title: cleanTitle,
-        description: cleanDescription,
-        category: cleanCategory,
-        location: cleanLocation,
-      });
+    const duplicateIssue = await findDuplicateComplaint({
+      userId: req.user._id,
+      title: cleanTitle,
+      description: cleanDescription,
+      category: cleanCategory,
+      location: cleanLocation,
+      building: cleanBuilding,
+      floor: cleanFloor,
+      roomNumber: cleanRoomNumber,
+    });
 
     if (duplicateIssue) {
-      /*
-       * Make sure old complaint has an ID.
-       */
-
       const complaintWithId =
-        await ensureComplaintId(
-          duplicateIssue
-        );
+        await ensureComplaintId(duplicateIssue);
 
       return res.status(409).json({
         success: false,
-
         duplicate: true,
-
         message:
           'A similar active complaint already exists for this location.',
-
         existingIssue: {
-          _id:
-            complaintWithId._id,
-
-          complaintId:
-            complaintWithId.complaintId,
-
-          title:
-            complaintWithId.title,
-
-          category:
-            complaintWithId.category,
-
-          location:
-            complaintWithId.location,
-
-          status:
-            complaintWithId.status,
-
-          createdAt:
-            complaintWithId.createdAt,
+          _id: complaintWithId._id,
+          complaintId: complaintWithId.complaintId,
+          title: complaintWithId.title,
+          category: complaintWithId.category,
+          location: complaintWithId.location,
+          building: complaintWithId.building || '',
+          floor: complaintWithId.floor || '',
+          roomNumber: complaintWithId.roomNumber || '',
+          status: complaintWithId.status,
+          createdAt: complaintWithId.createdAt,
         },
       });
     }
@@ -530,9 +457,7 @@ const createIssue = async (req, res) => {
      * PHOTO UPLOAD
      * ==========================================
      */
-
-    let finalPhotoUrl =
-      photoUrl || '';
+    let finalPhotoUrl = cleanOptionalText(photoUrl);
 
     if (req.file) {
       console.log(
@@ -541,13 +466,11 @@ const createIssue = async (req, res) => {
       );
 
       try {
-        const uploadResult =
-          await uploadImageToCloudinary(
-            req.file.buffer
-          );
+        const uploadResult = await uploadImageToCloudinary(
+          req.file.buffer
+        );
 
-        finalPhotoUrl =
-          uploadResult.secure_url;
+        finalPhotoUrl = uploadResult.secure_url;
 
         console.log(
           'Cloudinary upload successful:',
@@ -561,8 +484,7 @@ const createIssue = async (req, res) => {
 
         return res.status(500).json({
           success: false,
-          message:
-            'Failed to upload complaint photo',
+          message: 'Failed to upload complaint photo',
         });
       }
     }
@@ -572,113 +494,73 @@ const createIssue = async (req, res) => {
      * GENERATE COMPLAINT ID
      * ==========================================
      */
-
-    const complaintId =
-      await generateComplaintId();
+    const complaintId = await generateComplaintId();
 
     /*
      * ==========================================
      * CREATE COMPLAINT
      * ==========================================
      */
-
     const issue = await Issue.create({
       complaintId,
+      title: cleanTitle,
+      description: cleanDescription,
+      category: cleanCategory,
+      location: cleanLocation,
 
-      title:
-        cleanTitle,
+      // New structured location fields.
+      building: cleanBuilding,
+      floor: cleanFloor,
+      roomNumber: cleanRoomNumber,
 
-      description:
-        cleanDescription,
-
-      category:
-        cleanCategory,
-
-      location:
-        cleanLocation,
-
-      photoUrl:
-        finalPhotoUrl,
-
-      reportedBy:
-        req.user._id,
-
-      priority:
-        priority || 'medium',
-
-      status:
-        'pending',
+      photoUrl: finalPhotoUrl,
+      reportedBy: req.user._id,
+      priority: cleanPriority,
+      status: 'pending',
 
       history: [
         {
-          status:
-            'pending',
-
-          note:
-            'Issue reported by student',
-
-          changedBy:
-            req.user._id,
+          status: 'pending',
+          note: 'Issue reported by student',
+          changedBy: req.user._id,
         },
       ],
     });
 
     /*
-     * Populate response.
+     * Populate the response.
      */
-
-    const populatedIssue =
-      await Issue.findById(
-        issue._id
+    const populatedIssue = await Issue.findById(issue._id)
+      .populate(
+        'reportedBy',
+        'name email role department'
       )
-        .populate(
-          'reportedBy',
-          'name email role department'
-        )
-        .populate(
-          'assignedTo',
-          'name email role department'
-        );
+      .populate(
+        'assignedTo',
+        'name email role department'
+      );
 
-    console.log(
-      `Complaint created: ${complaintId}`
-    );
+    console.log(`Complaint created: ${complaintId}`);
 
     /*
      * ==========================================
      * PUSH NOTIFICATION
      * ==========================================
      *
-     * Send confirmation notification to
-     * the student after complaint creation.
-     *
-     * Push notification failure must NOT
-     * fail complaint creation.
+     * Notification failures must not undo
+     * successful complaint creation.
      */
-
     if (req.user.pushToken) {
       sendPushNotification({
-        pushToken:
-          req.user.pushToken,
-
-        title:
-          'Complaint Submitted 📝',
-
+        pushToken: req.user.pushToken,
+        title: 'Complaint Submitted 📝',
         body:
           `Your complaint ${complaintId} has been submitted successfully.`,
-
         data: {
-          type:
-            'complaint_submitted',
-
-          issueId:
-            issue._id.toString(),
-
-          complaintId:
-            complaintId,
-
-          status:
-            'pending',
+          type: 'complaint_submitted',
+          issueId: issue._id.toString(),
+          complaintId,
+          status: 'pending',
         },
       })
         .then((result) => {
@@ -707,12 +589,8 @@ const createIssue = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-
-      message:
-        'Issue reported successfully',
-
-      issue:
-        populatedIssue,
+      message: 'Issue reported successfully',
+      issue: populatedIssue,
     });
   } catch (error) {
     console.error(
@@ -722,13 +600,10 @@ const createIssue = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-
-      message:
-        'Failed to create issue',
+      message: 'Failed to create issue',
     });
   }
 };
-
 
 /*
  * ==========================================
@@ -740,22 +615,18 @@ const createIssue = async (req, res) => {
 
 const getMyIssues = async (req, res) => {
   try {
-    let issues = await Issue.find({
-      reportedBy:
-        req.user._id,
+    const issues = await Issue.find({
+      reportedBy: req.user._id,
     })
       .populate(
         'assignedTo',
         'name email role department'
       )
-      .sort({
-        createdAt: -1,
-      });
+      .sort({ createdAt: -1 });
 
     /*
-     * Backfill complaint IDs for old complaints.
+     * Backfill complaint IDs for older records.
      */
-
     for (const issue of issues) {
       if (!issue.complaintId) {
         await ensureComplaintId(issue);
@@ -764,10 +635,7 @@ const getMyIssues = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-
-      count:
-        issues.length,
-
+      count: issues.length,
       issues,
     });
   } catch (error) {
@@ -778,13 +646,10 @@ const getMyIssues = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-
-      message:
-        'Failed to fetch your issues',
+      message: 'Failed to fetch your issues',
     });
   }
 };
-
 
 /*
  * ==========================================
@@ -798,22 +663,45 @@ const getMyIssues = async (req, res) => {
 
 const getIssueById = async (req, res) => {
   try {
-    const {
-      id,
-    } = req.params;
+    const { id } = req.params;
 
     console.log(
       'Issue Details: Requested issue:',
       id
     );
 
-    let issue =
-      await Issue.findOne({
-        _id: id,
+    let issue = await Issue.findOne({
+      _id: id,
+      reportedBy: req.user._id,
+    })
+      .populate(
+        'reportedBy',
+        'name email role department'
+      )
+      .populate(
+        'assignedTo',
+        'name email role department'
+      )
+      .populate(
+        'history.changedBy',
+        'name email role department'
+      );
 
-        reportedBy:
-          req.user._id,
-      })
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message:
+          'Issue not found or you do not have permission to view it',
+      });
+    }
+
+    /*
+     * Backfill complaint ID for older records.
+     */
+    if (!issue.complaintId) {
+      issue = await ensureComplaintId(issue);
+
+      issue = await Issue.findById(issue._id)
         .populate(
           'reportedBy',
           'name email role department'
@@ -826,52 +714,10 @@ const getIssueById = async (req, res) => {
           'history.changedBy',
           'name email role department'
         );
-
-    if (!issue) {
-      return res.status(404).json({
-        success: false,
-
-        message:
-          'Issue not found or you do not have permission to view it',
-      });
-    }
-
-    /*
-     * Backfill complaint ID if this is
-     * an old complaint.
-     */
-
-    if (!issue.complaintId) {
-      issue =
-        await ensureComplaintId(
-          issue
-        );
-
-      /*
-       * Populate again after save.
-       */
-
-      issue =
-        await Issue.findById(
-          issue._id
-        )
-          .populate(
-            'reportedBy',
-            'name email role department'
-          )
-          .populate(
-            'assignedTo',
-            'name email role department'
-          )
-          .populate(
-            'history.changedBy',
-            'name email role department'
-          );
     }
 
     return res.status(200).json({
       success: true,
-
       issue,
     });
   } catch (error) {
@@ -880,26 +726,19 @@ const getIssueById = async (req, res) => {
       error.message
     );
 
-    if (
-      error.name === 'CastError'
-    ) {
+    if (error.name === 'CastError') {
       return res.status(400).json({
         success: false,
-
-        message:
-          'Invalid issue ID',
+        message: 'Invalid issue ID',
       });
     }
 
     return res.status(500).json({
       success: false,
-
-      message:
-        'Failed to fetch issue details',
+      message: 'Failed to fetch issue details',
     });
   }
 };
-
 
 /*
  * ==========================================
@@ -914,97 +753,54 @@ const getIssueById = async (req, res) => {
 
 const deleteIssue = async (req, res) => {
   try {
-    const {
-      id,
-    } = req.params;
+    const { id } = req.params;
 
     console.log(
       'Delete Issue: Requested issue:',
       id
     );
 
-    /*
-     * Check whether MongoDB ID is valid.
-     */
-
-    if (
-      !id.match(
-        /^[0-9a-fA-F]{24}$/
-      )
-    ) {
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
       return res.status(400).json({
         success: false,
-
-        message:
-          'Invalid issue ID',
+        message: 'Invalid issue ID',
       });
     }
 
-    /*
-     * Find issue AND make sure it belongs
-     * to the authenticated student.
-     */
-
-    const issue =
-      await Issue.findOne({
-        _id: id,
-
-        reportedBy:
-          req.user._id,
-      });
+    const issue = await Issue.findOne({
+      _id: id,
+      reportedBy: req.user._id,
+    });
 
     if (!issue) {
       return res.status(404).json({
         success: false,
-
         message:
           'Issue not found or you do not have permission to delete it',
       });
     }
 
-    /*
-     * Students can delete only pending
-     * complaints.
-     */
-
-    if (
-      issue.status !==
-      'pending'
-    ) {
+    if (issue.status !== 'pending') {
       return res.status(400).json({
         success: false,
-
         message:
           'Only pending complaints can be deleted',
       });
     }
 
-    /*
-     * Delete complaint.
-     */
-
-    await Issue.deleteOne({
-      _id: issue._id,
-    });
+    await Issue.deleteOne({ _id: issue._id });
 
     console.log(
-      `Complaint deleted: ${issue.complaintId ||
-      issue._id
+      `Complaint deleted: ${
+        issue.complaintId || issue._id
       }`
     );
 
     return res.status(200).json({
       success: true,
-
-      message:
-        'Complaint deleted successfully',
-
-      deletedIssueId:
-        issue._id,
-
-      complaintId:
-        issue.complaintId ||
-        null,
+      message: 'Complaint deleted successfully',
+      deletedIssueId: issue._id,
+      complaintId: issue.complaintId || null,
     });
   } catch (error) {
     console.error(
@@ -1012,26 +808,19 @@ const deleteIssue = async (req, res) => {
       error.message
     );
 
-    if (
-      error.name === 'CastError'
-    ) {
+    if (error.name === 'CastError') {
       return res.status(400).json({
         success: false,
-
-        message:
-          'Invalid issue ID',
+        message: 'Invalid issue ID',
       });
     }
 
     return res.status(500).json({
       success: false,
-
-      message:
-        'Failed to delete complaint',
+      message: 'Failed to delete complaint',
     });
   }
 };
-
 
 /*
  * ==========================================
@@ -1043,63 +832,47 @@ const deleteIssue = async (req, res) => {
  * Students can only track their own complaints.
  */
 
-const trackIssueByComplaintId = async (
-  req,
-  res
-) => {
+const trackIssueByComplaintId = async (req, res) => {
   try {
-    const {
-      complaintId,
-    } = req.params;
+    const { complaintId } = req.params;
 
-    if (
-      !complaintId ||
-      !complaintId.trim()
-    ) {
+    if (!complaintId || !complaintId.trim()) {
       return res.status(400).json({
         success: false,
-
-        message:
-          'Complaint ID is required',
+        message: 'Complaint ID is required',
       });
     }
 
-    const normalizedComplaintId =
-      complaintId
-        .trim()
-        .toUpperCase();
+    const normalizedComplaintId = complaintId
+      .trim()
+      .toUpperCase();
 
     console.log(
       'Track Issue: Searching for:',
       normalizedComplaintId
     );
 
-    const issue =
-      await Issue.findOne({
-        complaintId:
-          normalizedComplaintId,
-
-        reportedBy:
-          req.user._id,
-      })
-        .populate(
-          'reportedBy',
-          'name email usn department'
-        )
-        .populate(
-          'assignedTo',
-          'name email role department'
-        )
-        .populate(
-          'history.changedBy',
-          'name email role'
-        )
-        .select('-__v');
+    const issue = await Issue.findOne({
+      complaintId: normalizedComplaintId,
+      reportedBy: req.user._id,
+    })
+      .populate(
+        'reportedBy',
+        'name email usn department'
+      )
+      .populate(
+        'assignedTo',
+        'name email role department'
+      )
+      .populate(
+        'history.changedBy',
+        'name email role'
+      )
+      .select('-__v');
 
     if (!issue) {
       return res.status(404).json({
         success: false,
-
         message:
           'Complaint not found or you do not have permission to view it',
       });
@@ -1107,10 +880,7 @@ const trackIssueByComplaintId = async (
 
     return res.status(200).json({
       success: true,
-
-      message:
-        'Complaint found successfully',
-
+      message: 'Complaint found successfully',
       issue,
     });
   } catch (error) {
@@ -1121,13 +891,10 @@ const trackIssueByComplaintId = async (
 
     return res.status(500).json({
       success: false,
-
-      message:
-        'Failed to track complaint',
+      message: 'Failed to track complaint',
     });
   }
 };
-
 
 /*
  * ==========================================

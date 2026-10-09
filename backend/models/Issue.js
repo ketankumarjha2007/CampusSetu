@@ -4,9 +4,7 @@ const issueSchema = new mongoose.Schema(
   {
     /*
      * Human-readable complaint tracking ID.
-     *
-     * Example:
-     * CS-2026-000001
+     * Example: CS-2026-000001
      */
     complaintId: {
       type: String,
@@ -15,6 +13,7 @@ const issueSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Complaint information
     title: {
       type: String,
       required: true,
@@ -33,29 +32,53 @@ const issueSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Existing location field — kept for backward compatibility
     location: {
       type: String,
       required: true,
       trim: true,
     },
 
+    // New structured location fields
+    building: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    floor: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    roomNumber: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    // Optional complaint photo
     photoUrl: {
       type: String,
       default: '',
     },
 
+    // Student who submitted the complaint
     reportedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
     },
 
+    // Official assigned to handle the complaint
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
     },
 
+    // Complaint status
     status: {
       type: String,
       enum: [
@@ -68,6 +91,7 @@ const issueSchema = new mongoose.Schema(
       default: 'pending',
     },
 
+    // Complaint priority
     priority: {
       type: String,
       enum: [
@@ -79,6 +103,7 @@ const issueSchema = new mongoose.Schema(
       default: 'medium',
     },
 
+    // Resolution information
     resolutionNote: {
       type: String,
       default: '',
@@ -89,6 +114,7 @@ const issueSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Complete complaint status history
     history: [
       {
         status: {
@@ -119,7 +145,4 @@ const issueSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model(
-  'Issue',
-  issueSchema
-);
+module.exports = mongoose.model('Issue', issueSchema);

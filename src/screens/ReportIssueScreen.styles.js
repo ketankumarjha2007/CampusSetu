@@ -1,26 +1,18 @@
 import { StyleSheet } from 'react-native';
 
-const COLORS = {
-  background: '#F7F9FC',
+const C = {
+  ink: '#14213D',
+  muted: '#64748B',
   white: '#FFFFFF',
-
-  text: '#0F172A',
-  secondary: '#64748B',
-  muted: '#94A3B8',
-
-  primary: '#2563EB',
-  primarySoft: '#EFF6FF',
-
-  border: '#E2E8F0',
-
-  green: '#16A34A',
+  navy: '#173B68',
+  blue: '#2563EB',
+  canvas: '#F5F7FB',
 };
 
-export default StyleSheet.create({
-
+const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: C.canvas,
   },
 
   keyboardView: {
@@ -32,357 +24,493 @@ export default StyleSheet.create({
   },
 
   container: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 35,
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+    paddingTop: 14,
+    paddingBottom: 40,
   },
 
-
-  // =========================
-  // HEADER
-  // =========================
-
+  // Header
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 25,
+    alignItems: 'flex-start',
+    marginTop: 8,
+    marginBottom: 22,
+    gap: 13,
   },
 
   backButton: {
-    width: 42,
-    height: 42,
-
-    borderRadius: 13,
-
-    backgroundColor: COLORS.white,
-
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    marginTop: 2,
+    backgroundColor: C.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
-
+    borderColor: '#E6EBF2',
     alignItems: 'center',
     justifyContent: 'center',
-
-    marginRight: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 7,
+    elevation: 2,
   },
 
   backArrow: {
-    color: COLORS.text,
-
     fontSize: 31,
-
-    fontWeight: '300',
-
+    lineHeight: 34,
+    color: C.ink,
     marginTop: -3,
   },
 
   headerTextContainer: {
     flex: 1,
+    minWidth: 0,
+    paddingTop: 1,
+  },
+
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 13,
+    gap: 10,
+  },
+
+  brandMark: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: C.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: C.navy,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+
+  brandMarkText: {
+    color: C.white,
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 24,
+  },
+
+  brandCopy: {
+    flex: 1,
+    minWidth: 0,
   },
 
   headerEyebrow: {
-    color: COLORS.primary,
-
-    fontSize: 8,
-
+    color: C.navy,
+    fontSize: 12,
     fontWeight: '900',
+    letterSpacing: 2.1,
+  },
 
-    letterSpacing: 1.2,
-
-    marginBottom: 4,
+  headerTagline: {
+    color: C.muted,
+    fontSize: 10,
+    lineHeight: 14,
+    marginTop: 2,
+    letterSpacing: 0.15,
   },
 
   headerTitle: {
-    color: COLORS.text,
-
-    fontSize: 24,
-
-    fontWeight: '800',
-
-    letterSpacing: -0.6,
+    color: C.ink,
+    fontSize: 27,
+    lineHeight: 33,
+    fontWeight: '900',
+    letterSpacing: -0.7,
   },
 
+  headerSubtitle: {
+    color: C.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 4,
+  },
 
-  // =========================
-  // INTRO
-  // =========================
-
+  // Intro card
   intro: {
-    marginBottom: 23,
+    backgroundColor: C.navy,
+    borderRadius: 22,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    marginBottom: 24,
+    overflow: 'hidden',
   },
 
   introTitle: {
-    color: COLORS.text,
-
-    fontSize: 20,
-
-    fontWeight: '800',
-
-    marginBottom: 6,
+    color: C.white,
+    fontSize: 21,
+    lineHeight: 27,
+    fontWeight: '900',
+    letterSpacing: -0.3,
   },
 
   introSubtitle: {
-    color: COLORS.secondary,
-
-    fontSize: 11,
-
-    lineHeight: 17,
-
-    fontWeight: '500',
+    color: '#DCE8F7',
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 7,
+    maxWidth: 520,
   },
 
-
-  // =========================
-  // FIELDS
-  // =========================
-
+  // Fields
   fieldContainer: {
-    marginBottom: 21,
+    marginBottom: 20,
   },
 
   label: {
-    color: COLORS.secondary,
-
-    fontSize: 8,
-
+    color: '#34445D',
+    fontSize: 11,
     fontWeight: '900',
-
-    letterSpacing: 1,
-
+    letterSpacing: 1.15,
     marginBottom: 9,
   },
 
   input: {
-    minHeight: 54,
-
-    backgroundColor: COLORS.white,
-
+    width: '100%',
+    minHeight: 52,
+    backgroundColor: C.white,
     borderWidth: 1,
-
-    borderColor: COLORS.border,
-
+    borderColor: '#DDE5EF',
     borderRadius: 14,
-
-    paddingHorizontal: 14,
-
-    color: COLORS.text,
-
-    fontSize: 12,
-
-    fontWeight: '600',
+    paddingHorizontal: 15,
+    paddingVertical: 13,
+    color: C.ink,
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   descriptionInput: {
-    minHeight: 125,
-
-    paddingTop: 14,
-
-    paddingBottom: 14,
+    minHeight: 132,
+    paddingTop: 15,
+    textAlignVertical: 'top',
   },
 
-
-  // =========================
-  // CATEGORY
-  // =========================
-
+  // Categories
   categoryGrid: {
     flexDirection: 'row',
-
     flexWrap: 'wrap',
-
-    gap: 8,
+    gap: 9,
   },
 
   categoryChip: {
-    paddingHorizontal: 13,
-
-    minHeight: 36,
-
-    borderRadius: 11,
-
-    backgroundColor: COLORS.white,
-
-    borderWidth: 1,
-
-    borderColor: COLORS.border,
-
-    alignItems: 'center',
+    minHeight: 40,
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: '#DDE5EF',
   },
 
   categoryChipSelected: {
-    backgroundColor: COLORS.primarySoft,
-
-    borderColor: COLORS.primary,
+    backgroundColor: '#EAF2FF',
+    borderColor: C.blue,
   },
 
   categoryText: {
-    color: COLORS.secondary,
-
-    fontSize: 9,
-
+    color: '#52627A',
+    fontSize: 12,
     fontWeight: '700',
   },
 
   categoryTextSelected: {
-    color: COLORS.primary,
-
-    fontWeight: '800',
+    color: C.blue,
+    fontWeight: '900',
   },
 
-
-  // =========================
-  // PHOTO
-  // =========================
-
-  photoCard: {
+  // Priority
+  sectionHeadingRow: {
     flexDirection: 'row',
-
     alignItems: 'center',
-
-    backgroundColor: COLORS.white,
-
-    borderRadius: 16,
-
-    borderWidth: 1,
-
-    borderColor: COLORS.border,
-
-    padding: 13,
-
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
   },
 
-  photoIcon: {
-    width: 42,
-    height: 42,
+  optionalHint: {
+    color: C.muted,
+    fontSize: 11,
+    marginBottom: 9,
+  },
 
-    borderRadius: 13,
+  priorityGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
 
-    backgroundColor: COLORS.primarySoft,
+  priorityCard: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 130,
+    minHeight: 83,
+    padding: 13,
+    borderRadius: 15,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: '#E1E7EF',
+  },
 
+  priorityCardCompact: {
+    flexBasis: '46%',
+    minWidth: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+
+  priorityCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+
+  priorityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  priorityTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+
+  priorityRadio: {
+    width: 17,
+    height: 17,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     alignItems: 'center',
     justifyContent: 'center',
-
-    marginRight: 11,
   },
 
-  photoIconText: {
-    color: COLORS.primary,
+  priorityRadioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
 
-    fontSize: 23,
+  priorityDescription: {
+    color: C.muted,
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 8,
+  },
 
-    fontWeight: '300',
+  priorityNote: {
+    color: C.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 9,
+  },
+
+  // Responsive location fields
+  locationPairRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 18,
+  },
+
+  locationPairRowCompact: {
+    gap: 9,
+  },
+
+  locationPairField: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  // Photo
+  selectedPhotoCard: {
+    backgroundColor: C.white,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+
+  selectedPhoto: {
+    width: '100%',
+    height: 220,
+  },
+
+  selectedPhotoFooter: {
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
 
   photoContent: {
     flex: 1,
+    minWidth: 0,
+  },
+
+  selectedPhotoTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#111827',
+  },
+
+  selectedPhotoName: {
+    marginTop: 4,
+    fontSize: 11,
+    color: C.muted,
+  },
+
+  removePhotoButton: {
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+
+  removePhotoText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+
+  photoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    padding: 16,
+    minHeight: 94,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: '#DDE5EF',
+    borderStyle: 'dashed',
+    backgroundColor: C.white,
+  },
+
+  photoIcon: {
+    width: 45,
+    height: 45,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  photoIconText: {
+    color: C.blue,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '500',
   },
 
   photoTitle: {
-    color: COLORS.text,
-
-    fontSize: 11,
-
-    fontWeight: '800',
-
-    marginBottom: 3,
+    color: C.ink,
+    fontSize: 14,
+    fontWeight: '900',
   },
 
   photoSubtitle: {
-    color: COLORS.muted,
-
-    fontSize: 8.5,
-
-    lineHeight: 13,
+    color: C.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 4,
   },
 
+  changePhotoButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
 
-  // =========================
-  // SUBMIT
-  // =========================
+  changePhotoText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: C.blue,
+  },
 
+  // Submit
   submitButton: {
-    minHeight: 68,
-
-    borderRadius: 17,
-
-    backgroundColor: COLORS.primary,
-
+    minHeight: 78,
+    borderRadius: 19,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginTop: 2,
+    marginBottom: 20,
+    backgroundColor: C.navy,
     flexDirection: 'row',
-
     alignItems: 'center',
-
     justifyContent: 'space-between',
+    gap: 14,
+    shadowColor: C.navy,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 4,
+  },
 
-    paddingLeft: 17,
+  submitButtonDisabled: {
+    opacity: 0.75,
+  },
 
-    paddingRight: 9,
-
-    shadowColor: COLORS.primary,
-
-    shadowOffset: {
-      width: 0,
-      height: 9,
-    },
-
-    shadowOpacity: 0.2,
-
-    shadowRadius: 15,
-
-    elevation: 7,
+  submitContent: {
+    flex: 1,
   },
 
   submitEyebrow: {
-    color: '#BFDBFE',
-
-    fontSize: 7,
-
+    color: '#B9D0EE',
+    fontSize: 9,
     fontWeight: '900',
-
-    letterSpacing: 1,
-
+    letterSpacing: 1.4,
     marginBottom: 4,
   },
 
   submitText: {
-    color: COLORS.white,
-
-    fontSize: 14,
-
-    fontWeight: '800',
+    color: C.white,
+    fontSize: 18,
+    fontWeight: '900',
   },
 
   submitArrow: {
-    width: 49,
-    height: 49,
-
+    width: 42,
+    height: 42,
     borderRadius: 14,
-
     backgroundColor: 'rgba(255,255,255,0.14)',
-
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   submitArrowText: {
-    color: COLORS.white,
-
-    fontSize: 22,
-
-    fontWeight: '400',
+    color: C.white,
+    fontSize: 25,
+    lineHeight: 28,
+    fontWeight: '700',
   },
-
 
   footerText: {
-    color: COLORS.muted,
-
+    color: '#8491A5',
     textAlign: 'center',
-
-    fontSize: 7.5,
-
-    fontWeight: '700',
-
-    marginTop: 22,
+    fontSize: 11,
+    lineHeight: 17,
+    paddingHorizontal: 12,
+    paddingBottom: 6,
   },
-
 });
+
+export default styles;

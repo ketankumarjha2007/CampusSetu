@@ -1,1284 +1,621 @@
-import React, {
-  useCallback,
-  useState,
-} from 'react';
-
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
+  RefreshControl,
   ScrollView,
-  View,
+  StatusBar,
   Text,
   TouchableOpacity,
-  StatusBar,
+  View,
 } from 'react-native';
-
-import {
-  useFocusEffect,
-} from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { apiRequest } from '../services/api';
 import styles from './StudentHomeScreen.styles';
 
-export default function StudentHomeScreen({
-  navigation,
-}) {
-  const [recentReports, setRecentReports] =
-    useState([]);
+const STATUS_CONFIG = {
+  pending: {
+    label: 'Pending',
+    background: '#FFF7ED',
+    border: '#FED7AA',
+    text: '#C2410C',
+  },
+  assigned: {
+    label: 'Assigned',
+    background: '#EFF6FF',
+    border: '#BFDBFE',
+    text: '#1D4ED8',
+  },
+  in_progress: {
+    label: 'In Progress',
+    background: '#EFF6FF',
+    border: '#BFDBFE',
+    text: '#1D4ED8',
+  },
+  resolved: {
+    label: 'Resolved',
+    background: '#F0FDF4',
+    border: '#BBF7D0',
+    text: '#15803D',
+  },
+  rejected: {
+    label: 'Rejected',
+    background: '#FEF2F2',
+    border: '#FECACA',
+    text: '#B91C1C',
+  },
+};
 
-  const [reportsLoading, setReportsLoading] =
-    useState(true);
+const PRIORITY_CONFIG = {
+  low: { label: 'Low priority', color: '#15803D' },
+  medium: { label: 'Medium priority', color: '#B45309' },
+  high: { label: 'High priority', color: '#C2410C' },
+  critical: { label: 'Critical priority', color: '#B91C1C' },
+};
 
-  const [reportsError, setReportsError] =
-    useState('');
+const QUICK_ACTIONS = [
+  {
+    id: 'reports',
+    icon: '≡',
+    title: 'My Reports',
+    subtitle: 'View your complaints',
+    background: '#EAF2FF',
+    color: '#2563EB',
+    route: 'MyReports',
+  },
+  {
+    id: 'track',
+    icon: '⌕',
+    title: 'Track Complaint',
+    subtitle: 'Check complaint status',
+    background: '#E7F8F0',
+    color: '#168653',
+    route: 'TrackComplaint',
+  },
+  {
+    id: 'resolved',
+    icon: '✓',
+    title: 'Resolved',
+    subtitle: 'Completed complaints',
+    background: '#E7F8F0',
+    color: '#15803D',
+    route: 'MyReports',
+    params: { filter: 'Resolved' },
+  },
+  {
+    id: 'pending',
+    icon: '◷',
+    title: 'Pending',
+    subtitle: 'Awaiting action',
+    background: '#FFF2E5',
+    color: '#C2410C',
+    route: 'MyReports',
+    params: { filter: 'Pending' },
+  },
+  {
+    id: 'help',
+    icon: '?',
+    title: 'Help & Support',
+    subtitle: 'Get assistance',
+    background: '#F3E8FF',
+    color: '#7E22CE',
+    route: 'Help',
+  },
+];
 
-  // ==========================================
-  // OPEN NOTIFICATIONS
-  // ==========================================
+function getGreeting() {
+  const hour = new Date().getHours();
 
-  const openNotifications = () => {
-    const currentState =
-      navigation.getState();
+  if (hour >= 5 && hour < 12) return 'GOOD MORNING';
+  if (hour >= 12 && hour < 17) return 'GOOD AFTERNOON';
+  if (hour >= 17 && hour < 21) return 'GOOD EVENING';
 
-    const currentRoutes =
-      currentState?.routeNames || [];
+  return 'GOOD NIGHT';
+}
 
-    console.log(
-      'StudentHome current routes:',
-      currentRoutes
-    );
+function formatDate(dateValue) {
+  if (!dateValue) return 'Date unavailable';
 
-    // Notifications exists in current navigator
-    if (
-      currentRoutes.includes(
-        'Notifications'
-      )
-    ) {
-      navigation.navigate(
-        'Notifications'
-      );
+  const date = new Date(dateValue);
 
-      return;
-    }
+  if (Number.isNaN(date.getTime())) {
+    return 'Date unavailable';
+  }
 
-    // Try parent navigator
-    const parentNavigation =
-      navigation.getParent();
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
 
-    const parentState =
-      parentNavigation?.getState();
+function getStatus(status) {
+  return (
+    STATUS_CONFIG[String(status || '').toLowerCase()] ||
+    STATUS_CONFIG.pending
+  );
+}
 
-    const parentRoutes =
-      parentState?.routeNames || [];
+function getPriority(priority) {
+  return (
+    PRIORITY_CONFIG[String(priority || '').toLowerCase()] ||
+    null
+  );
+}
 
-    console.log(
-      'StudentHome parent routes:',
-      parentRoutes
-    );
+function getLocation(report) {
+  if (report?.location) return report.location;
 
-    if (
-      parentNavigation &&
-      parentRoutes.includes(
-        'Notifications'
-      )
-    ) {
-      parentNavigation.navigate(
-        'Notifications'
-      );
+  const parts = [
+    report?.building,
+    report?.floor ? `Floor ${report.floor}` : null,
+    report?.roomNumber ? `Room ${report.roomNumber}` : null,
+  ].filter(Boolean);
 
-      return;
-    }
+  return parts.length > 0 ? parts.join(', ') : 'Location not provided';
+}
 
-    console.error(
-      'Notifications route not found.',
-      {
-        currentRoutes,
-        parentRoutes,
+export default function StudentHomeScreen({ navigation }) {
+  const [recentReports, setRecentReports] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [reportsError, setReportsError] = useState('');
+
+  const openNotifications = useCallback(() => {
+    let currentNavigation = navigation;
+
+    // Check the current navigator and its parents.
+    while (currentNavigation) {
+      const state = currentNavigation.getState?.();
+      const routeNames = state?.routeNames || [];
+
+      if (routeNames.includes('Notifications')) {
+        currentNavigation.navigate('Notifications');
+        return;
       }
+
+      currentNavigation = currentNavigation.getParent?.();
+    }
+
+    console.warn(
+      'CampusSetu: Notifications route was not found in the navigation tree.'
     );
-  };
+  }, [navigation]);
 
-  // ==========================================
-  // LOAD RECENT REPORTS
-  // ==========================================
+  const loadRecentReports = useCallback(async (showLoader = false) => {
+    if (showLoader) {
+      setReportsLoading(true);
+    }
 
-  const loadRecentReports = async () => {
+    setReportsError('');
+
     try {
-      setReportsError('');
+      const response = await apiRequest('/issues/my');
 
-      const response =
-        await apiRequest(
-          '/issues/my'
-        );
-
-      if (
-        response?.success &&
-        Array.isArray(
-          response?.issues
-        )
-      ) {
-        const sortedReports = [
-          ...response.issues,
-        ].sort((a, b) => {
-          const dateA =
-            new Date(
-              a.createdAt || 0
-            ).getTime();
-
-          const dateB =
-            new Date(
-              b.createdAt || 0
-            ).getTime();
-
-          return dateB - dateA;
-        });
-
-        setRecentReports(
-          sortedReports.slice(0, 3)
-        );
-      } else {
+      if (!response?.success || !Array.isArray(response?.issues)) {
         throw new Error(
-          response?.message ||
-          'Unable to load recent activity'
+          response?.message || 'Unable to load your recent complaints.'
         );
       }
+
+      const sortedReports = [...response.issues].sort((a, b) => {
+        const dateA = new Date(a?.createdAt || 0).getTime();
+        const dateB = new Date(b?.createdAt || 0).getTime();
+
+        return dateB - dateA;
+      });
+
+      setRecentReports(sortedReports.slice(0, 3));
     } catch (error) {
-      console.error(
-        'Recent activity loading error:',
-        error
-      );
+      console.error('Student home recent reports error:', error);
 
       setReportsError(
-        error.message ||
-        'Unable to load recent activity.'
+        error?.message || 'Something went wrong while loading your reports.'
       );
-
       setRecentReports([]);
     } finally {
       setReportsLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  // ==========================================
-  // REFRESH WHEN SCREEN FOCUSES
-  // ==========================================
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      setReportsLoading(true);
-      loadRecentReports();
-    }, [])
+      loadRecentReports(true);
+    }, [loadRecentReports])
   );
 
-  // ==========================================
-  // FORMAT DATE
-  // ==========================================
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadRecentReports();
+  }, [loadRecentReports]);
 
-  const formatDate = (dateValue) => {
-    if (!dateValue) {
-      return 'Date unavailable';
-    }
+  const navigateTo = useCallback(
+    (routeName, params) => {
+      navigation.navigate(routeName, params);
+    },
+    [navigation]
+  );
 
-    const date =
-      new Date(dateValue);
-
-    if (
-      Number.isNaN(
-        date.getTime()
-      )
-    ) {
-      return 'Date unavailable';
-    }
-
-    return date.toLocaleDateString(
-      'en-IN',
-      {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }
-    );
-  };
-
-  // ==========================================
-  // STATUS LABEL
-  // ==========================================
-
-  const getStatusLabel = (
-    status
-  ) => {
-    switch (status) {
-      case 'pending':
-        return 'Pending';
-
-      case 'assigned':
-        return 'Assigned';
-
-      case 'in_progress':
-        return 'In Progress';
-
-      case 'resolved':
-        return 'Resolved';
-
-      case 'rejected':
-        return 'Rejected';
-
-      default:
-        return 'Pending';
-    }
-  };
-
-  // ==========================================
-  // STATUS COLORS
-  // ==========================================
-
-  const getStatusColors = (
-    status
-  ) => {
-    switch (status) {
-      case 'resolved':
-        return {
-          backgroundColor:
-            '#F0FDF4',
-          borderColor:
-            '#BBF7D0',
-          textColor:
-            '#15803D',
-        };
-
-      case 'in_progress':
-      case 'assigned':
-        return {
-          backgroundColor:
-            '#EFF6FF',
-          borderColor:
-            '#BFDBFE',
-          textColor:
-            '#2563EB',
-        };
-
-      case 'rejected':
-        return {
-          backgroundColor:
-            '#FEF2F2',
-          borderColor:
-            '#FECACA',
-          textColor:
-            '#DC2626',
-        };
-
-      case 'pending':
-      default:
-        return {
-          backgroundColor:
-            '#FFF7ED',
-          borderColor:
-            '#FED7AA',
-          textColor:
-            '#EA580C',
-        };
-    }
-  };
-
-  // ==========================================
-  // RECENT REPORT CARD
-  // ==========================================
-
-  const renderRecentReport = (
-    report
-  ) => {
-    const statusColors =
-      getStatusColors(
-        report.status
-      );
+  const renderRecentReport = (report) => {
+    const status = getStatus(report?.status);
+    const priority = getPriority(report?.priority);
 
     return (
       <TouchableOpacity
-        key={report._id}
-        activeOpacity={0.85}
+        key={report?._id || report?.complaintId}
+        activeOpacity={0.82}
+        accessibilityRole="button"
+        accessibilityLabel={`Open complaint ${report?.title || 'details'}`}
         onPress={() =>
-          navigation.navigate(
-            'IssueDetails',
-            {
-              issueId:
-                report._id,
-            }
-          )
+          navigateTo('IssueDetails', { issueId: report?._id })
         }
-        style={{
-          backgroundColor:
-            '#FFFFFF',
-
-          borderRadius: 18,
-
-          borderWidth: 1,
-
-          borderColor:
-            '#E5E7EB',
-
-          padding: 16,
-
-          marginBottom: 12,
-        }}
+        style={styles.reportCard}
       >
-        {/* TOP ROW */}
-
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems:
-              'flex-start',
-            justifyContent:
-              'space-between',
-          }}
-        >
-          <View
-            style={{
-              flex: 1,
-              paddingRight: 12,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 15,
-                fontWeight: '900',
-                color: '#111827',
-                lineHeight: 21,
-              }}
-              numberOfLines={2}
-            >
-              {report.title ||
-                'Untitled complaint'}
+        <View style={styles.reportTopRow}>
+          <View style={styles.reportTitleContainer}>
+            <Text style={styles.reportCategory}>
+              {report?.category || 'General'}
             </Text>
 
-            <Text
-              style={{
-                marginTop: 5,
-                fontSize: 11,
-                fontWeight: '700',
-                color: '#94A3B8',
-              }}
-              numberOfLines={1}
-            >
-              {report.category ||
-                'General'}
-              {'  •  '}
-              {formatDate(
-                report.createdAt
-              )}
+            <Text style={styles.reportTitle} numberOfLines={2}>
+              {report?.title || 'Untitled complaint'}
             </Text>
           </View>
 
-          {/* STATUS */}
-
           <View
-            style={{
-              backgroundColor:
-                statusColors.backgroundColor,
-
-              borderWidth: 1,
-
-              borderColor:
-                statusColors.borderColor,
-
-              borderRadius: 999,
-
-              paddingHorizontal: 9,
-
-              paddingVertical: 5,
-            }}
+            style={[
+              styles.statusBadge,
+              {
+                backgroundColor: status.background,
+                borderColor: status.border,
+              },
+            ]}
           >
-            <Text
-              style={{
-                color:
-                  statusColors.textColor,
-
-                fontSize: 10,
-
-                fontWeight: '900',
-              }}
-            >
-              {getStatusLabel(
-                report.status
-              )}
+            <Text style={[styles.statusText, { color: status.text }]}>
+              {status.label}
             </Text>
           </View>
         </View>
 
-        {/* COMPLAINT ID */}
+        <View style={styles.reportLocationRow}>
+          <Text style={styles.smallIcon}>⌖</Text>
+          <Text style={styles.reportLocation} numberOfLines={2}>
+            {getLocation(report)}
+          </Text>
+        </View>
 
-        <View
-          style={{
-            marginTop: 13,
+        <View style={styles.reportDivider} />
 
-            paddingTop: 11,
-
-            borderTopWidth: 1,
-
-            borderTopColor:
-              '#F1F5F9',
-
-            flexDirection: 'row',
-
-            alignItems: 'center',
-
-            justifyContent:
-              'space-between',
-          }}
-        >
-          <View
-            style={{
-              flex: 1,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 9,
-
-                fontWeight: '900',
-
-                letterSpacing: 0.8,
-
-                color: '#94A3B8',
-
-                textTransform:
-                  'uppercase',
-              }}
-            >
-              Complaint ID
-            </Text>
-
-            <Text
-              style={{
-                marginTop: 3,
-
-                fontSize: 11,
-
-                fontWeight: '800',
-
-                color: '#2563EB',
-
-                letterSpacing: 0.5,
-              }}
-            >
-              {report.complaintId ||
-                'Generating...'}
+        <View style={styles.reportBottomRow}>
+          <View style={styles.reportMeta}>
+            <Text style={styles.metaLabel}>COMPLAINT ID</Text>
+            <Text style={styles.complaintId}>
+              {report?.complaintId || 'ID unavailable'}
             </Text>
           </View>
 
-          <Text
-            style={{
-              fontSize: 20,
+          <View style={styles.reportMetaRight}>
+            {priority ? (
+              <Text style={[styles.priorityText, { color: priority.color }]}>
+                {priority.label}
+              </Text>
+            ) : null}
 
-              color: '#94A3B8',
+            <Text style={styles.reportDate}>
+              {formatDate(report?.createdAt)}
+            </Text>
+          </View>
+        </View>
 
-              fontWeight: '400',
-            }}
-          >
-            →
-          </Text>
+        <View style={styles.openDetailsRow}>
+          <Text style={styles.openDetailsText}>View complaint details</Text>
+          <Text style={styles.openDetailsArrow}>→</Text>
         </View>
       </TouchableOpacity>
     );
   };
 
-  // ==========================================
-  // UI
-  // ==========================================
-
   return (
-    <SafeAreaView
-      style={styles.safeArea}
-    >
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <StatusBar
         barStyle="dark-content"
-        backgroundColor="#F7F9FC"
+        backgroundColor="#F5F8F6"
+        translucent={false}
       />
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={
-          styles.container
-        }
-        showsVerticalScrollIndicator={
-          false
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#168653']}
+            tintColor="#168653"
+          />
         }
       >
         {/* HEADER */}
+        <View style={styles.header}>
+          <View style={styles.brandRow}>
+            <View style={styles.brandMark}>
+              <Text style={styles.brandMarkText}>C</Text>
+            </View>
 
-        <View
-          style={styles.header}
-        >
-          <View>
-            <Text
-              style={styles.greeting}
-            >
-              {(() => {
-                const hour =
-                  new Date().getHours();
-
-                if (
-                  hour >= 5 &&
-                  hour < 12
-                ) {
-                  return 'GOOD MORNING';
-                }
-
-                if (
-                  hour >= 12 &&
-                  hour < 17
-                ) {
-                  return 'GOOD AFTERNOON';
-                }
-
-                if (
-                  hour >= 17 &&
-                  hour < 21
-                ) {
-                  return 'GOOD EVENING';
-                }
-
-                return 'GOOD NIGHT';
-              })()}
-            </Text>
-
-            <Text
-              style={styles.title}
-            >
-              Hello, Ketan 👋
-            </Text>
-          </View>
-
-          {/* NOTIFICATION BUTTON */}
-
-          <TouchableOpacity
-            style={
-              styles.notificationButton
-            }
-            activeOpacity={0.8}
-            onPress={
-              openNotifications
-            }
-          >
-            <Text
-              style={
-                styles.notificationIcon
-              }
-            >
-              🔔
-            </Text>
-
-            <View
-              style={
-                styles.notificationDot
-              }
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* CAMPUS STATUS */}
-
-        <View
-          style={styles.statusCard}
-        >
-          <View
-            style={styles.statusIcon}
-          >
-            <Text
-              style={
-                styles.statusIconText
-              }
-            >
-              ✓
-            </Text>
-          </View>
-
-          <View
-            style={
-              styles.statusContent
-            }
-          >
-            <Text
-              style={styles.statusTitle}
-            >
-              Campus is running smoothly
-            </Text>
-
-            <Text
-              style={
-                styles.statusSubtitle
-              }
-            >
-              No major campus alerts right now.
-            </Text>
-          </View>
-
-          <View
-            style={
-              styles.statusIndicator
-            }
-          />
-        </View>
-
-        {/* REPORT ISSUE */}
-
-        <TouchableOpacity
-          style={
-            styles.reportCard
-          }
-          activeOpacity={0.88}
-          onPress={() =>
-            navigation.navigate(
-              'ReportIssue'
-            )
-          }
-        >
-          <View
-            style={
-              styles.reportContent
-            }
-          >
-            <Text
-              style={
-                styles.reportEyebrow
-              }
-            >
-              NEED HELP?
-            </Text>
-
-            <Text
-              style={
-                styles.reportTitle
-              }
-            >
-              Report an Issue
-            </Text>
-
-            <Text
-              style={
-                styles.reportSubtitle
-              }
-            >
-              Tell us what is wrong on campus
-              and we'll help get it resolved.
-            </Text>
-
-            <View
-              style={
-                styles.reportButton
-              }
-            >
-              <Text
-                style={
-                  styles.reportButtonText
-                }
-              >
-                Report now
-              </Text>
-
-              <Text
-                style={styles.reportArrow}
-              >
-                →
+            <View>
+              <Text style={styles.brandName}>CampusSetu</Text>
+              <Text style={styles.brandTagline}>
+                Bridging Students and Solutions
               </Text>
             </View>
           </View>
 
-          <View
-            style={
-              styles.reportDecoration
-            }
+          <TouchableOpacity
+            style={styles.notificationButton}
+            onPress={openNotifications}
+            activeOpacity={0.78}
+            accessibilityRole="button"
+            accessibilityLabel="Open notifications"
           >
-            <Text
-              style={
-                styles.reportDecorationText
-              }
-            >
-              +
+            <Text style={styles.notificationIcon}>♧</Text>
+            <View style={styles.notificationBellOverlay}>
+              <Text style={styles.notificationBellText}>!</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* WELCOME */}
+        <View style={styles.welcomeSection}>
+          <Text style={styles.greeting}>{getGreeting()}</Text>
+          <Text style={styles.welcomeTitle}>Welcome back! 👋</Text>
+          <Text style={styles.welcomeSubtitle}>
+            Your campus concerns, all in one place.
+          </Text>
+        </View>
+
+        {/* CAMPUS SETU INTRO CARD */}
+        <View style={styles.campusCard}>
+          <View style={styles.campusCardIcon}>
+            <Text style={styles.campusCardIconText}>✓</Text>
+          </View>
+
+          <View style={styles.campusCardContent}>
+            <Text style={styles.campusCardTitle}>
+              Your voice matters
             </Text>
+            <Text style={styles.campusCardSubtitle}>
+              Report campus issues and follow their progress right here.
+            </Text>
+          </View>
+        </View>
+
+        {/* PRIMARY ACTION */}
+        <TouchableOpacity
+          style={styles.primaryAction}
+          activeOpacity={0.88}
+          onPress={() => navigateTo('ReportIssue')}
+          accessibilityRole="button"
+          accessibilityLabel="Report a campus issue"
+        >
+          <View style={styles.primaryActionContent}>
+            <Text style={styles.primaryEyebrow}>NEED SOMETHING FIXED?</Text>
+            <Text style={styles.primaryTitle}>Report an Issue</Text>
+            <Text style={styles.primarySubtitle}>
+              Tell us what needs attention on campus.
+            </Text>
+
+            <View style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Report now</Text>
+              <Text style={styles.primaryButtonArrow}>→</Text>
+            </View>
+          </View>
+
+          <View style={styles.primaryDecoration}>
+            <Text style={styles.primaryDecorationText}>+</Text>
           </View>
         </TouchableOpacity>
 
         {/* QUICK ACTIONS */}
-
-        <View
-          style={styles.sectionHeader}
-        >
-          <Text
-            style={styles.sectionTitle}
-          >
-            Quick actions
-          </Text>
-
-          <Text
-            style={styles.sectionHint}
-          >
-            Get things done faster
-          </Text>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeaderText}>
+            <Text style={styles.sectionTitle}>Quick actions</Text>
+            <Text style={styles.sectionSubtitle}>
+              Everything you need, one tap away
+            </Text>
+          </View>
         </View>
 
-        <View
-          style={styles.quickGrid}
-        >
-          {/* MY REPORTS */}
-
-          <TouchableOpacity
-            style={
-              styles.quickCard
-            }
-            activeOpacity={0.8}
-            onPress={() =>
-              navigation.navigate(
-                'MyReports'
-              )
-            }
-          >
-            <View
-              style={
-                styles.quickIconBlue
-              }
+        <View style={styles.quickGrid}>
+          {QUICK_ACTIONS.map((action) => (
+            <TouchableOpacity
+              key={action.id}
+              style={styles.quickCard}
+              activeOpacity={0.8}
+              onPress={() => navigateTo(action.route, action.params)}
+              accessibilityRole="button"
+              accessibilityLabel={action.title}
             >
-              <Text
-                style={
-                  styles.quickIconText
-                }
+              <View
+                style={[
+                  styles.quickIconContainer,
+                  { backgroundColor: action.background },
+                ]}
               >
-                ≡
+                <Text style={[styles.quickIcon, { color: action.color }]}>
+                  {action.icon}
+                </Text>
+              </View>
+
+              <Text style={styles.quickTitle} numberOfLines={1}>
+                {action.title}
               </Text>
-            </View>
 
-            <Text
-              style={styles.quickTitle}
-            >
-              My Reports
-            </Text>
-
-            <Text
-              style={
-                styles.quickSubtitle
-              }
-            >
-              View your complaints
-            </Text>
-          </TouchableOpacity>
-
-          {/* TRACK COMPLAINT */}
-
-          <TouchableOpacity
-            style={
-              styles.quickCard
-            }
-            activeOpacity={0.8}
-            onPress={() =>
-              navigation.navigate(
-                'TrackComplaint'
-              )
-            }
-          >
-            <View
-              style={
-                styles.quickIconBlue
-              }
-            >
-              <Text
-                style={
-                  styles.quickIconText
-                }
-              >
-                🔍
+              <Text style={styles.quickSubtitle} numberOfLines={2}>
+                {action.subtitle}
               </Text>
-            </View>
 
-            <Text
-              style={styles.quickTitle}
-            >
-              Track Complaint
-            </Text>
-
-            <Text
-              style={
-                styles.quickSubtitle
-              }
-            >
-              Check complaint status
-            </Text>
-          </TouchableOpacity>
-
-          {/* RESOLVED */}
-
-          <TouchableOpacity
-            style={
-              styles.quickCard
-            }
-            activeOpacity={0.8}
-            onPress={() =>
-              navigation.navigate(
-                'MyReports'
-              )
-            }
-          >
-            <View
-              style={
-                styles.quickIconGreen
-              }
-            >
-              <Text
-                style={
-                  styles.quickIconText
-                }
-              >
-                ✓
-              </Text>
-            </View>
-
-            <Text
-              style={styles.quickTitle}
-            >
-              Resolved
-            </Text>
-
-            <Text
-              style={
-                styles.quickSubtitle
-              }
-            >
-              View completed issues
-            </Text>
-          </TouchableOpacity>
-
-          {/* PENDING */}
-
-          <TouchableOpacity
-            style={
-              styles.quickCard
-            }
-            activeOpacity={0.8}
-            onPress={() =>
-              navigation.navigate(
-                'MyReports'
-              )
-            }
-          >
-            <View
-              style={
-                styles.quickIconOrange
-              }
-            >
-              <Text
-                style={
-                  styles.quickIconText
-                }
-              >
-                !
-              </Text>
-            </View>
-
-            <Text
-              style={styles.quickTitle}
-            >
-              Pending
-            </Text>
-
-            <Text
-              style={
-                styles.quickSubtitle
-              }
-            >
-              Issues being handled
-            </Text>
-          </TouchableOpacity>
-
-          {/* HELP */}
-
-          <TouchableOpacity
-            style={
-              styles.quickCard
-            }
-            activeOpacity={0.8}
-            onPress={() =>
-              navigation.navigate('Help')
-            }
-          >
-            <View
-              style={
-                styles.quickIconPurple
-              }
-            >
-              <Text
-                style={
-                  styles.quickIconText
-                }
-              >
-                ?
-              </Text>
-            </View>
-
-            <Text
-              style={styles.quickTitle}
-            >
-              Help
-            </Text>
-
-            <Text
-              style={
-                styles.quickSubtitle
-              }
-            >
-              Campus support
-            </Text>
-          </TouchableOpacity>
+              <Text style={styles.quickArrow}>↗</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* RECENT ACTIVITY */}
-
-        <View
-          style={
-            styles.sectionHeaderRecent
-          }
-        >
-          <View>
-            <Text
-              style={
-                styles.sectionTitle
-              }
-            >
-              Recent activity
-            </Text>
-
-            <Text
-              style={
-                styles.sectionHint
-              }
-            >
-              Your latest campus reports
+        {/* RECENT ACTIVITY HEADER */}
+        <View style={styles.recentHeader}>
+          <View style={styles.sectionHeaderText}>
+            <Text style={styles.sectionTitle}>Recent activity</Text>
+            <Text style={styles.sectionSubtitle}>
+              Your latest campus complaints
             </Text>
           </View>
 
           <TouchableOpacity
-            onPress={() =>
-              navigation.navigate(
-                'MyReports'
-              )
-            }
+            onPress={() => navigateTo('MyReports')}
+            activeOpacity={0.75}
+            style={styles.viewAllButton}
           >
-            <Text
-              style={styles.viewAll}
-            >
-              View all
-            </Text>
+            <Text style={styles.viewAllText}>View all</Text>
+            <Text style={styles.viewAllArrow}>→</Text>
           </TouchableOpacity>
         </View>
 
         {/* RECENT ACTIVITY CONTENT */}
-
         {reportsLoading ? (
-          <View
-            style={{
-              backgroundColor:
-                '#FFFFFF',
-
-              borderRadius: 18,
-
-              borderWidth: 1,
-
-              borderColor:
-                '#E5E7EB',
-
-              paddingVertical: 30,
-
-              alignItems: 'center',
-
-              justifyContent:
-                'center',
-            }}
-          >
-            <ActivityIndicator
-              size="small"
-              color="#2563EB"
-            />
-
-            <Text
-              style={{
-                marginTop: 10,
-
-                fontSize: 12,
-
-                fontWeight: '600',
-
-                color: '#94A3B8',
-              }}
-            >
-              Loading your reports...
+          <View style={styles.stateCard}>
+            <ActivityIndicator size="large" color="#168653" />
+            <Text style={styles.loadingText}>
+              Loading your recent complaints...
             </Text>
           </View>
         ) : reportsError ? (
-          <View
-            style={{
-              backgroundColor:
-                '#FEF2F2',
+          <View style={styles.errorCard}>
+            <View style={styles.errorIcon}>
+              <Text style={styles.errorIconText}>!</Text>
+            </View>
 
-              borderRadius: 18,
-
-              borderWidth: 1,
-
-              borderColor:
-                '#FECACA',
-
-              padding: 18,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 14,
-
-                fontWeight: '900',
-
-                color: '#991B1B',
-              }}
-            >
-              Couldn't load recent activity
+            <Text style={styles.errorTitle}>
+              Couldn’t load recent activity
             </Text>
-
-            <Text
-              style={{
-                marginTop: 6,
-
-                fontSize: 12,
-
-                lineHeight: 18,
-
-                color: '#B91C1C',
-              }}
-            >
-              {reportsError}
-            </Text>
+            <Text style={styles.errorMessage}>{reportsError}</Text>
 
             <TouchableOpacity
+              style={styles.retryButton}
               activeOpacity={0.8}
-              onPress={() => {
-                setReportsLoading(
-                  true
-                );
-
-                loadRecentReports();
-              }}
-              style={{
-                marginTop: 13,
-
-                alignSelf:
-                  'flex-start',
-
-                backgroundColor:
-                  '#FFFFFF',
-
-                borderWidth: 1,
-
-                borderColor:
-                  '#FCA5A5',
-
-                borderRadius: 10,
-
-                paddingHorizontal: 13,
-
-                paddingVertical: 8,
-              }}
+              onPress={() => loadRecentReports(true)}
             >
-              <Text
-                style={{
-                  fontSize: 11,
-
-                  fontWeight: '900',
-
-                  color: '#DC2626',
-                }}
-              >
-                Try Again
-              </Text>
+              <Text style={styles.retryButtonText}>Try again</Text>
             </TouchableOpacity>
           </View>
         ) : recentReports.length > 0 ? (
-          <View>
-            {recentReports.map(
-              renderRecentReport
-            )}
+          <View style={styles.reportsList}>
+            {recentReports.map(renderRecentReport)}
           </View>
         ) : (
-          <View
-            style={styles.emptyCard}
-          >
-            <View
-              style={
-                styles.emptyIcon
-              }
-            >
-              <Text
-                style={
-                  styles.emptyIconText
-                }
-              >
-                ≡
-              </Text>
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIcon}>
+              <Text style={styles.emptyIconText}>≡</Text>
             </View>
 
-            <Text
-              style={styles.emptyTitle}
-            >
-              No reports yet
-            </Text>
-
-            <Text
-              style={
-                styles.emptySubtitle
-              }
-            >
-              Your reported campus issues will
-              appear here.
+            <Text style={styles.emptyTitle}>No complaints yet</Text>
+            <Text style={styles.emptySubtitle}>
+              When you report a campus issue, it will appear here so you can
+              easily follow its progress.
             </Text>
 
             <TouchableOpacity
-              style={
-                styles.emptyButton
-              }
-              activeOpacity={0.8}
-              onPress={() =>
-                navigation.navigate(
-                  'ReportIssue'
-                )
-              }
+              style={styles.emptyButton}
+              activeOpacity={0.85}
+              onPress={() => navigateTo('ReportIssue')}
             >
-              <Text
-                style={
-                  styles.emptyButtonText
-                }
-              >
+              <Text style={styles.emptyButtonText}>
                 Report your first issue
               </Text>
+              <Text style={styles.emptyButtonArrow}>→</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        <View
-          style={styles.bottomSpace}
-        />
+        {/* SUPPORT FOOTER */}
+        <View style={styles.footerCard}>
+          <View style={styles.footerIcon}>
+            <Text style={styles.footerIconText}>?</Text>
+          </View>
+
+          <View style={styles.footerContent}>
+            <Text style={styles.footerTitle}>Need a hand?</Text>
+            <Text style={styles.footerSubtitle}>
+              Visit Help & Support for guidance using CampusSetu.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => navigateTo('Help')}
+              activeOpacity={0.75}
+              style={styles.footerLink}
+            >
+              <Text style={styles.footerLinkText}>Get help</Text>
+              <Text style={styles.footerLinkArrow}>→</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <Text style={styles.bottomNote}>
+          CampusSetu · Bridging Students and Solutions
+        </Text>
       </ScrollView>
 
       {/* BOTTOM NAVIGATION */}
-
-      <View
-        style={styles.bottomNav}
-      >
-        {/* HOME */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity
+          style={styles.navItem}
+          activeOpacity={0.75}
+          onPress={() => {
+            // Already on the student home screen.
+          }}
+        >
+          <Text style={styles.navIconActive}>⌂</Text>
+          <Text style={styles.navLabelActive}>Home</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.navItem}
-          activeOpacity={0.7}
-          onPress={() => { }}
+          activeOpacity={0.75}
+          onPress={() => navigateTo('MyReports')}
         >
-          <Text
-            style={
-              styles.navIconActive
-            }
-          >
-            ⌂
-          </Text>
-
-          <Text
-            style={
-              styles.navLabelActive
-            }
-          >
-            Home
-          </Text>
+          <Text style={styles.navIcon}>≡</Text>
+          <Text style={styles.navLabel}>Reports</Text>
         </TouchableOpacity>
 
-        {/* REPORTS */}
-
         <TouchableOpacity
-          style={styles.navItem}
-          activeOpacity={0.7}
-          onPress={() =>
-            navigation.navigate(
-              'MyReports'
-            )
-          }
-        >
-          <Text
-            style={styles.navIcon}
-          >
-            ≡
-          </Text>
-
-          <Text
-            style={styles.navLabel}
-          >
-            Reports
-          </Text>
-        </TouchableOpacity>
-
-        {/* ADD / REPORT */}
-
-        <TouchableOpacity
-          style={styles.addButton}
+          style={styles.navAddItem}
           activeOpacity={0.85}
-          onPress={() =>
-            navigation.navigate(
-              'ReportIssue'
-            )
-          }
+          onPress={() => navigateTo('ReportIssue')}
+          accessibilityRole="button"
+          accessibilityLabel="Create a complaint"
         >
-          <Text
-            style={
-              styles.addButtonText
-            }
-          >
-            +
-          </Text>
+          <View style={styles.navAddButton}>
+            <Text style={styles.navAddText}>+</Text>
+          </View>
+          <Text style={styles.navLabel}>Report</Text>
         </TouchableOpacity>
-
-        {/* ALERTS */}
 
         <TouchableOpacity
           style={styles.navItem}
-          activeOpacity={0.7}
-          onPress={
-            openNotifications
-          }
+          activeOpacity={0.75}
+          onPress={openNotifications}
         >
-          <Text
-            style={styles.navIcon}
-          >
-            🔔
-          </Text>
-
-          <Text
-            style={styles.navLabel}
-          >
-            Alerts
-          </Text>
+          <Text style={styles.navIcon}>♧</Text>
+          <Text style={styles.navLabel}>Alerts</Text>
         </TouchableOpacity>
-
-        {/* PROFILE */}
 
         <TouchableOpacity
           style={styles.navItem}
-          activeOpacity={0.7}
-          onPress={() =>
-            navigation.navigate(
-              'Profile'
-            )
-          }
+          activeOpacity={0.75}
+          onPress={() => navigateTo('Profile')}
         >
-          <Text
-            style={styles.navIcon}
-          >
-            ●
-          </Text>
-
-          <Text
-            style={styles.navLabel}
-          >
-            Profile
-          </Text>
+          <Text style={styles.navIcon}>●</Text>
+          <Text style={styles.navLabel}>Profile</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

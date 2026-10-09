@@ -21,6 +21,7 @@ import EditProfileScreen from '../screens/EditProfileScreen';
 import TrackComplaintScreen from '../screens/TrackComplaintScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import HelpScreen from '../screens/HelpScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -88,6 +89,13 @@ export default function AppNavigator() {
         <Stack.Screen
           name="Help"
           component={HelpScreen}
+        />
+        <Stack.Screen
+          name="ForgotPassword"
+          component={ForgotPasswordScreen}
+          options={{
+            headerShown: false,
+          }}
         />
 
       </Stack.Navigator>
