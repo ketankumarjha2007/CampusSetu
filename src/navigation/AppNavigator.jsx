@@ -24,6 +24,8 @@ import HelpScreen from '../screens/HelpScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import TeacherDashboardScreen from '../screens/TeacherDashboardScreen';
 import OfficialIssueDetails from '../screens/OfficialIssueDetails';
+import ClusterHeadDashboardScreen from '../screens/ClusterHeadDashboardScreen';
+import PrincipalDashboardScreen from '../screens/PrincipalDashboardScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -102,6 +104,14 @@ export default function AppNavigator() {
         <Stack.Screen
           name="TeacherDashboard"
           component={TeacherDashboardScreen}
+        />
+        <Stack.Screen
+          name="ClusterHeadDashboard"
+          component={ClusterHeadDashboardScreen}
+        />
+        <Stack.Screen
+          name="PrincipalDashboard"
+          component={PrincipalDashboardScreen}
         />
         <Stack.Screen
           name="OfficialIssueDetails"

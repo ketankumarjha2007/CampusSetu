@@ -1,362 +1,572 @@
 
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
-const styles = StyleSheet.create({
+const C = {
+  page: '#F3F6FB',
+  white: '#FFFFFF',
+  navy: '#101B35',
+  navyLight: '#1C2C4D',
+  ink: '#17233D',
+  muted: '#71809A',
+  mutedLight: '#94A0B4',
+  border: '#E4EAF2',
+  teal: '#0DAD9B',
+  tealDark: '#087F75',
+  tealPale: '#E2F8F4',
+  blue: '#4778E8',
+  bluePale: '#EBF1FF',
+  amber: '#C58A24',
+  amberPale: '#FFF4DB',
+  purple: '#8960C9',
+  purplePale: '#F2EBFC',
+  red: '#D84D5C',
+  redPale: '#FFF0F1',
+  green: '#168461',
+  greenPale: '#E4F7EE',
+};
+
+const shadow = Platform.select({
+  ios: {
+    shadowColor: '#1B2B48',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.055,
+    shadowRadius: 18,
+  },
+  android: { elevation: 3 },
+  default: {},
+});
+
+const card = {
+  backgroundColor: C.white,
+  borderRadius: 22,
+  borderWidth: 1,
+  borderColor: '#E9EEF5',
+  padding: 20,
+  marginBottom: 16,
+  ...shadow,
+};
+
+export default StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F5F7F2',
+    backgroundColor: C.page,
   },
-  header: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5EAE3',
-  },
-  headerButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#F0F5EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerArrow: {
-    color: '#176B4D',
-    fontSize: 32,
-    lineHeight: 36,
-  },
-  refreshIcon: {
-    color: '#176B4D',
-    fontSize: 27,
-  },
-  headerText: {
-    flex: 1,
-    marginHorizontal: 12,
-  },
-  eyebrow: {
-    color: '#668074',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    marginBottom: 4,
-  },
-  headerTitle: {
-    color: '#172820',
-    fontSize: 18,
-    fontWeight: '800',
-  },
+
   content: {
-    padding: 16,
+    paddingHorizontal: 18,
+    paddingTop: 10,
     paddingBottom: 36,
   },
-  heroCard: {
-    backgroundColor: '#176B4D',
-    borderRadius: 24,
-    padding: 22,
-    marginBottom: 16,
+
+  // ─── HEADER ─────────────────────────────────────
+  header: {
+    minHeight: 76,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.page,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8EDF5',
+    gap: 13,
   },
-  eyebrowLight: {
-    color: '#C8E7D5',
+
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow,
+  },
+
+  headerArrow: {
+    color: C.ink,
+    fontSize: 31,
+    lineHeight: 34,
+    marginTop: -3,
+  },
+
+  headerText: {
+    flex: 1,
+  },
+
+  eyebrow: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 1.6,
+    color: C.tealDark,
+    marginBottom: 4,
   },
+
+  headerTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: C.ink,
+    letterSpacing: -0.5,
+  },
+
+  refreshIcon: {
+    color: C.tealDark,
+    fontSize: 26,
+    fontWeight: '600',
+  },
+
+  // ─── COMPLAINT HERO ─────────────────────────────
+  heroCard: {
+    backgroundColor: C.navy,
+    borderRadius: 26,
+    padding: 24,
+    marginBottom: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#273858',
+    ...Platform.select({
+      ios: {
+        shadowColor: C.navy,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.19,
+        shadowRadius: 20,
+      },
+      android: { elevation: 7 },
+      default: {},
+    }),
+  },
+
+  eyebrowLight: {
+    color: '#9FE6DA',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginBottom: 13,
+  },
+
   reference: {
-    color: '#FFFFFF',
-    fontSize: 24,
+    color: C.white,
+    fontSize: 25,
+    lineHeight: 33,
     fontWeight: '900',
-    marginTop: 10,
-    marginBottom: 18,
+    letterSpacing: -0.6,
+    marginBottom: 17,
   },
+
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    gap: 9,
+    marginBottom: 19,
   },
+
   badge: {
-    borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  heroFootnote: {
-    color: '#D8EBE0',
-    fontSize: 12,
-    marginTop: 18,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    paddingVertical: 8,
+    borderRadius: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5EAE3',
-    padding: 18,
-    marginBottom: 14,
+    borderColor: 'rgba(255,255,255,0.16)',
   },
+
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+
+  heroFootnote: {
+    color: '#B6C4DD',
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500',
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.13)',
+  },
+
+  // ─── GENERAL CARDS ──────────────────────────────
+  card: {
+    ...card,
+  },
+
   sectionTitle: {
-    color: '#172820',
-    fontSize: 17,
-    fontWeight: '800',
-    marginBottom: 14,
+    color: C.ink,
+    fontSize: 16,
+    fontWeight: '850',
+    letterSpacing: -0.3,
+    marginBottom: 16,
   },
+
   issueTitle: {
-    color: '#1A3025',
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 10,
+    color: C.ink,
+    fontSize: 21,
+    lineHeight: 29,
+    fontWeight: '850',
+    letterSpacing: -0.55,
+    marginBottom: 11,
   },
+
   description: {
-    color: '#526158',
+    color: '#59677F',
     fontSize: 14,
-    lineHeight: 22,
+    lineHeight: 23,
+    fontWeight: '400',
   },
+
   categoryPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#E5F2E9',
-    borderRadius: 10,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    marginTop: 16,
+    backgroundColor: C.tealPale,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 100,
+    marginTop: 17,
+    borderWidth: 1,
+    borderColor: '#C7EEE6',
   },
+
   categoryText: {
-    color: '#176B4D',
-    fontSize: 12,
+    color: C.tealDark,
+    fontSize: 11,
     fontWeight: '800',
+    letterSpacing: 0.35,
+    textTransform: 'capitalize',
   },
+
+  // ─── STUDENT PROFILE ────────────────────────────
   studentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 13,
+    padding: 14,
+    backgroundColor: '#F6F9FD',
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: '#EAF0F7',
+    marginBottom: 16,
   },
+
   avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
-    backgroundColor: '#DDF0E4',
+    width: 51,
+    height: 51,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    backgroundColor: C.navy,
+    borderWidth: 3,
+    borderColor: '#E3EAF8',
   },
+
   avatarText: {
-    color: '#176B4D',
-    fontSize: 20,
+    color: C.white,
+    fontSize: 21,
     fontWeight: '900',
   },
+
   studentIdentity: {
     flex: 1,
   },
+
   studentName: {
-    color: '#172820',
+    color: C.ink,
     fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  muted: {
-    color: '#77847B',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  infoRow: {
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#EEF1EC',
-  },
-  infoLabel: {
-    color: '#77847B',
-    fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '850',
     marginBottom: 5,
   },
-  infoValue: {
-    color: '#24392D',
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 20,
+
+  // ─── INFORMATION ROWS ──────────────────────────
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 15,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDF1F6',
   },
+
+  infoLabel: {
+    flex: 0.8,
+    color: C.muted,
+    fontSize: 12,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+
+  infoValue: {
+    flex: 1.2,
+    color: C.ink,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+
+  muted: {
+    color: C.muted,
+    fontSize: 13,
+    lineHeight: 21,
+  },
+
+  // ─── ATTACHMENT ─────────────────────────────────
   issuePhoto: {
     width: '100%',
     height: 230,
-    borderRadius: 14,
-    backgroundColor: '#E9EEE7',
+    borderRadius: 17,
+    backgroundColor: '#E9EEF5',
+    marginTop: 2,
   },
+
+  // ─── ACTION PANEL ───────────────────────────────
   actionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.white,
+    borderRadius: 23,
     borderWidth: 1,
-    borderColor: '#CFE4D4',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 14,
+    borderColor: '#BFEAE1',
+    padding: 20,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: C.teal,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.07,
+        shadowRadius: 16,
+      },
+      android: { elevation: 3 },
+      default: {},
+    }),
   },
+
   actionDescription: {
-    color: '#647168',
+    color: C.muted,
     fontSize: 13,
     lineHeight: 21,
-    marginBottom: 18,
+    marginTop: -6,
+    marginBottom: 19,
   },
+
   inputLabel: {
-    color: '#26392D',
-    fontSize: 13,
+    color: C.ink,
+    fontSize: 12,
     fontWeight: '800',
     marginBottom: 9,
   },
+
   noteInput: {
-    minHeight: 120,
+    minHeight: 125,
     maxHeight: 220,
     borderWidth: 1,
-    borderColor: '#DCE5DC',
-    borderRadius: 14,
-    backgroundColor: '#FBFCFA',
-    padding: 14,
-    color: '#172820',
+    borderColor: '#D9E3EF',
+    backgroundColor: '#F8FAFD',
+    borderRadius: 16,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
     fontSize: 14,
-    lineHeight: 21,
+    lineHeight: 22,
+    color: C.ink,
   },
+
   characterCount: {
-    color: '#8A968E',
-    fontSize: 11,
+    color: C.mutedLight,
+    fontSize: 10,
+    fontWeight: '600',
     textAlign: 'right',
     marginTop: 7,
-    marginBottom: 14,
+    marginBottom: 16,
   },
+
   primaryButton: {
-    minHeight: 50,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: '#176B4D',
+    minHeight: 53,
+    paddingHorizontal: 18,
+    paddingVertical: 15,
+    borderRadius: 15,
+    backgroundColor: C.tealDark,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: C.tealDark,
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
+      },
+      android: { elevation: 3 },
+      default: {},
+    }),
   },
+
   primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
+    color: C.white,
+    fontSize: 13,
+    fontWeight: '850',
+    letterSpacing: 0.2,
     textAlign: 'center',
   },
+
   disabledButton: {
-    opacity: 0.65,
+    opacity: 0.55,
   },
+
   actionHint: {
-    color: '#77847B',
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 12,
+    color: C.muted,
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 10,
+    textAlign: 'center',
   },
-  completedCard: {
-    backgroundColor: '#E7F5EC',
-    borderColor: '#CBE7D4',
+
+  backButton: {
+    minHeight: 46,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 14,
-    gap: 8,
+    borderColor: C.border,
+    backgroundColor: '#F8FAFD',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
+  backButtonText: {
+    color: C.ink,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+
+  // ─── COMPLETED STATE ────────────────────────────
+  completedCard: {
+    backgroundColor: C.greenPale,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: '#C8EBDD',
+    padding: 20,
+    marginBottom: 16,
+  },
+
   completedTitle: {
-    color: '#176B4D',
+    color: C.green,
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '850',
+    marginBottom: 10,
   },
+
+  // ─── ACTIVITY TIMELINE ──────────────────────────
   timelineHeading: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 10,
   },
+
   timelineCount: {
-    color: '#668074',
-    fontSize: 11,
+    color: C.tealDark,
+    backgroundColor: C.tealPale,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 100,
+    overflow: 'hidden',
+    fontSize: 10,
     fontWeight: '800',
   },
+
   timelineItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingTop: 15,
+    alignItems: 'stretch',
+    gap: 13,
+    paddingBottom: 21,
   },
+
   timelineDot: {
     width: 11,
     height: 11,
     borderRadius: 6,
     marginTop: 5,
-    marginRight: 12,
+    borderWidth: 2,
+    borderColor: C.white,
+    ...shadow,
   },
+
   timelineBody: {
     flex: 1,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEF1EC',
+    backgroundColor: '#F8FAFD',
+    borderRadius: 15,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: '#EAF0F6',
   },
+
   timelineStatus: {
-    color: '#24392D',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  timelineDate: {
-    color: '#88938B',
-    fontSize: 11,
-    marginTop: 5,
-  },
-  timelineNote: {
-    color: '#526158',
+    color: C.ink,
     fontSize: 13,
-    lineHeight: 20,
-    marginTop: 8,
+    fontWeight: '850',
+    marginBottom: 5,
   },
-  timelineAuthor: {
-    color: '#176B4D',
+
+  timelineDate: {
+    color: C.muted,
     fontSize: 11,
-    fontWeight: '700',
-    marginTop: 7,
-  },
-  footer: {
-    color: '#89958C',
-    fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 8,
-    paddingHorizontal: 12,
-  },
-  centerState: {
-    flex: 1,
-    padding: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerTitle: {
-    color: '#172820',
-    fontSize: 19,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginTop: 16,
+    lineHeight: 17,
     marginBottom: 8,
   },
+
+  timelineNote: {
+    color: '#52617A',
+    fontSize: 12,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+
+  timelineAuthor: {
+    color: C.tealDark,
+    fontSize: 10,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+
+  // ─── LOADING / ERROR STATES ─────────────────────
+  centerState: {
+    flex: 1,
+    backgroundColor: C.page,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 30,
+  },
+
+  centerTitle: {
+    color: C.ink,
+    fontSize: 20,
+    fontWeight: '850',
+    textAlign: 'center',
+    marginTop: 17,
+    marginBottom: 9,
+  },
+
   errorIcon: {
-    color: '#B83232',
-    backgroundColor: '#FCE6E6',
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 62,
+    height: 62,
+    lineHeight: 62,
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: C.redPale,
+    color: C.red,
+    fontSize: 29,
+    fontWeight: '900',
     textAlign: 'center',
     textAlignVertical: 'center',
-    overflow: 'hidden',
-    fontSize: 28,
-    fontWeight: '900',
   },
-  backButton: {
-    padding: 14,
-    marginTop: 8,
-  },
-  backButtonText: {
-    color: '#176B4D',
-    fontSize: 14,
-    fontWeight: '800',
+
+  // ─── FOOTER ─────────────────────────────────────
+  footer: {
+    color: C.muted,
+    fontSize: 11,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginTop: 5,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
   },
 });
-
-export default styles;

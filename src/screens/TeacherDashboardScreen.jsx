@@ -1,4 +1,3 @@
-
 import React, {
   useCallback,
   useMemo,
@@ -7,6 +6,7 @@ import React, {
 
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -54,24 +54,17 @@ const PRIORITY_ORDER = {
 };
 
 const getPriority = (issue) => {
-  const priority = issue?.priority || 'medium';
-
+  const priority = String(issue?.priority || 'medium').toLowerCase();
   return PRIORITY_LABELS[priority] ? priority : 'medium';
 };
 
 const getStatus = (issue) => {
-  const status = issue?.status || 'pending';
-
+  const status = String(issue?.status || 'pending').toLowerCase();
   return STATUS_LABELS[status] ? status : 'pending';
 };
 
-const getErrorMessage = (error) => {
-  if (error?.message) return error.message;
-  return 'Unable to load your dashboard. Please try again.';
-};
-
 const getInitials = (name = '') => {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
 
   if (!parts.length) return 'T';
 
@@ -80,6 +73,131 @@ const getInitials = (name = '') => {
     .map((part) => part[0].toUpperCase())
     .join('');
 };
+
+const formatDate = (dateValue) => {
+  if (!dateValue) return 'Date unavailable';
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Date unavailable';
+  }
+
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+const getErrorMessage = (error) => {
+  if (error?.message) return error.message;
+  return 'Unable to load your dashboard. Please try again.';
+};
+
+function SectionHeading({ title, subtitle, right }) {
+  return (
+    <View style={styles.sectionHeading}>
+      <View style={styles.sectionHeadingText}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {!!subtitle && (
+          <Text style={styles.sectionSubtitle}>{subtitle}</Text>
+        )}
+      </View>
+      {right || null}
+    </View>
+  );
+}
+
+function StatCard({ label, value, icon, tone, detail }) {
+  return (
+    <View style={styles.statCard}>
+      <View style={styles.statCardTop}>
+        <View style={[styles.statIcon, styles[`statIcon_${tone}`]]}>
+          <Text
+            style={[
+              styles.statIconText,
+              styles[`statIconText_${tone}`],
+            ]}
+          >
+            {icon}
+          </Text>
+        </View>
+
+        <View style={styles.statAccent}>
+          <View
+            style={[
+              styles.statAccentDot,
+              styles[`dot_${tone}`],
+            ]}
+          />
+        </View>
+      </View>
+
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+
+      {!!detail && (
+        <Text style={styles.statDetail}>{detail}</Text>
+      )}
+    </View>
+  );
+}
+
+function StatusBadge({ status }) {
+  return (
+    <View
+      style={[
+        styles.statusBadge,
+        styles[`statusBadge_${status}`],
+      ]}
+    >
+      {/* FIXED: closing bracket added to the style array */}
+      <View
+        style={[
+          styles.statusDot,
+          styles[`statusDot_${status}`],
+        ]}
+      />
+
+      <Text
+        style={[
+          styles.statusText,
+          styles[`statusText_${status}`],
+        ]}
+      >
+        {STATUS_LABELS[status] || 'Pending'}
+      </Text>
+    </View>
+  );
+}
+
+function PriorityBadge({ priority }) {
+  return (
+    <View
+      style={[
+        styles.priorityBadge,
+        styles[`priorityBadge_${priority}`],
+      ]}
+    >
+      <View
+        style={[
+          styles.priorityDot,
+          styles[`priorityDot_${priority}`],
+        ]}
+      />
+
+      <Text
+        style={[
+          styles.priorityText,
+          styles[`priorityText_${priority}`],
+        ]}
+      >
+        {PRIORITY_LABELS[priority] || 'Medium'}
+      </Text>
+    </View>
+  );
+}
 
 export default function TeacherDashboardScreen({ navigation }) {
   const [issues, setIssues] = useState([]);
@@ -90,112 +208,66 @@ export default function TeacherDashboardScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const fetchDashboard = useCallback(async () => {
-    setError('');
+  const fetchDashboard = useCallback(
+    async ({ showLoader = false } = {}) => {
+      if (showLoader) setLoading(true);
 
-    try {
-      // Assigned complaints are required for the dashboard.
-      // getCurrentUser() is optional because Firebase profile
-      // details can still be used for the greeting.
-      const issuesPromise = apiRequest('/issues/teacher/assigned');
+      setError('');
 
-      const userPromise = getCurrentUser().catch((userError) => {
-        console.warn(
-          'Could not load teacher profile:',
-          userError.message
+      try {
+        const issuesPromise = apiRequest(
+          '/issues/teacher/assigned'
         );
 
-        return null;
-      });
+        const userPromise = getCurrentUser().catch((userError) => {
+          console.warn(
+            'Could not load teacher profile:',
+            userError.message
+          );
+          return null;
+        });
 
-      const [issuesResponse, userResponse] = await Promise.all([
-        issuesPromise,
-        userPromise,
-      ]);
+        const [issuesResponse, userResponse] = await Promise.all([
+          issuesPromise,
+          userPromise,
+        ]);
 
-      if (!Array.isArray(issuesResponse?.issues)) {
-        throw new Error(
-          'The server returned an unexpected complaints response.'
-        );
+        if (!Array.isArray(issuesResponse?.issues)) {
+          throw new Error(
+            'The server returned an unexpected complaints response.'
+          );
+        }
+
+        setIssues(issuesResponse.issues);
+
+        const backendUser =
+          userResponse?.user ||
+          userResponse?.currentUser ||
+          (userResponse && userResponse._id
+            ? userResponse
+            : null);
+
+        setTeacher(backendUser);
+      } catch (err) {
+        console.error('Teacher dashboard error:', err);
+        setError(getErrorMessage(err));
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      setIssues(issuesResponse.issues);
-
-      const backendUser =
-        userResponse?.user ||
-        userResponse?.currentUser ||
-        (userResponse && userResponse._id ? userResponse : null);
-
-      setTeacher(backendUser);
-    } catch (err) {
-      console.error('Teacher dashboard error:', err);
-
-      setError(getErrorMessage(err));
-    }
-  }, []);
+    },
+    []
+  );
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-
-      const load = async () => {
-        setLoading(true);
-        setError('');
-
-        try {
-          const [issuesResponse, userResponse] = await Promise.all([
-            apiRequest('/issues/teacher/assigned'),
-            getCurrentUser().catch((err) => {
-              console.warn('Teacher profile unavailable:', err.message);
-              return null;
-            }),
-          ]);
-
-          if (!active) return;
-
-          if (!Array.isArray(issuesResponse?.issues)) {
-            throw new Error(
-              'The server returned an unexpected complaints response.'
-            );
-          }
-
-          setIssues(issuesResponse.issues);
-
-          const backendUser =
-            userResponse?.user ||
-            userResponse?.currentUser ||
-            (userResponse && userResponse._id ? userResponse : null);
-
-          setTeacher(backendUser);
-        } catch (err) {
-          if (active) {
-            console.error('Teacher dashboard error:', err);
-            setError(getErrorMessage(err));
-          }
-        } finally {
-          if (active) {
-            setLoading(false);
-            setRefreshing(false);
-          }
-        }
-      };
-
-      load();
-
-      return () => {
-        active = false;
-      };
-    }, [])
+      fetchDashboard({ showLoader: true });
+    }, [fetchDashboard])
   );
 
-  const onRefresh = useCallback(async () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-
-    try {
-      await fetchDashboard();
-    } finally {
-      setRefreshing(false);
-    }
+    fetchDashboard();
   }, [fetchDashboard]);
 
   const counts = useMemo(() => {
@@ -212,11 +284,12 @@ export default function TeacherDashboardScreen({ navigation }) {
 
     issues.forEach((issue) => {
       const status = getStatus(issue);
+      const priority = getPriority(issue);
 
       result[status] += 1;
 
       if (
-        getPriority(issue) === 'critical' &&
+        priority === 'critical' &&
         !['resolved', 'rejected'].includes(status)
       ) {
         result.critical += 1;
@@ -279,14 +352,55 @@ export default function TeacherDashboardScreen({ navigation }) {
 
   const countStatus = (status) => counts[status] || 0;
 
+  const teacherName =
+    teacher?.name?.trim() ||
+    auth.currentUser?.displayName?.trim() ||
+    auth.currentUser?.email?.split('@')[0] ||
+    'Teacher';
+
+  const teacherInitials = getInitials(teacherName);
+
   const openIssue = (issue) => {
     if (!issue?._id) {
+      Alert.alert(
+        'Unable to open complaint',
+        'This complaint does not have a valid record ID.'
+      );
       return;
     }
 
     navigation.navigate('OfficialIssueDetails', {
       issueId: issue._id,
     });
+  };
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign out?',
+      `You are signed in as ${teacherName}. Do you want to sign out of CampusSetu?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await auth.signOut();
+
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (err) {
+              Alert.alert(
+                'Sign out failed',
+                err?.message || 'Please try again.'
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderIssue = (issue) => {
@@ -308,35 +422,29 @@ export default function TeacherDashboardScreen({ navigation }) {
       <TouchableOpacity
         key={issue._id}
         style={styles.issueCard}
-        activeOpacity={0.85}
+        activeOpacity={0.82}
         onPress={() => openIssue(issue)}
         accessibilityRole="button"
-        accessibilityLabel={`Open complaint ${issue.complaintId || issue.title}`}
+        accessibilityLabel={`Open complaint ${
+          issue.complaintId || issue.title || ''
+        }`}
       >
-        <View style={styles.issueTopRow}>
-          <Text style={styles.complaintId} numberOfLines={1}>
-            {issue.complaintId || 'Complaint'}
-          </Text>
+        <View style={styles.issueCardHeader}>
+          <View style={styles.issueIdentity}>
+            <View style={styles.issueMiniIcon}>
+              <Text style={styles.issueMiniIconText}>#</Text>
+            </View>
 
-          <View
-            style={[
-              styles.priorityBadge,
-              styles[`priority_${priority}`],
-            ]}
-          >
-            <Text
-              style={[
-                styles.priorityText,
-                styles[`priorityText_${priority}`],
-              ]}
-            >
-              {PRIORITY_LABELS[priority]}
+            <Text style={styles.complaintId} numberOfLines={1}>
+              {issue.complaintId || 'Complaint'}
             </Text>
           </View>
+
+          <PriorityBadge priority={priority} />
         </View>
 
         <Text style={styles.issueTitle} numberOfLines={2}>
-          {issue.title || 'Untitled complaint'}
+          {issue.title || issue.category || 'Untitled complaint'}
         </Text>
 
         <Text style={styles.issueDescription} numberOfLines={2}>
@@ -344,38 +452,44 @@ export default function TeacherDashboardScreen({ navigation }) {
         </Text>
 
         <View style={styles.issueMetaRow}>
-          <Text style={styles.issueCategory} numberOfLines={1}>
-            {issue.category || 'General'}
-          </Text>
+          <View style={styles.categoryPill}>
+            <Text style={styles.categoryPillText} numberOfLines={1}>
+              {issue.category || 'General'}
+            </Text>
+          </View>
 
-          <Text
-            style={[
-              styles.statusText,
-              styles[`status_${status}`],
-            ]}
-          >
-            {STATUS_LABELS[status]}
-          </Text>
+          <StatusBadge status={status} />
         </View>
 
-        <View style={styles.locationRow}>
-          <Text style={styles.locationIcon}>⌖</Text>
+        <View style={styles.issueDivider} />
 
-          <Text style={styles.locationText} numberOfLines={2}>
-            {location}
-          </Text>
+        <View style={styles.issueDetailsRow}>
+          <View style={styles.issueDetailItem}>
+            <Text style={styles.detailSymbol}>⌖</Text>
+            <Text style={styles.detailText} numberOfLines={1}>
+              {location}
+            </Text>
+          </View>
+
+          <View style={styles.issueDetailItem}>
+            <Text style={styles.detailSymbol}>◷</Text>
+            <Text style={styles.detailText} numberOfLines={1}>
+              {formatDate(issue.createdAt)}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.cardFooter}>
+        <View style={styles.issueCardFooter}>
           <Text style={styles.reportedBy} numberOfLines={1}>
             {issue.reportedBy?.name
               ? `Reported by ${issue.reportedBy.name}`
               : 'Student complaint'}
           </Text>
 
-          <Text style={styles.viewDetails}>
-            View details →
-          </Text>
+          <View style={styles.viewDetailsContainer}>
+            <Text style={styles.viewDetails}>View details</Text>
+            <Text style={styles.viewDetailsArrow}>›</Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -384,15 +498,17 @@ export default function TeacherDashboardScreen({ navigation }) {
   const renderContent = () => {
     if (loading) {
       return (
-        <View style={styles.centerState}>
-          <ActivityIndicator size="large" color="#16845B" />
+        <View style={styles.stateCard}>
+          <View style={styles.loadingIconContainer}>
+            <ActivityIndicator size="large" color="#0D806A" />
+          </View>
 
           <Text style={styles.stateTitle}>
-            Loading dashboard
+            Preparing your workspace
           </Text>
 
           <Text style={styles.stateDescription}>
-            Fetching your assigned complaints...
+            Fetching your assigned complaints and latest updates.
           </Text>
         </View>
       );
@@ -400,32 +516,23 @@ export default function TeacherDashboardScreen({ navigation }) {
 
     if (error) {
       return (
-        <View style={styles.centerState}>
-          <Text style={styles.stateIcon}>!</Text>
+        <View style={styles.stateCard}>
+          <View style={styles.errorIconContainer}>
+            <Text style={styles.errorIcon}>!</Text>
+          </View>
 
           <Text style={styles.stateTitle}>
-            Couldn't load dashboard
+            Couldn't load your workspace
           </Text>
 
-          <Text style={styles.stateDescription}>
-            {error}
-          </Text>
+          <Text style={styles.stateDescription}>{error}</Text>
 
           <TouchableOpacity
-            style={styles.retryButton}
-            onPress={async () => {
-              setLoading(true);
-
-              try {
-                await fetchDashboard();
-              } finally {
-                setLoading(false);
-              }
-            }}
+            style={styles.primaryButton}
+            activeOpacity={0.85}
+            onPress={() => fetchDashboard({ showLoader: true })}
           >
-            <Text style={styles.retryButtonText}>
-              Try again
-            </Text>
+            <Text style={styles.primaryButtonText}>Try again</Text>
           </TouchableOpacity>
         </View>
       );
@@ -435,31 +542,36 @@ export default function TeacherDashboardScreen({ navigation }) {
       const hasSearch = search.trim().length > 0;
 
       return (
-        <View style={styles.emptyState}>
+        <View style={styles.stateCard}>
           <View style={styles.emptyIconContainer}>
             <Text style={styles.emptyIcon}>
               {hasSearch ? '⌕' : '✓'}
             </Text>
           </View>
 
-          <Text style={styles.emptyTitle}>
-            {hasSearch ? 'No matching complaints' : 'No complaints here'}
+          <Text style={styles.stateTitle}>
+            {hasSearch
+              ? 'No matching complaints'
+              : 'You’re all caught up'}
           </Text>
 
-          <Text style={styles.emptyDescription}>
+          <Text style={styles.stateDescription}>
             {hasSearch
-              ? 'Try another complaint ID, title, student or location.'
+              ? 'Try another complaint ID, title, student, or location.'
               : activeFilter === 'all'
-                ? 'You currently have no assigned complaints.'
-                : `No ${STATUS_LABELS[activeFilter]?.toLowerCase() || ''} complaints found.`}
+                ? 'There are no complaints assigned to you right now. New assignments will appear here.'
+                : `No ${
+                    STATUS_LABELS[activeFilter]?.toLowerCase() || ''
+                  } complaints found.`}
           </Text>
 
           {hasSearch ? (
             <TouchableOpacity
-              style={styles.retryButton}
+              style={styles.secondaryButton}
               onPress={() => setSearch('')}
+              activeOpacity={0.8}
             >
-              <Text style={styles.retryButtonText}>
+              <Text style={styles.secondaryButtonText}>
                 Clear search
               </Text>
             </TouchableOpacity>
@@ -471,18 +583,10 @@ export default function TeacherDashboardScreen({ navigation }) {
     return filteredIssues.map(renderIssue);
   };
 
-  const teacherName =
-    teacher?.name?.trim() ||
-    auth.currentUser?.displayName?.trim() ||
-    auth.currentUser?.email?.split('@')[0] ||
-    'Teacher';
-
-  const teacherInitial = getInitials(teacherName);
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
-        backgroundColor="#F5F8F6"
+        backgroundColor="#F4F7FB"
         barStyle="dark-content"
       />
 
@@ -495,267 +599,220 @@ export default function TeacherDashboardScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#16845B']}
-            tintColor="#16845B"
+            colors={['#0D806A']}
+            tintColor="#0D806A"
           />
         }
       >
-        {/* HEADER */}
+        {/* TOP BAR */}
+        <View style={styles.topBar}>
+          <View style={styles.brandLockup}>
+            <View style={styles.brandMark}>
+              <Text style={styles.brandMarkText}>C</Text>
+            </View>
 
-        <View style={styles.header}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.eyebrow}>
-              CAMPUSSETU • FACULTY PORTAL
-            </Text>
+            <View>
+              <Text style={styles.brandName}>CampusSetu</Text>
+              <Text style={styles.brandSubtitle}>
+                FACULTY WORKSPACE
+              </Text>
+            </View>
+          </View>
 
-            <Text style={styles.greeting}>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={handleSignOut}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Account and sign out"
+          >
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {teacherInitials}
+              </Text>
+            </View>
+
+            <View style={styles.profileChevron}>
+              <Text style={styles.profileChevronText}>⌄</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* WELCOME HERO */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroGlowOne} />
+          <View style={styles.heroGlowTwo} />
+
+          <View style={styles.heroContent}>
+            <View style={styles.heroEyebrow}>
+              <View style={styles.liveDot} />
+              <Text style={styles.heroEyebrowText}>
+                YOUR DAILY OVERVIEW
+              </Text>
+            </View>
+
+            <Text style={styles.heroGreeting}>
               Hello, {teacherName.split(/\s+/)[0]}!
             </Text>
 
-            <Text style={styles.headerSubtitle}>
-              Let's make your campus better.
+            <Text style={styles.heroTitle}>
+              Make every resolution count.
             </Text>
+
+            <Text style={styles.heroDescription}>
+              Your attention makes campus life better. Here’s what
+              needs you today.
+            </Text>
+
+            <View style={styles.heroBottom}>
+              <View style={styles.heroMetric}>
+                <Text style={styles.heroMetricValue}>
+                  {counts.awaiting}
+                </Text>
+                <Text style={styles.heroMetricLabel}>
+                  Awaiting action
+                </Text>
+              </View>
+
+              <View style={styles.heroMetricDivider} />
+
+              <View style={styles.heroMetric}>
+                <Text style={styles.heroMetricValue}>
+                  {counts.resolved}
+                </Text>
+                <Text style={styles.heroMetricLabel}>
+                  Resolved
+                </Text>
+              </View>
+            </View>
           </View>
 
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {teacherInitial}
-            </Text>
-          </View>
-        </View>
-
-        {/* WELCOME CARD */}
-
-        <View style={styles.welcomeCard}>
-          <View style={styles.welcomeCardContent}>
-            <Text style={styles.welcomeLabel}>
-              YOUR WORKSPACE
-            </Text>
-
-            <Text style={styles.welcomeTitle}>
-              Every issue deserves a solution.
-            </Text>
-
-            <Text style={styles.welcomeDescription}>
-              Review complaints, track progress, and keep students informed.
-            </Text>
-          </View>
-
-          <View style={styles.welcomeIcon}>
-            <Text style={styles.welcomeIconText}>✓</Text>
+          <View style={styles.heroDecoration}>
+            <View style={styles.heroDecorationCircle}>
+              <Text style={styles.heroDecorationIcon}>✓</Text>
+            </View>
           </View>
         </View>
 
         {/* OVERVIEW */}
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            Complaint overview
-          </Text>
-
-          <TouchableOpacity
-            onPress={onRefresh}
-            disabled={refreshing}
-          >
-            <Text style={styles.refreshText}>
-              Refresh ↻
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <SectionHeading
+          title="Your overview"
+          subtitle="A live snapshot of your assigned workload"
+          right={
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={onRefresh}
+              disabled={refreshing}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Refresh dashboard"
+            >
+              <Text style={styles.refreshIcon}>↻</Text>
+            </TouchableOpacity>
+          }
+        />
 
         <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <View
-              style={[
-                styles.statIcon,
-                styles.statIconGreen,
-              ]}
-            >
-              <Text style={styles.statIconText}>≡</Text>
-            </View>
+          <StatCard
+            label="Assigned total"
+            value={counts.total}
+            icon="▤"
+            tone="teal"
+            detail="All complaints"
+          />
 
-            <Text style={styles.statValue}>
-              {counts.total}
-            </Text>
+          <StatCard
+            label="Awaiting action"
+            value={counts.awaiting}
+            icon="◷"
+            tone="amber"
+            detail="Pending or assigned"
+          />
 
-            <Text style={styles.statLabel}>
-              Assigned total
-            </Text>
-          </View>
+          <StatCard
+            label="In progress"
+            value={counts.in_progress}
+            icon="↗"
+            tone="blue"
+            detail="Being addressed"
+          />
 
-          <View style={styles.statCard}>
-            <View
-              style={[
-                styles.statIcon,
-                styles.statIconOrange,
-              ]}
-            >
-              <Text style={styles.statIconText}>◷</Text>
-            </View>
-
-            <Text style={styles.statValue}>
-              {counts.awaiting}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              Awaiting action
-            </Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <View
-              style={[
-                styles.statIcon,
-                styles.statIconBlue,
-              ]}
-            >
-              <Text style={styles.statIconText}>↻</Text>
-            </View>
-
-            <Text style={styles.statValue}>
-              {countStatus('in_progress')}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              In progress
-            </Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <View
-              style={[
-                styles.statIcon,
-                styles.statIconPurple,
-              ]}
-            >
-              <Text style={styles.statIconText}>✓</Text>
-            </View>
-
-            <Text style={styles.statValue}>
-              {countStatus('resolved')}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              Resolved
-            </Text>
-          </View>
+          <StatCard
+            label="Resolved"
+            value={counts.resolved}
+            icon="✓"
+            tone="purple"
+            detail="Successfully closed"
+          />
         </View>
 
-        {/* PRIORITY ALERT */}
+        {/* CRITICAL ALERT */}
+        {!loading && !error && counts.critical > 0 ? (
+          <View style={styles.criticalAlert}>
+            <View style={styles.criticalAlertIcon}>
+              <Text style={styles.criticalAlertIconText}>!</Text>
+            </View>
 
-        {counts.critical > 0 ? (
-          <View
-            style={{
-              marginBottom: 20,
-              padding: 14,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: '#F3B5B5',
-              backgroundColor: '#FFF1F1',
-            }}
-          >
-            <Text
-              style={{
-                color: '#A52828',
-                fontWeight: '800',
-                fontSize: 13,
-              }}
-            >
-              ⚠ {counts.critical} critical complaint
-              {counts.critical === 1 ? '' : 's'} need attention
-            </Text>
+            <View style={styles.criticalAlertContent}>
+              <Text style={styles.criticalAlertTitle}>
+                Immediate attention needed
+              </Text>
 
-            <Text
-              style={{
-                color: '#8C4242',
-                fontSize: 12,
-                marginTop: 5,
-                lineHeight: 18,
-              }}
-            >
-              Review the critical items in your assigned complaints.
-            </Text>
+              <Text style={styles.criticalAlertDescription}>
+                {counts.critical} critical{' '}
+                {counts.critical === 1
+                  ? 'complaint needs'
+                  : 'complaints need'}{' '}
+                your attention.
+              </Text>
+            </View>
+
+            <Text style={styles.criticalAlertArrow}>›</Text>
           </View>
         ) : null}
 
         {/* COMPLAINTS */}
-
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>
-              Assigned complaints
-            </Text>
-
-            <Text style={styles.sectionSubtitle}>
-              Review and manage your workload
-            </Text>
-          </View>
-
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>
-              {filteredIssues.length}
-            </Text>
-          </View>
-        </View>
+        <SectionHeading
+          title="Assigned complaints"
+          subtitle="Prioritized to help you focus on what matters"
+          right={
+            <View style={styles.totalCountBadge}>
+              <Text style={styles.totalCountText}>
+                {filteredIssues.length}
+              </Text>
+            </View>
+          }
+        />
 
         {/* SEARCH */}
-
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            minHeight: 48,
-            paddingHorizontal: 13,
-            marginBottom: 13,
-            borderWidth: 1,
-            borderColor: '#DCE5DF',
-            borderRadius: 13,
-            backgroundColor: '#FFFFFF',
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 20,
-              color: '#16845B',
-              marginRight: 9,
-            }}
-          >
-            ⌕
-          </Text>
+        <View style={styles.searchContainer}>
+          <Text style={styles.searchIcon}>⌕</Text>
 
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search ID, title, student or location..."
-            placeholderTextColor="#8B9A91"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              paddingVertical: 11,
-              color: '#18352A',
-              fontSize: 13,
-            }}
+            placeholder="Search complaints, IDs, students..."
+            placeholderTextColor="#8A96A8"
+            style={styles.searchInput}
             returnKeyType="search"
             accessibilityLabel="Search assigned complaints"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
 
           {search.length > 0 ? (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <Text
-                style={{
-                  fontSize: 22,
-                  color: '#718078',
-                  paddingLeft: 8,
-                }}
-              >
-                ×
-              </Text>
+            <TouchableOpacity
+              onPress={() => setSearch('')}
+              style={styles.clearSearchButton}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+            >
+              <Text style={styles.clearSearchText}>×</Text>
             </TouchableOpacity>
           ) : null}
         </View>
 
         {/* FILTERS */}
-
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -777,6 +834,7 @@ export default function TeacherDashboardScreen({ navigation }) {
                   selected && styles.filterButtonActive,
                 ]}
                 onPress={() => setActiveFilter(filter.value)}
+                activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
               >
@@ -786,28 +844,44 @@ export default function TeacherDashboardScreen({ navigation }) {
                     selected && styles.filterTextActive,
                   ]}
                 >
-                  {filter.label} ({count})
+                  {filter.label}
                 </Text>
+
+                <View
+                  style={[
+                    styles.filterCount,
+                    selected && styles.filterCountActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterCountText,
+                      selected && styles.filterCountTextActive,
+                    ]}
+                  >
+                    {count}
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
-        {/* LIST / LOADING / ERROR */}
-
+        {/* COMPLAINT LIST */}
         <View style={styles.issueList}>
           {renderContent()}
         </View>
 
         {/* FOOTER */}
-
         <View style={styles.footer}>
-          <Text style={styles.footerTitle}>
-            CampusSetu
-          </Text>
+          <View style={styles.footerBrandMark}>
+            <Text style={styles.footerBrandMarkText}>C</Text>
+          </View>
 
-          <Text style={styles.footerText}>
-            Bridging Students and Solutions.
+          <Text style={styles.footerTitle}>CampusSetu</Text>
+
+          <Text style={styles.footerCaption}>
+            FACULTY WORKSPACE
           </Text>
         </View>
       </ScrollView>

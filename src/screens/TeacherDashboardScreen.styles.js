@@ -1,543 +1,974 @@
-import { StyleSheet } from 'react-native';
+
+import { StyleSheet, Platform } from 'react-native';
+
+const C = {
+  bg: '#F5F7FC',
+  white: '#FFFFFF',
+  ink: '#15233B',
+  navy: '#101D35',
+  navy2: '#1A3152',
+  muted: '#66758C',
+  subtle: '#8D9AAF',
+  border: '#E7ECF4',
+  teal: '#087F8C',
+  tealSoft: '#E4F7F7',
+  amber: '#B86A12',
+  amberSoft: '#FFF4E3',
+  blue: '#376DE5',
+  blueSoft: '#EAF0FF',
+  purple: '#7956D8',
+  purpleSoft: '#F0EBFF',
+  red: '#D33F55',
+  redSoft: '#FFF0F2',
+  green: '#16845B',
+  greenSoft: '#E5F7ED',
+};
+
+const shadow = Platform.select({
+  ios: {
+    shadowColor: '#14233D',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.065,
+    shadowRadius: 20,
+  },
+  android: { elevation: 3 },
+  default: {},
+});
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F5F8F6',
+    backgroundColor: C.bg,
   },
-
   container: {
     flex: 1,
+    backgroundColor: C.bg,
   },
-
   content: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 30,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 34,
+    width: '100%',
+    maxWidth: 1080,
+    alignSelf: 'center',
   },
 
-  header: {
+  // ─── Premium brand header ──────────────────────
+  topBar: {
+    minHeight: 66,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 22,
+    gap: 12,
   },
-
-  headerTextContainer: {
-    flex: 1,
-    paddingRight: 12,
+  brandLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flexShrink: 1,
   },
-
-  eyebrow: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.3,
-    color: '#16845B',
-    marginBottom: 8,
-  },
-
-  greeting: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#16372B',
-    letterSpacing: -0.7,
-  },
-
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#75857D',
-    marginTop: 5,
-    lineHeight: 19,
-  },
-
-  avatar: {
+  brandMark: {
     width: 48,
     height: 48,
     borderRadius: 17,
-    backgroundColor: '#DDF3E6',
+    backgroundColor: C.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#C4E9D3',
+    borderColor: '#344969',
+    ...shadow,
+  },
+  brandMarkText: {
+    color: C.white,
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  brandName: {
+    color: C.ink,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.7,
+  },
+  brandSubtitle: {
+    color: C.muted,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+    marginTop: 5,
+  },
+  profileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    padding: 5,
+    paddingLeft: 7,
+    borderRadius: 18,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.border,
+    ...shadow,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: C.teal,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   avatarText: {
-    fontSize: 20,
+    color: C.white,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  profileChevron: {
+    width: 20,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileChevronText: {
+    color: C.muted,
+    fontSize: 17,
     fontWeight: '800',
-    color: '#16845B',
   },
 
-  welcomeCard: {
-    backgroundColor: '#176B4D',
-    borderRadius: 22,
-    padding: 21,
+  // ─── Hero / welcome panel ──────────────────────
+  heroCard: {
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: C.navy,
+    borderRadius: 28,
+    padding: 23,
+    minHeight: 250,
+    borderWidth: 1,
+    borderColor: '#263B5B',
+    ...shadow,
+  },
+  heroGlowOne: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: '#294A70',
+    opacity: 0.6,
+    right: -85,
+    top: -95,
+  },
+  heroGlowTwo: {
+    position: 'absolute',
+    width: 165,
+    height: 165,
+    borderRadius: 83,
+    backgroundColor: '#087F8C',
+    opacity: 0.24,
+    right: 50,
+    bottom: -105,
+  },
+  heroContent: {
+    zIndex: 2,
+    maxWidth: 650,
+  },
+  heroEyebrow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 27,
-    overflow: 'hidden',
+    alignSelf: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.09)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#61E7BD',
+  },
+  heroEyebrowText: {
+    color: '#C5D9EB',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  heroGreeting: {
+    color: '#C5D6E9',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 22,
+  },
+  heroTitle: {
+    color: C.white,
+    fontSize: 28,
+    lineHeight: 35,
+    fontWeight: '900',
+    letterSpacing: -0.9,
+    marginTop: 8,
+    maxWidth: 460,
+  },
+  heroDescription: {
+    color: '#B8C9DE',
+    fontSize: 13,
+    lineHeight: 21,
+    marginTop: 10,
+    maxWidth: 440,
+  },
+  heroBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: 23,
+    paddingTop: 17,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.17)',
+    gap: 22,
+  },
+  heroMetric: {
+    minWidth: 90,
+  },
+  heroMetricValue: {
+    color: C.white,
+    fontSize: 25,
+    fontWeight: '900',
+    letterSpacing: -0.7,
+  },
+  heroMetricLabel: {
+    color: '#BDCEE1',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  heroMetricDivider: {
+    height: 36,
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  heroDecoration: {
+    position: 'absolute',
+    right: 25,
+    bottom: 27,
+    opacity: 0.95,
+  },
+  heroDecorationCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 27,
+    backgroundColor: 'rgba(18,184,166,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(111,226,209,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-8deg' }],
+  },
+  heroDecorationIcon: {
+    color: '#77E5D1',
+    fontSize: 43,
+    fontWeight: '800',
   },
 
-  welcomeCardContent: {
+  // ─── Section headings ──────────────────────────
+  sectionHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 29,
+    marginBottom: 15,
+  },
+  sectionHeadingText: {
     flex: 1,
-    paddingRight: 8,
+    minWidth: 0,
   },
-
-  welcomeLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    color: '#BDEBD1',
-    marginBottom: 9,
+  sectionTitle: {
+    color: C.ink,
+    fontSize: 19,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
-
-  welcomeTitle: {
-    color: '#FFFFFF',
-    fontSize: 21,
-    fontWeight: '800',
-    lineHeight: 28,
-    letterSpacing: -0.4,
-  },
-
-  welcomeDescription: {
-    color: '#D9F1E4',
+  sectionSubtitle: {
+    color: C.muted,
     fontSize: 12,
-    lineHeight: 19,
-    marginTop: 9,
+    lineHeight: 18,
+    marginTop: 5,
   },
-
-  welcomeIcon: {
+  refreshButton: {
     width: 43,
     height: 43,
     borderRadius: 15,
-    backgroundColor: '#398968',
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadow,
   },
-
-  welcomeIconText: {
-    color: '#FFFFFF',
-    fontSize: 24,
+  refreshIcon: {
+    color: C.teal,
+    fontSize: 25,
     fontWeight: '700',
   },
 
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    gap: 10,
-  },
-
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: '#1B3429',
-    letterSpacing: -0.3,
-  },
-
-  sectionSubtitle: {
-    fontSize: 12,
-    color: '#839088',
-    marginTop: 5,
-    lineHeight: 17,
-  },
-
-  refreshText: {
-    color: '#16845B',
-    fontSize: 12,
-    fontWeight: '700',
-    paddingVertical: 8,
-  },
-
+  // ─── Dashboard statistic cards ─────────────────
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 28,
+    gap: 12,
   },
-
   statCard: {
-    width: '48.2%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 15,
+    flexGrow: 1,
+    flexBasis: '45%',
+    minWidth: 140,
+    backgroundColor: C.white,
+    borderRadius: 23,
     borderWidth: 1,
-    borderColor: '#E8EFEA',
-    marginBottom: 12,
-    minHeight: 139,
+    borderColor: C.border,
+    padding: 17,
+    ...shadow,
   },
-
+  statCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   statIcon: {
-    width: 35,
-    height: 35,
-    borderRadius: 12,
+    width: 45,
+    height: 45,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
-
-  statIconGreen: {
-    backgroundColor: '#E0F5E9',
+  statIcon_teal: {
+    backgroundColor: C.tealSoft,
   },
-
-  statIconOrange: {
-    backgroundColor: '#FFF0DA',
+  statIcon_amber: {
+    backgroundColor: C.amberSoft,
   },
-
-  statIconBlue: {
-    backgroundColor: '#E2EDFF',
+  statIcon_blue: {
+    backgroundColor: C.blueSoft,
   },
-
-  statIconPurple: {
-    backgroundColor: '#EEE6FF',
+  statIcon_purple: {
+    backgroundColor: C.purpleSoft,
   },
-
   statIconText: {
     fontSize: 20,
-    color: '#245B43',
-    fontWeight: '800',
+    fontWeight: '900',
   },
-
+  statIconText_teal: {
+    color: C.teal,
+  },
+  statIconText_amber: {
+    color: C.amber,
+  },
+  statIconText_blue: {
+    color: C.blue,
+  },
+  statIconText_purple: {
+    color: C.purple,
+  },
+  statAccent: {
+    width: 30,
+    height: 30,
+    borderRadius: 11,
+    backgroundColor: '#F5F7FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statAccentDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dot_teal: {
+    backgroundColor: C.teal,
+  },
+  dot_amber: {
+    backgroundColor: '#E9A23B',
+  },
+  dot_blue: {
+    backgroundColor: C.blue,
+  },
+  dot_purple: {
+    backgroundColor: C.purple,
+  },
   statValue: {
-    fontSize: 26,
+    color: C.ink,
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -0.9,
+    marginTop: 17,
+  },
+  statLabel: {
+    color: C.ink,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#1B3429',
-    letterSpacing: -0.6,
+    marginTop: 4,
+  },
+  statDetail: {
+    color: C.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 7,
   },
 
-  statLabel: {
-    fontSize: 11,
-    color: '#829087',
+  // ─── Critical priority alert ───────────────────
+  criticalAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 20,
+    padding: 15,
+    borderRadius: 19,
+    backgroundColor: C.redSoft,
+    borderWidth: 1,
+    borderColor: '#F4D1D7',
+  },
+  criticalAlertIcon: {
+    width: 43,
+    height: 43,
+    borderRadius: 15,
+    backgroundColor: C.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  criticalAlertIconText: {
+    color: C.red,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  criticalAlertContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  criticalAlertTitle: {
+    color: '#A72F3A',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  criticalAlertDescription: {
+    color: '#914B52',
+    fontSize: 12,
+    lineHeight: 18,
     marginTop: 4,
+  },
+  criticalAlertArrow: {
+    color: C.red,
+    fontSize: 27,
+    fontWeight: '700',
+    paddingHorizontal: 3,
+  },
+
+  // ─── Search bar ─────────────────────────────────
+  searchContainer: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 15,
+    backgroundColor: C.white,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: C.border,
+    ...shadow,
+  },
+  searchIcon: {
+    color: C.teal,
+    fontSize: 25,
+    fontWeight: '700',
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    color: C.ink,
+    fontSize: 13,
+    paddingVertical: 14,
+  },
+  clearSearchButton: {
+    width: 29,
+    height: 29,
+    borderRadius: 10,
+    backgroundColor: '#EEF2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearSearchText: {
+    color: C.muted,
+    fontSize: 23,
+    lineHeight: 25,
     fontWeight: '600',
   },
 
-  countBadge: {
-    minWidth: 32,
-    height: 32,
-    borderRadius: 11,
-    backgroundColor: '#DFF3E7',
+  // ─── Horizontal status filters ──────────────────
+  filterContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
+    gap: 9,
+    paddingVertical: 15,
+    paddingRight: 8,
   },
-
-  countBadgeText: {
-    color: '#16845B',
-    fontSize: 13,
+  filterButton: {
+    minHeight: 43,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  filterButtonActive: {
+    backgroundColor: C.navy,
+    borderColor: C.navy,
+  },
+  filterText: {
+    color: C.muted,
+    fontSize: 12,
     fontWeight: '800',
   },
-
-  filterContainer: {
-    paddingBottom: 17,
-    paddingRight: 5,
-    gap: 8,
-  },
-
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: '#E0E9E3',
-    backgroundColor: '#FFFFFF',
-  },
-
-  filterButtonActive: {
-    backgroundColor: '#176B4D',
-    borderColor: '#176B4D',
-  },
-
-  filterText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#718078',
-  },
-
   filterTextActive: {
-    color: '#FFFFFF',
+    color: C.white,
+  },
+  filterCount: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 5,
+    borderRadius: 8,
+    backgroundColor: '#EEF2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCountActive: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  filterCountText: {
+    color: C.muted,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  filterCountTextActive: {
+    color: C.white,
+  },
+  totalCountBadge: {
+    minWidth: 38,
+    height: 38,
+    paddingHorizontal: 9,
+    borderRadius: 13,
+    backgroundColor: C.tealSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  totalCountText: {
+    color: C.teal,
+    fontSize: 14,
+    fontWeight: '900',
   },
 
+  // ─── Complaint cards ────────────────────────────
   issueList: {
-    gap: 13,
+    gap: 14,
   },
-
   issueCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 19,
-    padding: 16,
+    backgroundColor: C.white,
+    borderRadius: 23,
+    padding: 17,
     borderWidth: 1,
-    borderColor: '#E7EEE9',
+    borderColor: C.border,
+    ...shadow,
   },
-
-  issueTopRow: {
+  issueCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  issueIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    flex: 1,
+    minWidth: 120,
+  },
+  issueMiniIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: C.tealSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  issueMiniIconText: {
+    color: C.teal,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  complaintId: {
+    flex: 1,
+    color: C.teal,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.35,
+  },
+  issueTitle: {
+    color: C.ink,
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: '900',
+    letterSpacing: -0.25,
+    marginTop: 15,
+  },
+  issueDescription: {
+    color: C.muted,
+    fontSize: 12,
+    lineHeight: 20,
+    marginTop: 7,
+  },
+  issueMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+  },
+  categoryPill: {
+    maxWidth: '100%',
+    backgroundColor: '#F0F3F9',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  categoryPillText: {
+    color: '#52647C',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  issueDivider: {
+    height: 1,
+    backgroundColor: C.border,
+    marginVertical: 15,
+  },
+  issueDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  issueDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    minWidth: 115,
+  },
+  detailSymbol: {
+    color: C.teal,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  detailText: {
+    flex: 1,
+    color: C.muted,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  issueCardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    marginBottom: 11,
-  },
-
-  complaintId: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#718078',
-    flex: 1,
-  },
-
-  priorityBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-
-  priority_low: {
-    backgroundColor: '#E5F5EA',
-  },
-
-  priority_medium: {
-    backgroundColor: '#E7F0FF',
-  },
-
-  priority_high: {
-    backgroundColor: '#FFF0D9',
-  },
-
-  priority_critical: {
-    backgroundColor: '#FDE6E6',
-  },
-
-  priorityText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-
-  priorityText_low: {
-    color: '#277A48',
-  },
-
-  priorityText_medium: {
-    color: '#3569B5',
-  },
-
-  priorityText_high: {
-    color: '#A96810',
-  },
-
-  priorityText_critical: {
-    color: '#C13F3F',
-  },
-
-  issueTitle: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '800',
-    color: '#20382D',
-  },
-
-  issueDescription: {
-    fontSize: 12,
-    lineHeight: 19,
-    color: '#7B8981',
-    marginTop: 7,
-  },
-
-  issueMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 15,
-  },
-
-  issueCategory: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#537361',
-    backgroundColor: '#F0F6F2',
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 8,
-    overflow: 'hidden',
-    maxWidth: '55%',
-  },
-
-  statusText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-
-  status_pending: {
-    color: '#C27B17',
-  },
-
-  status_assigned: {
-    color: '#3569B5',
-  },
-
-  status_in_progress: {
-    color: '#8A5AC5',
-  },
-
-  status_resolved: {
-    color: '#24804C',
-  },
-
-  status_rejected: {
-    color: '#C13F3F',
-  },
-
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 13,
-  },
-
-  locationIcon: {
-    color: '#16845B',
-    fontSize: 17,
-    marginRight: 7,
-    fontWeight: '700',
-  },
-
-  locationText: {
-    flex: 1,
-    fontSize: 11,
-    lineHeight: 17,
-    color: '#74837A',
-  },
-
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#EDF1EE',
-    marginTop: 15,
+    marginTop: 16,
     paddingTop: 13,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F3F7',
   },
-
   reportedBy: {
     flex: 1,
+    color: C.muted,
     fontSize: 10,
-    color: '#87948C',
+    fontWeight: '600',
   },
-
+  viewDetailsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   viewDetails: {
+    color: C.teal,
     fontSize: 11,
-    color: '#16845B',
-    fontWeight: '800',
+    fontWeight: '900',
+  },
+  viewDetailsArrow: {
+    color: C.teal,
+    fontSize: 20,
+    fontWeight: '700',
   },
 
-  centerState: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 28,
+  // ─── Status badges ──────────────────────────────
+  statusBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#EEF2F7',
+  },
+  statusBadge_pending: {
+    backgroundColor: C.amberSoft,
+  },
+  statusBadge_assigned: {
+    backgroundColor: C.blueSoft,
+  },
+  statusBadge_in_progress: {
+    backgroundColor: C.purpleSoft,
+  },
+  statusBadge_resolved: {
+    backgroundColor: C.greenSoft,
+  },
+  statusBadge_rejected: {
+    backgroundColor: C.redSoft,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: C.muted,
+  },
+  statusDot_pending: {
+    backgroundColor: C.amber,
+  },
+  statusDot_assigned: {
+    backgroundColor: C.blue,
+  },
+  statusDot_in_progress: {
+    backgroundColor: C.purple,
+  },
+  statusDot_resolved: {
+    backgroundColor: C.green,
+  },
+  statusDot_rejected: {
+    backgroundColor: C.red,
+  },
+  statusText: {
+    color: C.muted,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  statusText_pending: {
+    color: C.amber,
+  },
+  statusText_assigned: {
+    color: C.blue,
+  },
+  statusText_in_progress: {
+    color: C.purple,
+  },
+  statusText_resolved: {
+    color: C.green,
+  },
+  statusText_rejected: {
+    color: C.red,
+  },
+
+  // ─── Priority badges ────────────────────────────
+  priorityBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#EEF2F7',
+  },
+  priorityBadge_low: {
+    backgroundColor: C.greenSoft,
+  },
+  priorityBadge_medium: {
+    backgroundColor: C.blueSoft,
+  },
+  priorityBadge_high: {
+    backgroundColor: C.amberSoft,
+  },
+  priorityBadge_critical: {
+    backgroundColor: C.redSoft,
+  },
+  priorityDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: C.muted,
+  },
+  priorityDot_low: {
+    backgroundColor: C.green,
+  },
+  priorityDot_medium: {
+    backgroundColor: C.blue,
+  },
+  priorityDot_high: {
+    backgroundColor: C.amber,
+  },
+  priorityDot_critical: {
+    backgroundColor: C.red,
+  },
+  priorityText: {
+    color: C.muted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  priorityText_low: {
+    color: C.green,
+  },
+  priorityText_medium: {
+    color: C.blue,
+  },
+  priorityText_high: {
+    color: C.amber,
+  },
+  priorityText_critical: {
+    color: C.red,
+  },
+
+  // ─── Loading, error and empty states ────────────
+  stateCard: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 230,
+    paddingHorizontal: 24,
+    paddingVertical: 36,
+    backgroundColor: C.white,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#E7EEE9',
+    borderColor: C.border,
+    ...shadow,
   },
-
-  stateIcon: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#C27B17',
-    marginBottom: 12,
-  },
-
-  stateTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#243B2F',
-    textAlign: 'center',
-    marginTop: 12,
-  },
-
-  stateDescription: {
-    fontSize: 12,
-    color: '#7B8981',
-    textAlign: 'center',
-    lineHeight: 19,
-    marginTop: 7,
-  },
-
-  retryButton: {
-    marginTop: 18,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#176B4D',
-  },
-
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-
-  emptyState: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E7EEE9',
-    padding: 28,
+  loadingIconContainer: {
+    width: 68,
+    height: 68,
+    borderRadius: 23,
+    backgroundColor: C.tealSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 225,
+    marginBottom: 17,
   },
-
+  errorIconContainer: {
+    width: 62,
+    height: 62,
+    borderRadius: 21,
+    backgroundColor: C.redSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  errorIcon: {
+    color: C.red,
+    fontSize: 31,
+    fontWeight: '900',
+  },
   emptyIconContainer: {
-    width: 55,
-    height: 55,
-    borderRadius: 19,
-    backgroundColor: '#E0F5E9',
+    width: 68,
+    height: 68,
+    borderRadius: 23,
+    backgroundColor: C.tealSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 15,
+    marginBottom: 17,
   },
-
   emptyIcon: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#16845B',
+    color: C.teal,
+    fontSize: 31,
+    fontWeight: '900',
   },
-
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#243B2F',
-  },
-
-  emptyDescription: {
-    fontSize: 12,
-    color: '#7B8981',
-    lineHeight: 19,
+  stateTitle: {
+    color: C.ink,
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: '900',
     textAlign: 'center',
-    marginTop: 7,
+    marginTop: 2,
+  },
+  stateDescription: {
+    color: C.muted,
+    fontSize: 12,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 8,
+    maxWidth: 310,
+  },
+  primaryButton: {
+    minHeight: 46,
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    borderRadius: 14,
+    backgroundColor: C.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  primaryButtonText: {
+    color: C.white,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  secondaryButton: {
+    minHeight: 43,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 14,
+    backgroundColor: C.tealSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 19,
+  },
+  secondaryButtonText: {
+    color: C.teal,
+    fontSize: 12,
+    fontWeight: '900',
   },
 
+  // ─── Footer ─────────────────────────────────────
   footer: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingTop: 30,
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
-
+  footerBrandMark: {
+    width: 35,
+    height: 35,
+    borderRadius: 12,
+    backgroundColor: C.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 9,
+  },
+  footerBrandMarkText: {
+    color: C.white,
+    fontSize: 17,
+    fontWeight: '900',
+  },
   footerTitle: {
-    color: '#315541',
-    fontSize: 12,
-    fontWeight: '800',
+    color: C.ink,
+    fontSize: 13,
+    fontWeight: '900',
   },
-
   footerText: {
-    color: '#98A49C',
-    fontSize: 10,
+    color: C.muted,
+    fontSize: 11,
     marginTop: 5,
+  },
+  footerCaption: {
+    color: '#A1ADBC',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    marginTop: 8,
   },
 });
 

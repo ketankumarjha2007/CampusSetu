@@ -7,6 +7,7 @@ import {
   assignComplaint,
   updateComplaintStatus,
   addTeacher,
+  deleteTeacher,
   getAuditLogs,
   escalateComplaint,
   requestComplaintInfo,
@@ -149,6 +150,15 @@ const Icon = ({ name, size = 20 }) => {
         <rect x="3" y="4" width="18" height="16" rx="2" />
         <circle cx="9" cy="10" r="2" />
         <path d="m21 16-5-5-9 9" />
+      </>
+    ),
+    trash: (
+      <>
+        <path d="M3 6h18" />
+        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+        <line x1="10" y1="11" x2="10" y2="17" />
+        <line x1="14" y1="11" x2="14" y2="17" />
       </>
     ),
   };
@@ -426,12 +436,14 @@ function App() {
       setError((previous) => previous || `Could not load teachers: ${err.message}`);
     }
 
+    setLoadingAudit(true);
     try {
       const auditRes = await getAuditLogs();
       setAuditLogs(auditRes.logs || []);
     } catch {
       // Audit logs optional for non-privileged views
     } finally {
+      setLoadingAudit(false);
       setLoading(false);
       setRefreshing(false);
     }
@@ -786,6 +798,22 @@ function App() {
     }
   };
 
+  const handleDeleteTeacher = async (teacher) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to remove teacher "${teacher.name}" (${teacher.email})?\n\n` +
+      `Any active complaints assigned to this teacher will automatically be returned to the pending queue.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await deleteTeacher(teacher._id);
+      showToast(res.message || `Teacher ${teacher.name} removed successfully.`);
+      await loadData(false);
+    } catch (err) {
+      showToast(err.message || 'Failed to remove teacher.', 'error');
+    }
+  };
+
   const handleEscalate = async (complaint) => {
     const note = window.prompt('Enter escalation reason/notes (optional):', 'Escalated due to SLA/urgency');
     if (note === null) return;
@@ -996,7 +1024,6 @@ function App() {
         : [];
 
     return [...matches, ...commands];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paletteQuery, complaints, theme, goTo, handleRefresh, toggleTheme]);
 
   const closePalette = () => {
@@ -1049,7 +1076,6 @@ function App() {
     window.addEventListener('keydown', onKey);
 
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, paletteOpen, selectedId]);
 
   /* ----- cursor spotlight on glow cards ----- */
@@ -1512,6 +1538,17 @@ function App() {
           {teacherLoad.map(({ teacher, active, resolved }, index) => (
             <article className="teacher glow" key={teacher._id}>
               {index === 0 && teacherLoad.length > 1 && <span className="best">Best fit</span>}
+              <button
+                className="teacher-delete-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteTeacher(teacher);
+                }}
+                title={`Remove ${teacher.name}`}
+                aria-label={`Remove ${teacher.name}`}
+              >
+                <Icon name="trash" size={14} />
+              </button>
               <div className={`avatar lg tc-${index % 5}`}>{initials(teacher.name)}</div>
               <h3>{teacher.name}</h3>
               <p>{teacher.department || teacher.email || 'Faculty'}</p>
@@ -1538,7 +1575,13 @@ function App() {
         </div>
       </header>
 
-      {auditLogs.length === 0 ? (
+      {loadingAudit ? (
+        <div className="empty panel">
+          <div className="empty-icon"><Icon name="clock" size={26} /></div>
+          <strong>Loading audit records…</strong>
+          <span>Fetching the latest administrative compliance trail.</span>
+        </div>
+      ) : auditLogs.length === 0 ? (
         <div className="empty panel">
           <div className="empty-icon"><Icon name="clock" size={26} /></div>
           <strong>No audit records found</strong>
@@ -2260,7 +2303,7 @@ function App() {
               </button>
             </div>
 
-            <form onSubmit={handleAddTeacherSubmit} style={{ display: 'grid', gap: '14px' }}>
+            <form onSubmit={handleAddTeacherSubmit} className="teacher-modal-form">
               <div className="al-field">
                 <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-3)' }}>FULL NAME *</label>
                 <input
@@ -2271,8 +2314,8 @@ function App() {
                   onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })}
                   style={{
                     width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
+                    padding: '11px 14px',
+                    borderRadius: '11px',
                     border: '1px solid var(--line-2)',
                     background: 'var(--surface)',
                     color: 'var(--text)',
@@ -2290,8 +2333,8 @@ function App() {
                   onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })}
                   style={{
                     width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
+                    padding: '11px 14px',
+                    borderRadius: '11px',
                     border: '1px solid var(--line-2)',
                     background: 'var(--surface)',
                     color: 'var(--text)',
@@ -2299,7 +2342,7 @@ function App() {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="teacher-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="al-field">
                   <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-3)' }}>DEPARTMENT</label>
                   <input
@@ -2309,8 +2352,8 @@ function App() {
                     onChange={(e) => setTeacherForm({ ...teacherForm, department: e.target.value })}
                     style={{
                       width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '10px',
+                      padding: '11px 14px',
+                      borderRadius: '11px',
                       border: '1px solid var(--line-2)',
                       background: 'var(--surface)',
                       color: 'var(--text)',
@@ -2327,8 +2370,8 @@ function App() {
                     onChange={(e) => setTeacherForm({ ...teacherForm, phone: e.target.value })}
                     style={{
                       width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '10px',
+                      padding: '11px 14px',
+                      borderRadius: '11px',
                       border: '1px solid var(--line-2)',
                       background: 'var(--surface)',
                       color: 'var(--text)',
@@ -2337,31 +2380,11 @@ function App() {
                 </div>
               </div>
 
-              <div className="al-field">
-                <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-3)' }}>
-                  INITIAL PASSWORD (OPTIONAL)
-                </label>
-                <input
-                  type="password"
-                  placeholder="Leave empty to auto-generate a secure password"
-                  value={teacherForm.password}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, password: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    border: '1px solid var(--line-2)',
-                    background: 'var(--surface)',
-                    color: 'var(--text)',
-                  }}
-                />
-              </div>
-
               <p style={{ margin: '4px 0 10px', fontSize: '11px', color: 'var(--text-3)', lineHeight: '1.5' }}>
-                The teacher will be securely provisioned in Firebase Auth and MongoDB with the 'teacher' role.
+                An onboarding invite email will be sent via Brevo with a secure Firebase link to configure their account password.
               </p>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '10px' }}>
                 <button
                   type="button"
                   className="btn-ghost"

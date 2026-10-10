@@ -5,6 +5,9 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -77,6 +80,9 @@ export default function OfficialIssueDetails({ navigation, route }) {
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [infoPrompt, setInfoPrompt] = useState('');
+  const [requestingInfo, setRequestingInfo] = useState(false);
 
   const fetchIssue = useCallback(async (showLoader = true) => {
     if (!issueId) {
@@ -182,6 +188,43 @@ export default function OfficialIssueDetails({ navigation, route }) {
     }
   };
 
+  const handleRequestInfo = async () => {
+    if (!issue || requestingInfo) return;
+
+    if (!infoPrompt.trim()) {
+      Alert.alert(
+        'Information required',
+        'Please enter what details you need from the student.'
+      );
+      return;
+    }
+
+    setRequestingInfo(true);
+    try {
+      const response = await apiRequest(`/issues/${issue._id}/request-info`, {
+        method: 'POST',
+        body: JSON.stringify({ prompt: infoPrompt.trim() }),
+      });
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Failed to request information.');
+      }
+
+      Alert.alert(
+        'Request Sent',
+        'The student has been notified to provide the requested details.'
+      );
+      setInfoModalOpen(false);
+      setInfoPrompt('');
+      await fetchIssue(false);
+    } catch (err) {
+      console.error('Request info error:', err);
+      Alert.alert('Request Failed', err?.message || 'Please try again.');
+    } finally {
+      setRequestingInfo(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -263,7 +306,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
         </TouchableOpacity>
 
         <View style={styles.headerText}>
-          <Text style={styles.eyebrow}>CAMPUSSETU · FACULTY</Text>
+          <Text style={styles.eyebrow}>CampusSetu · FACULTY</Text>
           <Text style={styles.headerTitle}>Complaint details</Text>
         </View>
 
@@ -462,6 +505,20 @@ export default function OfficialIssueDetails({ navigation, route }) {
                 A resolution note is required to complete this action.
               </Text>
             ) : null}
+
+            <TouchableOpacity
+              style={[
+                styles.backButton,
+                { marginTop: 12, borderColor: '#A5C4B4', backgroundColor: '#F0F7F3' },
+              ]}
+              onPress={() => setInfoModalOpen(true)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.backButtonText, { color: '#176B4D', fontWeight: '700' }]}>
+                {issue.additionalInfoRequested ? 'ℹ Update Info Request to Student' : 'ℹ Request Details from Student'}
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.completedCard}>
@@ -554,6 +611,122 @@ export default function OfficialIssueDetails({ navigation, route }) {
           CampusSetu · Your actions help build a better campus.
         </Text>
       </ScrollView>
+
+      {/* Request Information Modal */}
+      <Modal
+        visible={infoModalOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => {
+          if (!requestingInfo) setInfoModalOpen(false);
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 20,
+              padding: 22,
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: '800',
+                letterSpacing: 1.2,
+                color: '#176B4D',
+                marginBottom: 4,
+              }}
+            >
+              STUDENT COMMUNICATION
+            </Text>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '800',
+                color: '#0F172A',
+                marginBottom: 8,
+              }}
+            >
+              Request Additional Info
+            </Text>
+            <Text
+              style={{
+                fontSize: 13,
+                color: '#64748B',
+                lineHeight: 18,
+                marginBottom: 16,
+              }}
+            >
+              Ask the student for clarification, exact room/desk numbers, or photos needed to resolve this complaint.
+            </Text>
+
+            <TextInput
+              style={{
+                backgroundColor: '#F8FAFC',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#CBD5E1',
+                padding: 14,
+                fontSize: 14,
+                color: '#0F172A',
+                minHeight: 100,
+                textAlignVertical: 'top',
+                marginBottom: 16,
+              }}
+              placeholder="e.g. Please specify the room number and equipment ID..."
+              placeholderTextColor="#94A3B8"
+              value={infoPrompt}
+              onChangeText={setInfoPrompt}
+              multiline
+              maxLength={500}
+              editable={!requestingInfo}
+            />
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+              <TouchableOpacity
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  backgroundColor: '#F1F5F9',
+                }}
+                onPress={() => setInfoModalOpen(false)}
+                disabled={requestingInfo}
+              >
+                <Text style={{ fontWeight: '600', color: '#475569' }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 18,
+                  borderRadius: 10,
+                  backgroundColor: '#176B4D',
+                }}
+                onPress={handleRequestInfo}
+                disabled={requestingInfo}
+              >
+                {requestingInfo ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={{ fontWeight: '700', color: '#FFFFFF' }}>Send Request</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }

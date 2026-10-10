@@ -8,6 +8,7 @@ const {
   createOrUpdateProfile,
   savePushToken,
   addTeacher,
+  deleteTeacher,
   bootstrapAdmin,
 } = require('../controllers/userController');
 
@@ -54,6 +55,17 @@ router.post(
   authenticateUser,
   requireRole('college_admin', 'principal'),
   addTeacher
+);
+
+// ==========================================
+// DELETE TEACHER (ADMIN ACTION)
+// ==========================================
+
+router.delete(
+  '/teachers/:id',
+  authenticateUser,
+  requireRole('college_admin', 'principal'),
+  deleteTeacher
 );
 
 // ==========================================

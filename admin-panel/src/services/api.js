@@ -90,6 +90,13 @@ export const addTeacher = async (teacherData) => {
   });
 };
 
+// Delete a teacher
+export const deleteTeacher = async (teacherId) => {
+  return apiRequest(`/users/teachers/${encodeURIComponent(teacherId)}`, {
+    method: 'DELETE',
+  });
+};
+
 // Escalate a complaint
 export const escalateComplaint = async (complaintId, note = '') => {
   return apiRequest(`/issues/${encodeURIComponent(complaintId)}/escalate`, {

@@ -698,7 +698,11 @@ const getIssueById = async (req, res) => {
       req.user.role === 'teacher' &&
       assignedTeacherId === currentUserId;
 
-    if (!isOwner && !isAssignedTeacher) {
+    const isAuthorizedAdmin = ['college_admin', 'cluster_head', 'principal'].includes(
+      req.user.role
+    );
+
+    if (!isOwner && !isAssignedTeacher && !isAuthorizedAdmin) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to view this complaint',
@@ -1454,6 +1458,13 @@ const requestAdditionalInfo = async (req, res) => {
     const issue = await Issue.findById(id);
     if (!issue) {
       return res.status(404).json({ success: false, message: 'Complaint not found' });
+    }
+
+    if (req.user.role === 'teacher' && String(issue.assignedTo || '') !== String(req.user._id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can request information only for complaints assigned to you',
+      });
     }
 
     issue.additionalInfoRequested = true;
