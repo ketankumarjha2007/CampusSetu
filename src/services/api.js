@@ -1,6 +1,9 @@
+import Constants from 'expo-constants';
 import { auth } from '../config/firebase';
 
 const API_BASE_URL =
+  Constants.expoConfig?.extra?.apiUrl ||
+  process.env.EXPO_PUBLIC_API_URL ||
   'http://192.168.1.20:5000/api';
 
 export const getFirebaseToken = async () => {

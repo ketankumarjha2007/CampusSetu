@@ -15,9 +15,24 @@ const {
   getActiveTeachers,
   assignIssueToTeacher,
   updateIssueStatus,
+  reopenIssue,
+  escalateIssue,
+  requestAdditionalInfo,
+  getMyNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getAuditLogs,
 } = require('../controllers/issueController');
 
 const router = express.Router();
+
+// Notifications
+router.get('/notifications/me', authenticateUser, getMyNotifications);
+router.patch('/notifications/read-all', authenticateUser, markAllNotificationsRead);
+router.patch('/notifications/:id/read', authenticateUser, markNotificationRead);
+
+// Audit logs
+router.get('/admin/audit-logs', authenticateUser, requireRole('college_admin', 'principal'), getAuditLogs);
 
 // Create a new complaint
 router.post(
@@ -49,7 +64,7 @@ router.get(
   trackIssueByComplaintId
 );
 
-// Get all complaints for authorized college administrators
+// Get all complaints for authorized college administrators / cluster heads / principal
 router.get(
   '/admin/all',
   authenticateUser,
@@ -61,7 +76,7 @@ router.get(
 router.get(
   '/admin/teachers',
   authenticateUser,
-  requireRole('college_admin', 'principal'),
+  requireRole('college_admin', 'principal', 'cluster_head'),
   getActiveTeachers
 );
 
@@ -69,7 +84,7 @@ router.get(
 router.patch(
   '/:id/assign',
   authenticateUser,
-  requireRole('college_admin', 'principal'),
+  requireRole('college_admin', 'principal', 'cluster_head'),
   assignIssueToTeacher
 );
 
@@ -77,8 +92,31 @@ router.patch(
 router.patch(
   '/:id/status',
   authenticateUser,
-  requireRole('college_admin', 'principal','teacher'),
+  requireRole('college_admin', 'principal', 'cluster_head', 'teacher'),
   updateIssueStatus
+);
+
+// Reopen complaint
+router.post(
+  '/:id/reopen',
+  authenticateUser,
+  reopenIssue
+);
+
+// Escalate complaint
+router.post(
+  '/:id/escalate',
+  authenticateUser,
+  requireRole('college_admin', 'principal', 'cluster_head'),
+  escalateIssue
+);
+
+// Request additional info from student
+router.post(
+  '/:id/request-info',
+  authenticateUser,
+  requireRole('teacher', 'college_admin', 'principal'),
+  requestAdditionalInfo
 );
 
 // Delete a complaint

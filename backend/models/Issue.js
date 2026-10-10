@@ -114,6 +114,37 @@ const issueSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Rejection reason
+    rejectionReason: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    // Reopening reason
+    reopenReason: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    // Escalation flag and level
+    escalationLevel: {
+      type: Number,
+      default: 0,
+    },
+
+    // Request for additional information from student
+    additionalInfoRequested: {
+      type: Boolean,
+      default: false,
+    },
+
+    additionalInfoPrompt: {
+      type: String,
+      default: '',
+    },
+
     // Complete complaint status history
     history: [
       {
@@ -144,5 +175,11 @@ const issueSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+issueSchema.index({ status: 1, createdAt: -1 });
+issueSchema.index({ reportedBy: 1, createdAt: -1 });
+issueSchema.index({ assignedTo: 1, status: 1 });
+issueSchema.index({ category: 1 });
+issueSchema.index({ priority: 1, status: 1 });
 
 module.exports = mongoose.model('Issue', issueSchema);

@@ -859,6 +859,88 @@ export default function IssueDetailsScreen({ navigation, route }) {
           </View>
         </View>
 
+        {/* Reopen resolved or rejected complaint */}
+        {['resolved', 'rejected'].includes(issue.status) ? (
+          <View style={styles.deleteCard}>
+            <View style={styles.deleteHeader}>
+              <View style={[styles.deleteIcon, { backgroundColor: '#E0F2FE' }]}>
+                <Text style={[styles.deleteIconText, { color: '#0369A1' }]}>↻</Text>
+              </View>
+
+              <View style={styles.deleteHeaderContent}>
+                <Text style={styles.deleteTitle}>Issue not solved?</Text>
+                <Text style={styles.deleteSubtitle}>
+                  If the problem persists or was not adequately resolved, you can reopen this complaint.
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.deleteButton,
+                { backgroundColor: '#0284C7' },
+              ]}
+              onPress={() => {
+                Alert.prompt
+                  ? Alert.prompt(
+                      'Reopen Complaint',
+                      'Please provide a reason why this complaint is being reopened:',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Reopen',
+                          onPress: async (reason) => {
+                            if (!reason || !reason.trim()) {
+                              Alert.alert('Reason required', 'Please provide a reason.');
+                              return;
+                            }
+                            try {
+                              const res = await apiRequest(`/issues/${issue._id}/reopen`, {
+                                method: 'POST',
+                                body: JSON.stringify({ reason }),
+                              });
+                              Alert.alert('Complaint reopened', res.message || 'The complaint has been reopened.');
+                              fetchIssue(false);
+                            } catch (err) {
+                              Alert.alert('Reopen failed', err.message || 'Failed to reopen complaint.');
+                            }
+                          },
+                        },
+                      ]
+                    )
+                  : Alert.alert(
+                      'Reopen Complaint',
+                      'Reopen this complaint so faculty can take further action?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Reopen',
+                          onPress: async () => {
+                            try {
+                              const res = await apiRequest(`/issues/${issue._id}/reopen`, {
+                                method: 'POST',
+                                body: JSON.stringify({ reason: 'Student marked issue as unresolved upon verification.' }),
+                              });
+                              Alert.alert('Complaint reopened', res.message || 'The complaint has been reopened.');
+                              fetchIssue(false);
+                            } catch (err) {
+                              Alert.alert('Reopen failed', err.message || 'Failed to reopen complaint.');
+                            }
+                          },
+                        },
+                      ]
+                    );
+              }}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Reopen complaint"
+            >
+              <Text style={styles.deleteButtonIcon}>↻</Text>
+              <Text style={styles.deleteButtonText}>Reopen Complaint</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Delete pending complaint */}
         {issue.status === 'pending' ? (
           <View style={styles.deleteCard}>

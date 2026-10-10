@@ -117,6 +117,38 @@ export default function NotificationsScreen({
       try {
         setError('');
 
+        let liveNotifications = [];
+        try {
+          const notifRes = await apiRequest('/issues/notifications/me');
+          if (Array.isArray(notifRes?.notifications) && notifRes.notifications.length > 0) {
+            liveNotifications = notifRes.notifications.map((n) => ({
+              id: n._id,
+              issueId: n.issueId,
+              complaintId: n.complaintId,
+              issueTitle: n.title,
+              icon: n.title.includes('✅') || n.title.includes('Resolved')
+                ? '✅'
+                : n.title.includes('❌') || n.title.includes('Rejected')
+                  ? '❌'
+                  : n.title.includes('👨‍🏫') || n.title.includes('Assigned')
+                    ? '👤'
+                    : '🔔',
+              title: n.title,
+              message: n.body,
+              date: n.createdAt,
+              status: n.type,
+              read: n.read,
+            }));
+          }
+        } catch {
+          // If in-app notifications endpoint returns empty or not available, fall back
+        }
+
+        if (liveNotifications.length > 0) {
+          setNotifications(liveNotifications);
+          return;
+        }
+
         const response =
           await apiRequest('/issues/my');
 

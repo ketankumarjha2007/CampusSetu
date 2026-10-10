@@ -16,22 +16,45 @@ const app = express();
 connectDB();
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow mobile apps (no origin) or whitelisted origins
+      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      return callback(new Error('CORS policy: Access denied'));
+    },
+    credentials: true,
+  })
+);
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Root route
 app.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'CampusSetu backend is running',
+    version: '1.0.0',
   });
 });
 
-// Health check
+// Production-ready health check
 app.get('/api/health', (req, res) => {
+  const mongoose = require('mongoose');
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   res.json({
     success: true,
     message: 'CampusSetu API is healthy',
+    timestamp: new Date().toISOString(),
+    database: dbStatus,
+    uptime: Math.round(process.uptime()),
   });
 });
 
@@ -46,6 +69,7 @@ app.get(
       user: {
         uid: req.firebaseUser.uid,
         email: req.firebaseUser.email || null,
+        role: req.user?.role || 'unassigned',
       },
     });
   }
@@ -56,6 +80,15 @@ app.use('/api/users', userRoutes);
 
 // Issue routes
 app.use('/api/issues', issueRoutes);
+
+// Global Error Handler (Hides stack traces in production)
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err.message);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal server error',
+  });
+});
 
 // Start server
 const PORT = process.env.PORT || 5000;

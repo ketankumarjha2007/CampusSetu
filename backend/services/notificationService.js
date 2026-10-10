@@ -1,3 +1,31 @@
+const Notification = require('../models/Notification');
+
+const createInAppNotification = async ({
+  recipientId,
+  title,
+  body,
+  type = 'system',
+  issueId = null,
+  complaintId = '',
+}) => {
+  try {
+    if (!recipientId) return null;
+    const item = await Notification.create({
+      recipient: recipientId,
+      title,
+      body,
+      type,
+      issueId,
+      complaintId,
+      read: false,
+    });
+    return item;
+  } catch (err) {
+    console.error('Failed to create in-app notification:', err.message);
+    return null;
+  }
+};
+
 const sendPushNotification = async ({
   pushToken,
   title,
@@ -33,28 +61,14 @@ const sendPushNotification = async ({
 
     const message = {
       to: normalizedToken,
-
       sound: 'default',
-
       title,
-
       body,
-
       data,
     };
 
     console.log(
       'Notification: Sending push notification...'
-    );
-
-    console.log(
-      'Notification title:',
-      title
-    );
-
-    console.log(
-      'Notification body:',
-      body
     );
 
     // ==========================================
@@ -66,39 +80,22 @@ const sendPushNotification = async ({
         'https://exp.host/--/api/v2/push/send',
         {
           method: 'POST',
-
           headers: {
             Accept:
               'application/json',
-
             'Accept-encoding':
               'gzip, deflate',
-
             'Content-Type':
               'application/json',
           },
-
           body: JSON.stringify(
             message
           ),
         }
       );
 
-    // ==========================================
-    // READ RESPONSE
-    // ==========================================
-
     const responseData =
       await response.json();
-
-    console.log(
-      'Notification: Expo response:',
-      responseData
-    );
-
-    // ==========================================
-    // HTTP ERROR
-    // ==========================================
 
     if (!response.ok) {
       console.error(
@@ -107,18 +104,12 @@ const sendPushNotification = async ({
 
       return {
         success: false,
-
         message:
           'Expo notification request failed',
-
         response:
           responseData,
       };
     }
-
-    // ==========================================
-    // EXPO TICKET ERROR
-    // ==========================================
 
     const ticket =
       responseData?.data;
@@ -133,19 +124,13 @@ const sendPushNotification = async ({
 
       return {
         success: false,
-
         message:
           ticket.message ||
           'Expo notification failed',
-
         response:
           responseData,
       };
     }
-
-    // ==========================================
-    // SUCCESS
-    // ==========================================
 
     console.log(
       'Notification: Push notification sent successfully.'
@@ -153,10 +138,8 @@ const sendPushNotification = async ({
 
     return {
       success: true,
-
       message:
         'Push notification sent successfully',
-
       response:
         responseData,
     };
@@ -168,10 +151,8 @@ const sendPushNotification = async ({
 
     return {
       success: false,
-
       message:
         'Failed to send push notification',
-
       error:
         error.message,
     };
@@ -180,4 +161,5 @@ const sendPushNotification = async ({
 
 module.exports = {
   sendPushNotification,
-};
+  createInAppNotification,
+};

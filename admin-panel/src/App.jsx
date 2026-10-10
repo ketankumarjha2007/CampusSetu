@@ -6,8 +6,13 @@ import {
   getActiveTeachers,
   assignComplaint,
   updateComplaintStatus,
+  addTeacher,
+  getAuditLogs,
+  escalateComplaint,
+  requestComplaintInfo,
 } from './services/api';
 import AdminLogin from './pages/AdminLogin';
+
 import './App.css';
 import './status-management.css';
 
@@ -20,6 +25,7 @@ const VIEWS = [
   { id: 'complaints', label: 'Complaints', icon: 'file' },
   { id: 'team', label: 'Team', icon: 'users' },
   { id: 'analytics', label: 'Analytics', icon: 'chart' },
+  { id: 'audit', label: 'Audit Trail', icon: 'clock' },
 ];
 
 const STATUSES = ['pending', 'assigned', 'in_progress', 'resolved', 'rejected'];
@@ -371,6 +377,21 @@ function App() {
   const [paletteQuery, setPaletteQuery] = useState('');
   const [paletteIndex, setPaletteIndex] = useState(0);
 
+  // Add Teacher Modal state
+  const [teacherModalOpen, setTeacherModalOpen] = useState(false);
+  const [teacherForm, setTeacherForm] = useState({
+    name: '',
+    email: '',
+    department: '',
+    phone: '',
+    password: '',
+  });
+  const [addingTeacher, setAddingTeacher] = useState(false);
+
+  // Audit Logs state
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
   const searchRef = useRef(null);
   const paletteRef = useRef(null);
 
@@ -403,6 +424,13 @@ function App() {
     } catch (err) {
       setTeachers([]);
       setError((previous) => previous || `Could not load teachers: ${err.message}`);
+    }
+
+    try {
+      const auditRes = await getAuditLogs();
+      setAuditLogs(auditRes.logs || []);
+    } catch {
+      // Audit logs optional for non-privileged views
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -412,6 +440,7 @@ function App() {
   useEffect(() => {
     if (user) loadData();
   }, [user, loadData]);
+
 
   /* ----- theme ----- */
   useEffect(() => {
@@ -547,6 +576,10 @@ function App() {
     setVisibleCount(PAGE_SIZE);
   }, [search, statusFilter, priorityFilter, sortBy]);
 
+  const visibleComplaints = useMemo(() => {
+    return filteredComplaints.slice(0, visibleCount);
+  }, [filteredComplaints, visibleCount]);
+
   const teacherLoad = useMemo(() => {
     const map = new Map();
 
@@ -617,6 +650,11 @@ function App() {
 
     return days;
   }, [complaints]);
+
+  const maxTrend = useMemo(
+    () => Math.max(1, ...trend.map((day) => day.count)),
+    [trend]
+  );
 
   const breakdown = useMemo(() => {
     const tally = (getter) => {
@@ -718,6 +756,57 @@ function App() {
       showToast(err.message || 'Assignment failed.', 'error');
     } finally {
       setAssigningId('');
+    }
+  };
+
+  const handleAddTeacherSubmit = async (e) => {
+    e.preventDefault();
+    if (!teacherForm.name.trim() || !teacherForm.email.trim()) {
+      showToast('Name and email are required.', 'warn');
+      return;
+    }
+
+    setAddingTeacher(true);
+    try {
+      const res = await addTeacher(teacherForm);
+      showToast(res.message || 'Teacher onboarded successfully!');
+      setTeacherModalOpen(false);
+      setTeacherForm({
+        name: '',
+        email: '',
+        department: '',
+        phone: '',
+        password: '',
+      });
+      await loadData(false);
+    } catch (err) {
+      showToast(err.message || 'Failed to onboard teacher.', 'error');
+    } finally {
+      setAddingTeacher(false);
+    }
+  };
+
+  const handleEscalate = async (complaint) => {
+    const note = window.prompt('Enter escalation reason/notes (optional):', 'Escalated due to SLA/urgency');
+    if (note === null) return;
+    try {
+      const res = await escalateComplaint(complaint._id, note);
+      showToast(res.message || 'Complaint escalated successfully!');
+      await loadData(false);
+    } catch (err) {
+      showToast(err.message || 'Escalation failed.', 'error');
+    }
+  };
+
+  const handleRequestInfo = async (complaint) => {
+    const promptText = window.prompt('What additional information is required from the student?');
+    if (!promptText || !promptText.trim()) return;
+    try {
+      const res = await requestComplaintInfo(complaint._id, promptText.trim());
+      showToast(res.message || 'Request sent to student successfully!');
+      await loadData(false);
+    } catch (err) {
+      showToast(err.message || 'Failed to request additional information.', 'error');
     }
   };
 
@@ -1135,9 +1224,6 @@ function App() {
     { label: 'Rejected', value: stats.rejected, color: STATUS_COLOR.rejected },
   ];
 
-  const maxTrend = Math.max(1, ...trend.map((day) => day.count));
-  const visibleComplaints = filteredComplaints.slice(0, visibleCount);
-
   /* ----- views ----- */
   const overview = (
     <>
@@ -1403,6 +1489,13 @@ function App() {
           <h2>Response team <span className="count-pill">{teachers.length}</span></h2>
           <p>Workload is sorted lightest first, so the best-fit teacher is always on top.</p>
         </div>
+        <button
+          className="btn-primary"
+          onClick={() => setTeacherModalOpen(true)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+        >
+          <Icon name="users" size={16} /> + Add Teacher
+        </button>
       </header>
 
       {teacherLoad.length === 0 ? (
@@ -1410,6 +1503,9 @@ function App() {
           <div className="empty-icon"><Icon name="users" size={26} /></div>
           <strong>No active teachers found</strong>
           <span>Complaints can be assigned once teachers are active.</span>
+          <button className="btn-primary" onClick={() => setTeacherModalOpen(true)} style={{ marginTop: '12px' }}>
+            + Onboard Teacher
+          </button>
         </div>
       ) : (
         <div className="team-grid">
@@ -1431,6 +1527,58 @@ function App() {
       )}
     </section>
   );
+
+  const auditView = (
+    <section>
+      <header className="section-head">
+        <div>
+          <div className="kicker">COMPLIANCE & GOVERNANCE</div>
+          <h2>Audit Trail <span className="count-pill">{auditLogs.length}</span></h2>
+          <p>Immutable record of complaint assignments, status transitions, and administrative actions.</p>
+        </div>
+      </header>
+
+      {auditLogs.length === 0 ? (
+        <div className="empty panel">
+          <div className="empty-icon"><Icon name="clock" size={26} /></div>
+          <strong>No audit records found</strong>
+          <span>Audit events are recorded when complaints and users are modified.</span>
+        </div>
+      ) : (
+        <div className="list">
+          <div className="list-head" style={{ gridTemplateColumns: '160px 180px 1fr 180px' }}>
+            <span>Action</span><span>Performed By</span><span>Details</span><span>Timestamp</span>
+          </div>
+          {auditLogs.map((log) => (
+            <div
+              key={log._id}
+              className="list-row"
+              style={{ gridTemplateColumns: '160px 180px 1fr 180px' }}
+            >
+              <div>
+                <span className="badge" style={{ background: 'var(--surface-2)', color: 'var(--violet)' }}>
+                  {log.action}
+                </span>
+              </div>
+              <div>
+                <strong>{log.performedBy?.name || 'Administrator'}</strong>
+                <span style={{ fontSize: '11px', color: 'var(--text-3)', display: 'block' }}>
+                  {log.performedBy?.role || 'System'}
+                </span>
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+                {log.details ? JSON.stringify(log.details).replaceAll('"', ' ') : 'Action recorded'}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+                {formatDate(log.createdAt)} {new Date(log.createdAt).toLocaleTimeString()}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+
 
   const analyticsView = (
     <section>
@@ -1656,6 +1804,7 @@ function App() {
           {view === 'complaints' && complaintsView}
           {view === 'team' && teamView}
           {view === 'analytics' && analyticsView}
+          {view === 'audit' && auditView}
 
           <footer className="app-footer">
             <span>© {new Date().getFullYear()} CampusSetu · Built for better campuses.</span>
@@ -1931,6 +2080,25 @@ function App() {
                 <p className="status-security-hint">
                   Changes are saved to the CampusSetu server and added to complaint history.
                 </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => handleEscalate(selectedComplaint)}
+                    style={{ fontSize: '12px', padding: '8px 10px', borderColor: 'var(--amber)', color: 'var(--amber)' }}
+                  >
+                    ⚡ Escalate SLA
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => handleRequestInfo(selectedComplaint)}
+                    style={{ fontSize: '12px', padding: '8px 10px', borderColor: 'var(--blue)', color: 'var(--blue)' }}
+                  >
+                    ✉ Request Info
+                  </button>
+                </div>
               </section>
               <div className="drawer-section">
                 <h4>Description</h4>
@@ -2061,6 +2229,158 @@ function App() {
               </button>
             </footer>
           </section>
+        </div>
+      )}
+      {/* Add Teacher Modal */}
+      {teacherModalOpen && (
+        <div
+          className="overlay center teacher-overlay"
+          onClick={() => {
+            if (!addingTeacher) setTeacherModalOpen(false);
+          }}
+        >
+          <div
+            className="palette glow teacher-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add Teacher"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div>
+                <span className="kicker">ONBOARDING</span>
+                <h3 style={{ margin: '4px 0 0', font: '700 20px var(--display)' }}>Add Teacher</h3>
+              </div>
+              <button
+                className="icon-btn bordered"
+                onClick={() => setTeacherModalOpen(false)}
+                aria-label="Close"
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddTeacherSubmit} style={{ display: 'grid', gap: '14px' }}>
+              <div className="al-field">
+                <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-3)' }}>FULL NAME *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Dr. Ramesh Kumar"
+                  value={teacherForm.name}
+                  onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--line-2)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                  }}
+                />
+              </div>
+
+              <div className="al-field">
+                <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-3)' }}>COLLEGE EMAIL *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="ramesh@college.edu"
+                  value={teacherForm.email}
+                  onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--line-2)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="al-field">
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-3)' }}>DEPARTMENT</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Computer Science"
+                    value={teacherForm.department}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, department: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--line-2)',
+                      background: 'var(--surface)',
+                      color: 'var(--text)',
+                    }}
+                  />
+                </div>
+
+                <div className="al-field">
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-3)' }}>PHONE NUMBER</label>
+                  <input
+                    type="tel"
+                    placeholder="+91 98765 43210"
+                    value={teacherForm.phone}
+                    onChange={(e) => setTeacherForm({ ...teacherForm, phone: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--line-2)',
+                      background: 'var(--surface)',
+                      color: 'var(--text)',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="al-field">
+                <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-3)' }}>
+                  INITIAL PASSWORD (OPTIONAL)
+                </label>
+                <input
+                  type="password"
+                  placeholder="Leave empty to auto-generate a secure password"
+                  value={teacherForm.password}
+                  onChange={(e) => setTeacherForm({ ...teacherForm, password: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--line-2)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                  }}
+                />
+              </div>
+
+              <p style={{ margin: '4px 0 10px', fontSize: '11px', color: 'var(--text-3)', lineHeight: '1.5' }}>
+                The teacher will be securely provisioned in Firebase Auth and MongoDB with the 'teacher' role.
+              </p>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => setTeacherModalOpen(false)}
+                  disabled={addingTeacher}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={addingTeacher}
+                  style={{ minWidth: '130px' }}
+                >
+                  {addingTeacher ? 'Creating...' : 'Onboard Teacher'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

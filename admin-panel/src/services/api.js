@@ -81,3 +81,40 @@ export const updateComplaintStatus = async (
       }),
     }
   );
+
+// Add / Onboard a teacher
+export const addTeacher = async (teacherData) => {
+  return apiRequest('/users/teachers', {
+    method: 'POST',
+    body: JSON.stringify(teacherData),
+  });
+};
+
+// Escalate a complaint
+export const escalateComplaint = async (complaintId, note = '') => {
+  return apiRequest(`/issues/${encodeURIComponent(complaintId)}/escalate`, {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  });
+};
+
+// Reopen a complaint
+export const reopenComplaint = async (complaintId, reason) => {
+  return apiRequest(`/issues/${encodeURIComponent(complaintId)}/reopen`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+};
+
+// Request additional info
+export const requestComplaintInfo = async (complaintId, prompt) => {
+  return apiRequest(`/issues/${encodeURIComponent(complaintId)}/request-info`, {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
+  });
+};
+
+// Fetch audit logs
+export const getAuditLogs = async () => {
+  return apiRequest('/issues/admin/audit-logs');
+};

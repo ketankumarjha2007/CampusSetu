@@ -7,10 +7,13 @@ const {
   getCurrentUser,
   createOrUpdateProfile,
   savePushToken,
+  addTeacher,
+  bootstrapAdmin,
 } = require('../controllers/userController');
 
-const router =
-  express.Router();
+const requireRole = require('../middleware/requireRole');
+
+const router = express.Router();
 
 // ==========================================
 // GET CURRENT USER
@@ -42,4 +45,25 @@ router.post(
   savePushToken
 );
 
-module.exports = router;
+// ==========================================
+// ONBOARD TEACHER (ADMIN ACTION)
+// ==========================================
+
+router.post(
+  '/teachers',
+  authenticateUser,
+  requireRole('college_admin', 'principal'),
+  addTeacher
+);
+
+// ==========================================
+// SECURE BOOTSTRAP INITIAL ADMIN
+// ==========================================
+
+router.post(
+  '/bootstrap-admin',
+  authenticateUser,
+  bootstrapAdmin
+);
+
+module.exports = router;

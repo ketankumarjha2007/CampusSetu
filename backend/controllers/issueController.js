@@ -1006,6 +1006,73 @@ const assignIssueToTeacher = async (req, res) => {
 
     await issue.save();
 
+    const AuditLog = require('../models/AuditLog');
+    const { createInAppNotification } = require('../services/notificationService');
+
+    // Audit log
+    await AuditLog.create({
+      action: 'ASSIGN_COMPLAINT',
+      performedBy: req.user._id,
+      targetType: 'issue',
+      targetId: issue._id,
+      details: {
+        complaintId: issue.complaintId,
+        teacherId: teacher._id,
+        teacherName: teacher.name,
+      },
+    });
+
+    // Notify Student
+    if (issue.reportedBy) {
+      const studentUser = await require('../models/User').findById(issue.reportedBy);
+      if (studentUser) {
+        await createInAppNotification({
+          recipientId: studentUser._id,
+          title: 'Complaint Assigned 👨‍🏫',
+          body: `Your complaint ${issue.complaintId || ''} has been assigned to ${teacher.name}.`,
+          type: 'complaint_assigned',
+          issueId: issue._id,
+          complaintId: issue.complaintId || '',
+        });
+
+        if (studentUser.pushToken) {
+          sendPushNotification({
+            pushToken: studentUser.pushToken,
+            title: 'Complaint Assigned 👨‍🏫',
+            body: `Your complaint ${issue.complaintId || ''} has been assigned to ${teacher.name}.`,
+            data: {
+              type: 'complaint_assigned',
+              issueId: issue._id.toString(),
+              complaintId: issue.complaintId || '',
+            },
+          }).catch((err) => console.log('Push error:', err.message));
+        }
+      }
+    }
+
+    // Notify Teacher
+    await createInAppNotification({
+      recipientId: teacher._id,
+      title: 'New Complaint Assigned 📋',
+      body: `You have been assigned complaint ${issue.complaintId || ''}: "${issue.title}".`,
+      type: 'new_assignment',
+      issueId: issue._id,
+      complaintId: issue.complaintId || '',
+    });
+
+    if (teacher.pushToken) {
+      sendPushNotification({
+        pushToken: teacher.pushToken,
+        title: 'New Complaint Assigned 📋',
+        body: `You have been assigned complaint ${issue.complaintId || ''}: "${issue.title}".`,
+        data: {
+          type: 'new_assignment',
+          issueId: issue._id.toString(),
+          complaintId: issue.complaintId || '',
+        },
+      }).catch((err) => console.log('Push error:', err.message));
+    }
+
     const updatedIssue = await Issue.findById(issue._id)
       .populate('reportedBy', 'name email usn department')
       .populate('assignedTo', 'name email role department')
@@ -1143,6 +1210,9 @@ const updateIssueStatus = async (req, res) => {
 
     // Only resolution updates belong in resolutionNote.
     issue.resolutionNote = status === 'resolved' ? updateNote : '';
+    if (status === 'rejected') {
+      issue.rejectionReason = updateNote;
+    }
 
     issue.resolvedAt =
       status === 'resolved' ? new Date() : null;
@@ -1157,6 +1227,65 @@ const updateIssueStatus = async (req, res) => {
     });
 
     await issue.save();
+
+    const AuditLog = require('../models/AuditLog');
+    const { createInAppNotification } = require('../services/notificationService');
+
+    // Audit log
+    await AuditLog.create({
+      action: 'UPDATE_STATUS',
+      performedBy: req.user._id,
+      targetType: 'issue',
+      targetId: issue._id,
+      details: {
+        complaintId: issue.complaintId,
+        previousStatus,
+        newStatus: status,
+        note: updateNote,
+      },
+    });
+
+    // Notify student about status change
+    if (issue.reportedBy) {
+      const studentUser = await require('../models/User').findById(issue.reportedBy);
+      if (studentUser) {
+        const statusEmoji = {
+          in_progress: '⚙️',
+          resolved: '✅',
+          rejected: '❌',
+          assigned: '👨‍🏫',
+          pending: '📝',
+        }[status] || '🔔';
+
+        const notifTitle = `Status Updated: ${status.replace('_', ' ').toUpperCase()} ${statusEmoji}`;
+        const notifBody = updateNote
+          ? `Your complaint ${issue.complaintId || ''} status changed to ${status.replace('_', ' ')}. Note: ${updateNote}`
+          : `Your complaint ${issue.complaintId || ''} status is now ${status.replace('_', ' ')}.`;
+
+        await createInAppNotification({
+          recipientId: studentUser._id,
+          title: notifTitle,
+          body: notifBody,
+          type: 'status_updated',
+          issueId: issue._id,
+          complaintId: issue.complaintId || '',
+        });
+
+        if (studentUser.pushToken) {
+          sendPushNotification({
+            pushToken: studentUser.pushToken,
+            title: notifTitle,
+            body: notifBody,
+            data: {
+              type: 'status_updated',
+              issueId: issue._id.toString(),
+              complaintId: issue.complaintId || '',
+              status,
+            },
+          }).catch((err) => console.log('Push error:', err.message));
+        }
+      }
+    }
 
     const updatedIssue = await Issue.findById(issue._id)
       .populate('reportedBy', 'name email role department usn')
@@ -1177,6 +1306,285 @@ const updateIssueStatus = async (req, res) => {
     });
   }
 };
+// ==========================================
+// REOPEN A RESOLVED/REJECTED COMPLAINT (STUDENT OR ADMIN)
+// ==========================================
+const reopenIssue = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'A reason for reopening the complaint is required',
+      });
+    }
+
+    const issue = await Issue.findById(id);
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+    }
+
+    const isOwner = String(issue.reportedBy) === String(req.user._id);
+    const isAdmin = ['college_admin', 'principal'].includes(req.user.role);
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to reopen this complaint',
+      });
+    }
+
+    if (!['resolved', 'rejected'].includes(issue.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only resolved or rejected complaints can be reopened',
+      });
+    }
+
+    const previousStatus = issue.status;
+    issue.status = 'in_progress';
+    issue.reopenReason = reason.trim();
+    issue.history.push({
+      status: 'in_progress',
+      note: `Complaint reopened (${previousStatus} -> in_progress): ${reason.trim()}`,
+      changedBy: req.user._id,
+      changedAt: new Date(),
+    });
+
+    await issue.save();
+
+    const AuditLog = require('../models/AuditLog');
+    await AuditLog.create({
+      action: 'REOPEN_COMPLAINT',
+      performedBy: req.user._id,
+      targetType: 'issue',
+      targetId: issue._id,
+      details: {
+        previousStatus,
+        reason: reason.trim(),
+      },
+    });
+
+    const updatedIssue = await Issue.findById(issue._id)
+      .populate('reportedBy', 'name email role department usn')
+      .populate('assignedTo', 'name email role department')
+      .populate('history.changedBy', 'name email role');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Complaint reopened successfully',
+      issue: updatedIssue,
+    });
+  } catch (err) {
+    console.error('Reopen issue error:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to reopen complaint' });
+  }
+};
+
+// ==========================================
+// ESCALATE OVERDUE/CRITICAL COMPLAINT (CLUSTER HEAD / ADMIN / PRINCIPAL)
+// ==========================================
+const escalateIssue = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { note } = req.body;
+
+    const issue = await Issue.findById(id);
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+    }
+
+    issue.escalationLevel = (issue.escalationLevel || 0) + 1;
+    issue.priority = 'critical';
+
+    issue.history.push({
+      status: issue.status,
+      note: `Escalated to Level ${issue.escalationLevel}${note ? `: ${note.trim()}` : ''}`,
+      changedBy: req.user._id,
+      changedAt: new Date(),
+    });
+
+    await issue.save();
+
+    const AuditLog = require('../models/AuditLog');
+    await AuditLog.create({
+      action: 'ESCALATE_COMPLAINT',
+      performedBy: req.user._id,
+      targetType: 'issue',
+      targetId: issue._id,
+      details: {
+        escalationLevel: issue.escalationLevel,
+        note: note ? note.trim() : '',
+      },
+    });
+
+    const updatedIssue = await Issue.findById(issue._id)
+      .populate('reportedBy', 'name email role department usn')
+      .populate('assignedTo', 'name email role department')
+      .populate('history.changedBy', 'name email role');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Complaint escalated successfully',
+      issue: updatedIssue,
+    });
+  } catch (err) {
+    console.error('Escalate issue error:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to escalate complaint' });
+  }
+};
+
+// ==========================================
+// REQUEST ADDITIONAL INFO FROM STUDENT (TEACHER / ADMIN)
+// ==========================================
+const requestAdditionalInfo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { prompt } = req.body;
+
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Prompt describing needed information is required',
+      });
+    }
+
+    const issue = await Issue.findById(id);
+    if (!issue) {
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+    }
+
+    issue.additionalInfoRequested = true;
+    issue.additionalInfoPrompt = prompt.trim();
+    issue.history.push({
+      status: issue.status,
+      note: `Additional information requested: ${prompt.trim()}`,
+      changedBy: req.user._id,
+      changedAt: new Date(),
+    });
+
+    await issue.save();
+
+    const { createInAppNotification, sendPushNotification } = require('../services/notificationService');
+    const studentUser = await require('../models/User').findById(issue.reportedBy);
+
+    if (studentUser) {
+      await createInAppNotification({
+        recipientId: studentUser._id,
+        title: 'Action Needed: More Details Requested ℹ️',
+        body: `For complaint ${issue.complaintId || ''}: "${prompt.trim()}"`,
+        type: 'info_requested',
+        issueId: issue._id,
+        complaintId: issue.complaintId || '',
+      });
+
+      if (studentUser.pushToken) {
+        sendPushNotification({
+          pushToken: studentUser.pushToken,
+          title: 'Action Needed: More Details Requested ℹ️',
+          body: `For complaint ${issue.complaintId || ''}: "${prompt.trim()}"`,
+          data: {
+            type: 'info_requested',
+            issueId: issue._id.toString(),
+            complaintId: issue.complaintId || '',
+          },
+        }).catch((err) => console.log('Push error:', err.message));
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Request for additional information sent to student',
+      issue,
+    });
+  } catch (err) {
+    console.error('Request additional info error:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to request information' });
+  }
+};
+
+// ==========================================
+// IN-APP NOTIFICATIONS HANDLERS
+// ==========================================
+const getMyNotifications = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const notifications = await Notification.find({
+      recipient: req.user._id,
+    })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    const unreadCount = await Notification.countDocuments({
+      recipient: req.user._id,
+      read: false,
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: notifications.length,
+      unreadCount,
+      notifications,
+    });
+  } catch (err) {
+    console.error('Get notifications error:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
+  }
+};
+
+const markNotificationRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const Notification = require('../models/Notification');
+    await Notification.updateOne(
+      { _id: id, recipient: req.user._id },
+      { $set: { read: true } }
+    );
+    return res.status(200).json({ success: true, message: 'Notification marked as read' });
+  } catch (err) {
+    console.error('Mark notification read error:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to mark read' });
+  }
+};
+
+const markAllNotificationsRead = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    await Notification.updateMany(
+      { recipient: req.user._id, read: false },
+      { $set: { read: true } }
+    );
+    return res.status(200).json({ success: true, message: 'All notifications marked as read' });
+  } catch (err) {
+    console.error('Mark all read error:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to mark all as read' });
+  }
+};
+
+// ==========================================
+// GET AUDIT LOGS FOR PRINCIPAL / ADMIN
+// ==========================================
+const getAuditLogs = async (req, res) => {
+  try {
+    const AuditLog = require('../models/AuditLog');
+    const logs = await AuditLog.find({})
+      .populate('performedBy', 'name email role department')
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    return res.status(200).json({
+      success: true,
+      count: logs.length,
+      logs,
+    });
+  } catch (err) {
+    console.error('Get audit logs error:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to fetch audit logs' });
+  }
+};
+
 /*
  * ==========================================
  * EXPORTS
@@ -1194,4 +1602,11 @@ module.exports = {
   assignIssueToTeacher,
   updateIssueStatus,
   getActiveTeachers,
+  reopenIssue,
+  escalateIssue,
+  requestAdditionalInfo,
+  getMyNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getAuditLogs,
 };
