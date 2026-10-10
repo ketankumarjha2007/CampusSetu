@@ -1,5 +1,7 @@
+
 import React, {
   useCallback,
+  useMemo,
   useState,
 } from 'react';
 
@@ -10,14 +12,14 @@ import {
   ScrollView,
   StatusBar,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 
 import { useFocusEffect } from '@react-navigation/native';
-
-import { apiRequest } from '../services/api';
-
+import { auth } from '../config/firebase';
+import { apiRequest, getCurrentUser } from '../services/api';
 import styles from './TeacherDashboardScreen.styles';
 
 const FILTERS = [
@@ -26,6 +28,7 @@ const FILTERS = [
   { label: 'Assigned', value: 'assigned' },
   { label: 'In Progress', value: 'in_progress' },
   { label: 'Resolved', value: 'resolved' },
+  { label: 'Rejected', value: 'rejected' },
 ];
 
 const STATUS_LABELS = {
@@ -43,93 +46,263 @@ const PRIORITY_LABELS = {
   critical: 'Critical',
 };
 
-export default function TeacherDashboardScreen({
-  navigation,
-}) {
+const PRIORITY_ORDER = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+const getPriority = (issue) => {
+  const priority = issue?.priority || 'medium';
+
+  return PRIORITY_LABELS[priority] ? priority : 'medium';
+};
+
+const getStatus = (issue) => {
+  const status = issue?.status || 'pending';
+
+  return STATUS_LABELS[status] ? status : 'pending';
+};
+
+const getErrorMessage = (error) => {
+  if (error?.message) return error.message;
+  return 'Unable to load your dashboard. Please try again.';
+};
+
+const getInitials = (name = '') => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+
+  if (!parts.length) return 'T';
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+};
+
+export default function TeacherDashboardScreen({ navigation }) {
   const [issues, setIssues] = useState([]);
   const [teacher, setTeacher] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
   const fetchDashboard = useCallback(async () => {
+    setError('');
+
     try {
-      setError('');
+      // Assigned complaints are required for the dashboard.
+      // getCurrentUser() is optional because Firebase profile
+      // details can still be used for the greeting.
+      const issuesPromise = apiRequest('/issues/teacher/assigned');
 
-      /*
-       * These endpoints will be added to the backend
-       * in the next step.
-       */
-      const [issuesResponse, userResponse] =
-        await Promise.all([
-          apiRequest('/issues/teacher/assigned'),
-          apiRequest('/users/me'),
-        ]);
+      const userPromise = getCurrentUser().catch((userError) => {
+        console.warn(
+          'Could not load teacher profile:',
+          userError.message
+        );
 
-      setIssues(
-        Array.isArray(issuesResponse.issues)
-          ? issuesResponse.issues
-          : []
-      );
+        return null;
+      });
 
-      setTeacher(
-        userResponse.user ||
-          userResponse.currentUser ||
-          userResponse
-      );
+      const [issuesResponse, userResponse] = await Promise.all([
+        issuesPromise,
+        userPromise,
+      ]);
+
+      if (!Array.isArray(issuesResponse?.issues)) {
+        throw new Error(
+          'The server returned an unexpected complaints response.'
+        );
+      }
+
+      setIssues(issuesResponse.issues);
+
+      const backendUser =
+        userResponse?.user ||
+        userResponse?.currentUser ||
+        (userResponse && userResponse._id ? userResponse : null);
+
+      setTeacher(backendUser);
     } catch (err) {
-      console.error(
-        'Teacher dashboard error:',
-        err.message
-      );
+      console.error('Teacher dashboard error:', err);
 
-      setError(
-        err.message ||
-          'Unable to load your dashboard.'
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setError(getErrorMessage(err));
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      fetchDashboard();
-    }, [fetchDashboard])
+      let active = true;
+
+      const load = async () => {
+        setLoading(true);
+        setError('');
+
+        try {
+          const [issuesResponse, userResponse] = await Promise.all([
+            apiRequest('/issues/teacher/assigned'),
+            getCurrentUser().catch((err) => {
+              console.warn('Teacher profile unavailable:', err.message);
+              return null;
+            }),
+          ]);
+
+          if (!active) return;
+
+          if (!Array.isArray(issuesResponse?.issues)) {
+            throw new Error(
+              'The server returned an unexpected complaints response.'
+            );
+          }
+
+          setIssues(issuesResponse.issues);
+
+          const backendUser =
+            userResponse?.user ||
+            userResponse?.currentUser ||
+            (userResponse && userResponse._id ? userResponse : null);
+
+          setTeacher(backendUser);
+        } catch (err) {
+          if (active) {
+            console.error('Teacher dashboard error:', err);
+            setError(getErrorMessage(err));
+          }
+        } finally {
+          if (active) {
+            setLoading(false);
+            setRefreshing(false);
+          }
+        }
+      };
+
+      load();
+
+      return () => {
+        active = false;
+      };
+    }, [])
   );
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    fetchDashboard();
+
+    try {
+      await fetchDashboard();
+    } finally {
+      setRefreshing(false);
+    }
   }, [fetchDashboard]);
 
-  const filteredIssues =
-    activeFilter === 'all'
-      ? issues
-      : issues.filter(
-          (issue) => issue.status === activeFilter
-        );
+  const counts = useMemo(() => {
+    const result = {
+      total: issues.length,
+      pending: 0,
+      assigned: 0,
+      in_progress: 0,
+      resolved: 0,
+      rejected: 0,
+      critical: 0,
+      awaiting: 0,
+    };
 
-  const countStatus = (status) =>
-    issues.filter(
-      (issue) => issue.status === status
-    ).length;
+    issues.forEach((issue) => {
+      const status = getStatus(issue);
+
+      result[status] += 1;
+
+      if (
+        getPriority(issue) === 'critical' &&
+        !['resolved', 'rejected'].includes(status)
+      ) {
+        result.critical += 1;
+      }
+
+      if (['pending', 'assigned'].includes(status)) {
+        result.awaiting += 1;
+      }
+    });
+
+    return result;
+  }, [issues]);
+
+  const filteredIssues = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return [...issues]
+      .filter((issue) => {
+        const matchesStatus =
+          activeFilter === 'all' ||
+          getStatus(issue) === activeFilter;
+
+        const searchableText = [
+          issue.complaintId,
+          issue.title,
+          issue.description,
+          issue.category,
+          issue.location,
+          issue.building,
+          issue.floor,
+          issue.roomNumber,
+          issue.reportedBy?.name,
+          issue.reportedBy?.email,
+          issue.reportedBy?.usn,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+
+        return (
+          matchesStatus &&
+          (!term || searchableText.includes(term))
+        );
+      })
+      .sort((a, b) => {
+        const priorityDifference =
+          PRIORITY_ORDER[getPriority(a)] -
+          PRIORITY_ORDER[getPriority(b)];
+
+        if (priorityDifference !== 0) {
+          return priorityDifference;
+        }
+
+        return (
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime()
+        );
+      });
+  }, [issues, activeFilter, search]);
+
+  const countStatus = (status) => counts[status] || 0;
 
   const openIssue = (issue) => {
+    if (!issue?._id) {
+      return;
+    }
+
     navigation.navigate('OfficialIssueDetails', {
       issueId: issue._id,
     });
   };
 
   const renderIssue = (issue) => {
-    const priority =
-      issue.priority || 'medium';
+    const priority = getPriority(issue);
+    const status = getStatus(issue);
 
-    const status =
-      issue.status || 'pending';
+    const locationParts = [
+      issue.building,
+      issue.floor ? `Floor ${issue.floor}` : '',
+      issue.roomNumber ? `Room ${issue.roomNumber}` : '',
+    ].filter(Boolean);
+
+    const location =
+      locationParts.join(', ') ||
+      issue.location ||
+      'Location not specified';
 
     return (
       <TouchableOpacity
@@ -137,9 +310,11 @@ export default function TeacherDashboardScreen({
         style={styles.issueCard}
         activeOpacity={0.85}
         onPress={() => openIssue(issue)}
+        accessibilityRole="button"
+        accessibilityLabel={`Open complaint ${issue.complaintId || issue.title}`}
       >
         <View style={styles.issueTopRow}>
-          <Text style={styles.complaintId}>
+          <Text style={styles.complaintId} numberOfLines={1}>
             {issue.complaintId || 'Complaint'}
           </Text>
 
@@ -155,31 +330,21 @@ export default function TeacherDashboardScreen({
                 styles[`priorityText_${priority}`],
               ]}
             >
-              {PRIORITY_LABELS[priority] ||
-                'Medium'}
+              {PRIORITY_LABELS[priority]}
             </Text>
           </View>
         </View>
 
-        <Text
-          style={styles.issueTitle}
-          numberOfLines={2}
-        >
-          {issue.title}
+        <Text style={styles.issueTitle} numberOfLines={2}>
+          {issue.title || 'Untitled complaint'}
         </Text>
 
-        <Text
-          style={styles.issueDescription}
-          numberOfLines={2}
-        >
-          {issue.description}
+        <Text style={styles.issueDescription} numberOfLines={2}>
+          {issue.description || 'No description provided.'}
         </Text>
 
         <View style={styles.issueMetaRow}>
-          <Text
-            style={styles.issueCategory}
-            numberOfLines={1}
-          >
+          <Text style={styles.issueCategory} numberOfLines={1}>
             {issue.category || 'General'}
           </Text>
 
@@ -189,35 +354,20 @@ export default function TeacherDashboardScreen({
               styles[`status_${status}`],
             ]}
           >
-            {STATUS_LABELS[status] || status}
+            {STATUS_LABELS[status]}
           </Text>
         </View>
 
         <View style={styles.locationRow}>
           <Text style={styles.locationIcon}>⌖</Text>
 
-          <Text
-            style={styles.locationText}
-            numberOfLines={2}
-          >
-            {[
-              issue.building,
-              issue.floor
-                ? `Floor ${issue.floor}`
-                : '',
-              issue.roomNumber
-                ? `Room ${issue.roomNumber}`
-                : '',
-            ]
-              .filter(Boolean)
-              .join(', ') ||
-              issue.location ||
-              'Location not specified'}
+          <Text style={styles.locationText} numberOfLines={2}>
+            {location}
           </Text>
         </View>
 
         <View style={styles.cardFooter}>
-          <Text style={styles.reportedBy}>
+          <Text style={styles.reportedBy} numberOfLines={1}>
             {issue.reportedBy?.name
               ? `Reported by ${issue.reportedBy.name}`
               : 'Student complaint'}
@@ -235,10 +385,7 @@ export default function TeacherDashboardScreen({
     if (loading) {
       return (
         <View style={styles.centerState}>
-          <ActivityIndicator
-            size="large"
-            color="#16845B"
-          />
+          <ActivityIndicator size="large" color="#16845B" />
 
           <Text style={styles.stateTitle}>
             Loading dashboard
@@ -266,9 +413,14 @@ export default function TeacherDashboardScreen({
 
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => {
+            onPress={async () => {
               setLoading(true);
-              fetchDashboard();
+
+              try {
+                await fetchDashboard();
+              } finally {
+                setLoading(false);
+              }
             }}
           >
             <Text style={styles.retryButtonText}>
@@ -280,21 +432,38 @@ export default function TeacherDashboardScreen({
     }
 
     if (filteredIssues.length === 0) {
+      const hasSearch = search.trim().length > 0;
+
       return (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconContainer}>
-            <Text style={styles.emptyIcon}>✓</Text>
+            <Text style={styles.emptyIcon}>
+              {hasSearch ? '⌕' : '✓'}
+            </Text>
           </View>
 
           <Text style={styles.emptyTitle}>
-            No complaints here
+            {hasSearch ? 'No matching complaints' : 'No complaints here'}
           </Text>
 
           <Text style={styles.emptyDescription}>
-            {activeFilter === 'all'
-              ? 'You currently have no assigned complaints.'
-              : `No ${STATUS_LABELS[activeFilter]?.toLowerCase() || ''} complaints found.`}
+            {hasSearch
+              ? 'Try another complaint ID, title, student or location.'
+              : activeFilter === 'all'
+                ? 'You currently have no assigned complaints.'
+                : `No ${STATUS_LABELS[activeFilter]?.toLowerCase() || ''} complaints found.`}
           </Text>
+
+          {hasSearch ? (
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => setSearch('')}
+            >
+              <Text style={styles.retryButtonText}>
+                Clear search
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       );
     }
@@ -302,11 +471,16 @@ export default function TeacherDashboardScreen({
     return filteredIssues.map(renderIssue);
   };
 
+  const teacherName =
+    teacher?.name?.trim() ||
+    auth.currentUser?.displayName?.trim() ||
+    auth.currentUser?.email?.split('@')[0] ||
+    'Teacher';
+
+  const teacherInitial = getInitials(teacherName);
+
   return (
-    <SafeAreaView
-      style={styles.safeArea}
-      edges={['top', 'left', 'right', 'bottom']}
-    >
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar
         backgroundColor="#F5F8F6"
         barStyle="dark-content"
@@ -316,6 +490,7 @@ export default function TeacherDashboardScreen({
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -325,18 +500,16 @@ export default function TeacherDashboardScreen({
           />
         }
       >
+        {/* HEADER */}
+
         <View style={styles.header}>
           <View style={styles.headerTextContainer}>
             <Text style={styles.eyebrow}>
-              CAMPUSSETU • OFFICIAL PORTAL
+              CAMPUSSETU • FACULTY PORTAL
             </Text>
 
             <Text style={styles.greeting}>
-              Hello,{' '}
-              {teacher?.name?.trim()
-                ? teacher.name.trim().split(' ')[0]
-                : 'Teacher'}
-              !
+              Hello, {teacherName.split(/\s+/)[0]}!
             </Text>
 
             <Text style={styles.headerSubtitle}>
@@ -346,11 +519,12 @@ export default function TeacherDashboardScreen({
 
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {teacher?.name?.trim()?.charAt(0)?.toUpperCase() ||
-                'T'}
+              {teacherInitial}
             </Text>
           </View>
         </View>
+
+        {/* WELCOME CARD */}
 
         <View style={styles.welcomeCard}>
           <View style={styles.welcomeCardContent}>
@@ -363,17 +537,16 @@ export default function TeacherDashboardScreen({
             </Text>
 
             <Text style={styles.welcomeDescription}>
-              Review complaints, track progress, and
-              keep students informed.
+              Review complaints, track progress, and keep students informed.
             </Text>
           </View>
 
           <View style={styles.welcomeIcon}>
-            <Text style={styles.welcomeIconText}>
-              ✓
-            </Text>
+            <Text style={styles.welcomeIconText}>✓</Text>
           </View>
         </View>
+
+        {/* OVERVIEW */}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
@@ -398,13 +571,11 @@ export default function TeacherDashboardScreen({
                 styles.statIconGreen,
               ]}
             >
-              <Text style={styles.statIconText}>
-                ≡
-              </Text>
+              <Text style={styles.statIconText}>≡</Text>
             </View>
 
             <Text style={styles.statValue}>
-              {issues.length}
+              {counts.total}
             </Text>
 
             <Text style={styles.statLabel}>
@@ -419,14 +590,11 @@ export default function TeacherDashboardScreen({
                 styles.statIconOrange,
               ]}
             >
-              <Text style={styles.statIconText}>
-                ◷
-              </Text>
+              <Text style={styles.statIconText}>◷</Text>
             </View>
 
             <Text style={styles.statValue}>
-              {countStatus('pending') +
-                countStatus('assigned')}
+              {counts.awaiting}
             </Text>
 
             <Text style={styles.statLabel}>
@@ -441,9 +609,7 @@ export default function TeacherDashboardScreen({
                 styles.statIconBlue,
               ]}
             >
-              <Text style={styles.statIconText}>
-                ↻
-              </Text>
+              <Text style={styles.statIconText}>↻</Text>
             </View>
 
             <Text style={styles.statValue}>
@@ -462,9 +628,7 @@ export default function TeacherDashboardScreen({
                 styles.statIconPurple,
               ]}
             >
-              <Text style={styles.statIconText}>
-                ✓
-              </Text>
+              <Text style={styles.statIconText}>✓</Text>
             </View>
 
             <Text style={styles.statValue}>
@@ -476,6 +640,45 @@ export default function TeacherDashboardScreen({
             </Text>
           </View>
         </View>
+
+        {/* PRIORITY ALERT */}
+
+        {counts.critical > 0 ? (
+          <View
+            style={{
+              marginBottom: 20,
+              padding: 14,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: '#F3B5B5',
+              backgroundColor: '#FFF1F1',
+            }}
+          >
+            <Text
+              style={{
+                color: '#A52828',
+                fontWeight: '800',
+                fontSize: 13,
+              }}
+            >
+              ⚠ {counts.critical} critical complaint
+              {counts.critical === 1 ? '' : 's'} need attention
+            </Text>
+
+            <Text
+              style={{
+                color: '#8C4242',
+                fontSize: 12,
+                marginTop: 5,
+                lineHeight: 18,
+              }}
+            >
+              Review the critical items in your assigned complaints.
+            </Text>
+          </View>
+        ) : null}
+
+        {/* COMPLAINTS */}
 
         <View style={styles.sectionHeader}>
           <View>
@@ -495,44 +698,108 @@ export default function TeacherDashboardScreen({
           </View>
         </View>
 
+        {/* SEARCH */}
+
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            minHeight: 48,
+            paddingHorizontal: 13,
+            marginBottom: 13,
+            borderWidth: 1,
+            borderColor: '#DCE5DF',
+            borderRadius: 13,
+            backgroundColor: '#FFFFFF',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 20,
+              color: '#16845B',
+              marginRight: 9,
+            }}
+          >
+            ⌕
+          </Text>
+
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search ID, title, student or location..."
+            placeholderTextColor="#8B9A91"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              paddingVertical: 11,
+              color: '#18352A',
+              fontSize: 13,
+            }}
+            returnKeyType="search"
+            accessibilityLabel="Search assigned complaints"
+          />
+
+          {search.length > 0 ? (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Text
+                style={{
+                  fontSize: 22,
+                  color: '#718078',
+                  paddingLeft: 8,
+                }}
+              >
+                ×
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* FILTERS */}
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterContainer}
         >
           {FILTERS.map((filter) => {
-            const selected =
-              activeFilter === filter.value;
+            const selected = activeFilter === filter.value;
+
+            const count =
+              filter.value === 'all'
+                ? issues.length
+                : countStatus(filter.value);
 
             return (
               <TouchableOpacity
                 key={filter.value}
                 style={[
                   styles.filterButton,
-                  selected &&
-                    styles.filterButtonActive,
+                  selected && styles.filterButtonActive,
                 ]}
-                onPress={() =>
-                  setActiveFilter(filter.value)
-                }
+                onPress={() => setActiveFilter(filter.value)}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
               >
                 <Text
                   style={[
                     styles.filterText,
-                    selected &&
-                      styles.filterTextActive,
+                    selected && styles.filterTextActive,
                   ]}
                 >
-                  {filter.label}
+                  {filter.label} ({count})
                 </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
+        {/* LIST / LOADING / ERROR */}
+
         <View style={styles.issueList}>
           {renderContent()}
         </View>
+
+        {/* FOOTER */}
 
         <View style={styles.footer}>
           <Text style={styles.footerTitle}>

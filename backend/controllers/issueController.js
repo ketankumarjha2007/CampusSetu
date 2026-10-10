@@ -665,55 +665,53 @@ const getIssueById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log(
-      'Issue Details: Requested issue:',
-      id
-    );
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint ID',
+      });
+    }
 
-    let issue = await Issue.findOne({
-      _id: id,
-      reportedBy: req.user._id,
-    })
-      .populate(
-        'reportedBy',
-        'name email role department'
-      )
-      .populate(
-        'assignedTo',
-        'name email role department'
-      )
-      .populate(
-        'history.changedBy',
-        'name email role department'
-      );
+    let issue = await Issue.findById(id)
+      .populate('reportedBy', 'name email role department usn')
+      .populate('assignedTo', 'name email role department')
+      .populate('history.changedBy', 'name email role');
 
     if (!issue) {
       return res.status(404).json({
         success: false,
-        message:
-          'Issue not found or you do not have permission to view it',
+        message: 'Complaint not found',
       });
     }
 
-    /*
-     * Backfill complaint ID for older records.
-     */
+    const currentUserId = String(req.user._id);
+    const studentId = String(
+      issue.reportedBy?._id || issue.reportedBy
+    );
+    const assignedTeacherId = String(
+      issue.assignedTo?._id || issue.assignedTo || ''
+    );
+
+    const isOwner = studentId === currentUserId;
+
+    const isAssignedTeacher =
+      req.user.role === 'teacher' &&
+      assignedTeacherId === currentUserId;
+
+    if (!isOwner && !isAssignedTeacher) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view this complaint',
+      });
+    }
+
     if (!issue.complaintId) {
       issue = await ensureComplaintId(issue);
 
-      issue = await Issue.findById(issue._id)
-        .populate(
-          'reportedBy',
-          'name email role department'
-        )
-        .populate(
-          'assignedTo',
-          'name email role department'
-        )
-        .populate(
-          'history.changedBy',
-          'name email role department'
-        );
+      issue = await Issue.findById(id)
+        .populate('reportedBy', 'name email role department usn')
+        .populate('assignedTo', 'name email role department')
+        .populate('history.changedBy', 'name email role');
     }
 
     return res.status(200).json({
@@ -721,21 +719,11 @@ const getIssueById = async (req, res) => {
       issue,
     });
   } catch (error) {
-    console.error(
-      'Get issue by ID error:',
-      error.message
-    );
-
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid issue ID',
-      });
-    }
+    console.error('Get issue by ID error:', error.message);
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch issue details',
+      message: 'Failed to fetch complaint details',
     });
   }
 };
@@ -1069,7 +1057,14 @@ const getActiveTeachers = async (req, res) => {
 };
 const updateIssueStatus = async (req, res) => {
   try {
-    const { status, resolutionNote } = req.body;
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Accept "note" for new clients and "resolutionNote"
+    // for compatibility with your existing client.
+    const rawNote = req.body.note ?? req.body.resolutionNote;
+    const updateNote =
+      typeof rawNote === 'string' ? rawNote.trim() : '';
 
     const validStatuses = [
       'pending',
@@ -1079,6 +1074,13 @@ const updateIssueStatus = async (req, res) => {
       'rejected',
     ];
 
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint ID',
+      });
+    }
+
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
@@ -1086,13 +1088,39 @@ const updateIssueStatus = async (req, res) => {
       });
     }
 
-    const issue = await Issue.findById(req.params.id);
+    const issue = await Issue.findById(id);
 
     if (!issue) {
       return res.status(404).json({
         success: false,
         message: 'Complaint not found',
       });
+    }
+
+    const isTeacher = req.user.role === 'teacher';
+
+    // Teachers can modify only their own assigned complaints.
+    if (isTeacher) {
+      if (String(issue.assignedTo || '') !== String(req.user._id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can update only complaints assigned to you',
+        });
+      }
+
+      // Teacher workflow: assigned -> in_progress -> resolved.
+      const allowedTeacherTransition =
+        (issue.status === 'assigned' && status === 'in_progress') ||
+        (issue.status === 'in_progress' && status === 'resolved');
+
+      if (!allowedTeacherTransition) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'Teachers can move assigned complaints to In Progress, ' +
+            'and In Progress complaints to Resolved.',
+        });
+      }
     }
 
     if (issue.status === status) {
@@ -1102,10 +1130,7 @@ const updateIssueStatus = async (req, res) => {
       });
     }
 
-    if (
-      status === 'resolved' &&
-      (!resolutionNote || !resolutionNote.trim())
-    ) {
+    if (status === 'resolved' && !updateNote) {
       return res.status(400).json({
         success: false,
         message: 'Please provide a resolution note',
@@ -1116,9 +1141,8 @@ const updateIssueStatus = async (req, res) => {
 
     issue.status = status;
 
-    if (resolutionNote !== undefined) {
-      issue.resolutionNote = resolutionNote.trim();
-    }
+    // Only resolution updates belong in resolutionNote.
+    issue.resolutionNote = status === 'resolved' ? updateNote : '';
 
     issue.resolvedAt =
       status === 'resolved' ? new Date() : null;
@@ -1126,7 +1150,7 @@ const updateIssueStatus = async (req, res) => {
     issue.history.push({
       status,
       note:
-        resolutionNote?.trim() ||
+        updateNote ||
         `Status changed from ${previousStatus} to ${status}`,
       changedBy: req.user._id,
       changedAt: new Date(),
@@ -1134,26 +1158,18 @@ const updateIssueStatus = async (req, res) => {
 
     await issue.save();
 
-    await issue.populate(
-      'reportedBy',
-      'name email usn department'
-    );
-
-    await issue.populate(
-      'assignedTo',
-      'name email role department'
-    );
+    const updatedIssue = await Issue.findById(issue._id)
+      .populate('reportedBy', 'name email role department usn')
+      .populate('assignedTo', 'name email role department')
+      .populate('history.changedBy', 'name email role');
 
     return res.status(200).json({
       success: true,
       message: 'Complaint status updated successfully',
-      issue,
+      issue: updatedIssue,
     });
   } catch (error) {
-    console.error(
-      'Update issue status error:',
-      error.message
-    );
+    console.error('Update issue status error:', error.message);
 
     return res.status(500).json({
       success: false,

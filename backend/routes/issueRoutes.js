@@ -77,7 +77,7 @@ router.patch(
 router.patch(
   '/:id/status',
   authenticateUser,
-  requireRole('college_admin', 'principal'),
+  requireRole('college_admin', 'principal','teacher'),
   updateIssueStatus
 );
 
