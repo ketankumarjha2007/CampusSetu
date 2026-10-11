@@ -1,3 +1,4 @@
+
 import React, {
   useCallback,
   useMemo,
@@ -18,12 +19,18 @@ import {
 } from 'react-native';
 
 import { useFocusEffect } from '@react-navigation/native';
+
 import { auth } from '../config/firebase';
-import { apiRequest, getCurrentUser } from '../services/api';
+import {
+  apiRequest,
+  getCurrentUser,
+} from '../services/api';
+
 import styles from './TeacherDashboardScreen.styles';
 
 const FILTERS = [
   { label: 'All', value: 'all' },
+  { label: 'Awaiting', value: 'awaiting' },
   { label: 'Pending', value: 'pending' },
   { label: 'Assigned', value: 'assigned' },
   { label: 'In Progress', value: 'in_progress' },
@@ -54,30 +61,27 @@ const PRIORITY_ORDER = {
 };
 
 const getPriority = (issue) => {
-  const priority = String(issue?.priority || 'medium').toLowerCase();
-  return PRIORITY_LABELS[priority] ? priority : 'medium';
+  const value = String(issue?.priority || 'medium').toLowerCase();
+  return PRIORITY_LABELS[value] ? value : 'medium';
 };
 
 const getStatus = (issue) => {
-  const status = String(issue?.status || 'pending').toLowerCase();
-  return STATUS_LABELS[status] ? status : 'pending';
+  const value = String(issue?.status || 'pending').toLowerCase();
+  return STATUS_LABELS[value] ? value : 'pending';
 };
 
 const getInitials = (name = '') => {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
 
-  if (!parts.length) return 'T';
-
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join('');
+  return parts.length
+    ? parts.slice(0, 2).map((part) => part[0].toUpperCase()).join('')
+    : 'T';
 };
 
-const formatDate = (dateValue) => {
-  if (!dateValue) return 'Date unavailable';
+const formatDate = (value) => {
+  if (!value) return 'Date unavailable';
 
-  const date = new Date(dateValue);
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return 'Date unavailable';
@@ -109,11 +113,37 @@ function SectionHeading({ title, subtitle, right }) {
   );
 }
 
-function StatCard({ label, value, icon, tone, detail }) {
+function StatCard({
+  label,
+  value,
+  icon,
+  tone,
+  detail,
+  onPress,
+  active = false,
+}) {
   return (
-    <View style={styles.statCard}>
+    <TouchableOpacity
+      style={[
+        styles.statCard,
+        active && {
+          borderColor: '#0D806A',
+          borderWidth: 2,
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.78}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={`${label}: ${value}. View complaints.`}
+    >
       <View style={styles.statCardTop}>
-        <View style={[styles.statIcon, styles[`statIcon_${tone}`]]}>
+        <View
+          style={[
+            styles.statIcon,
+            styles[`statIcon_${tone}`],
+          ]}
+        >
           <Text
             style={[
               styles.statIconText,
@@ -140,7 +170,18 @@ function StatCard({ label, value, icon, tone, detail }) {
       {!!detail && (
         <Text style={styles.statDetail}>{detail}</Text>
       )}
-    </View>
+
+      <Text
+        style={{
+          color: '#0D806A',
+          fontSize: 11,
+          fontWeight: '800',
+          marginTop: 10,
+        }}
+      >
+        View complaints →
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -152,7 +193,6 @@ function StatusBadge({ status }) {
         styles[`statusBadge_${status}`],
       ]}
     >
-      {/* FIXED: closing bracket added to the style array */}
       <View
         style={[
           styles.statusDot,
@@ -215,14 +255,12 @@ export default function TeacherDashboardScreen({ navigation }) {
       setError('');
 
       try {
-        const issuesPromise = apiRequest(
-          '/issues/teacher/assigned'
-        );
+        const issuesPromise = apiRequest('/issues/teacher/assigned');
 
         const userPromise = getCurrentUser().catch((userError) => {
           console.warn(
             'Could not load teacher profile:',
-            userError.message
+            userError?.message
           );
           return null;
         });
@@ -232,6 +270,7 @@ export default function TeacherDashboardScreen({ navigation }) {
           userPromise,
         ]);
 
+        // Accept the documented { issues: [...] } response.
         if (!Array.isArray(issuesResponse?.issues)) {
           throw new Error(
             'The server returned an unexpected complaints response.'
@@ -243,9 +282,7 @@ export default function TeacherDashboardScreen({ navigation }) {
         const backendUser =
           userResponse?.user ||
           userResponse?.currentUser ||
-          (userResponse && userResponse._id
-            ? userResponse
-            : null);
+          (userResponse?._id ? userResponse : null);
 
         setTeacher(backendUser);
       } catch (err) {
@@ -266,9 +303,11 @@ export default function TeacherDashboardScreen({ navigation }) {
   );
 
   const onRefresh = useCallback(() => {
+    if (refreshing) return;
+
     setRefreshing(true);
     fetchDashboard();
-  }, [fetchDashboard]);
+  }, [fetchDashboard, refreshing]);
 
   const counts = useMemo(() => {
     const result = {
@@ -308,9 +347,15 @@ export default function TeacherDashboardScreen({ navigation }) {
 
     return [...issues]
       .filter((issue) => {
+        const status = getStatus(issue);
+
         const matchesStatus =
           activeFilter === 'all' ||
-          getStatus(issue) === activeFilter;
+          (
+            activeFilter === 'awaiting' &&
+            ['pending', 'assigned'].includes(status)
+          ) ||
+          status === activeFilter;
 
         const searchableText = [
           issue.complaintId,
@@ -324,15 +369,20 @@ export default function TeacherDashboardScreen({ navigation }) {
           issue.reportedBy?.name,
           issue.reportedBy?.email,
           issue.reportedBy?.usn,
+          issue.priority,
         ]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();
 
-        return (
-          matchesStatus &&
-          (!term || searchableText.includes(term))
-        );
+        const matchesSearch =
+          !term || searchableText.includes(term);
+
+        const matchesCritical =
+          term !== 'critical' ||
+          getPriority(issue) === 'critical';
+
+        return matchesStatus && matchesSearch && matchesCritical;
       })
       .sort((a, b) => {
         const priorityDifference =
@@ -350,7 +400,26 @@ export default function TeacherDashboardScreen({ navigation }) {
       });
   }, [issues, activeFilter, search]);
 
-  const countStatus = (status) => counts[status] || 0;
+  const countStatus = (status) => {
+    if (status === 'awaiting') return counts.awaiting;
+    return counts[status] || 0;
+  };
+
+  const selectFilter = (value) => {
+    setActiveFilter(value);
+    setSearch('');
+  };
+
+  // FIX: Both total-count controls use this function.
+  const showAllIssues = () => {
+    setActiveFilter('all');
+    setSearch('');
+  };
+
+  const showCriticalIssues = () => {
+    setActiveFilter('all');
+    setSearch('critical');
+  };
 
   const teacherName =
     teacher?.name?.trim() ||
@@ -420,7 +489,7 @@ export default function TeacherDashboardScreen({ navigation }) {
 
     return (
       <TouchableOpacity
-        key={issue._id}
+        key={issue._id || issue.complaintId}
         style={styles.issueCard}
         activeOpacity={0.82}
         onPress={() => openIssue(issue)}
@@ -541,6 +610,16 @@ export default function TeacherDashboardScreen({ navigation }) {
     if (filteredIssues.length === 0) {
       const hasSearch = search.trim().length > 0;
 
+      const emptyMessage = hasSearch
+        ? 'Try another complaint ID, title, student, or location.'
+        : activeFilter === 'all'
+          ? 'There are no complaints assigned to you right now. New assignments will appear here.'
+          : activeFilter === 'awaiting'
+            ? 'There are no pending or assigned complaints awaiting action.'
+            : `No ${
+                STATUS_LABELS[activeFilter]?.toLowerCase() || 'matching'
+              } complaints found.`;
+
       return (
         <View style={styles.stateCard}>
           <View style={styles.emptyIconContainer}>
@@ -556,23 +635,17 @@ export default function TeacherDashboardScreen({ navigation }) {
           </Text>
 
           <Text style={styles.stateDescription}>
-            {hasSearch
-              ? 'Try another complaint ID, title, student, or location.'
-              : activeFilter === 'all'
-                ? 'There are no complaints assigned to you right now. New assignments will appear here.'
-                : `No ${
-                    STATUS_LABELS[activeFilter]?.toLowerCase() || ''
-                  } complaints found.`}
+            {emptyMessage}
           </Text>
 
-          {hasSearch ? (
+          {activeFilter !== 'all' || hasSearch ? (
             <TouchableOpacity
               style={styles.secondaryButton}
-              onPress={() => setSearch('')}
+              onPress={showAllIssues}
               activeOpacity={0.8}
             >
               <Text style={styles.secondaryButtonText}>
-                Clear search
+                Show all complaints
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -580,14 +653,16 @@ export default function TeacherDashboardScreen({ navigation }) {
       );
     }
 
+    // IMPORTANT: render every matching complaint card.
     return filteredIssues.map(renderIssue);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
-        backgroundColor="#F4F7FB"
+        backgroundColor="#F5F7FC"
         barStyle="dark-content"
+        translucent={false}
       />
 
       <ScrollView
@@ -604,14 +679,14 @@ export default function TeacherDashboardScreen({ navigation }) {
           />
         }
       >
-        {/* TOP BAR */}
+        {/* BRAND BAR */}
         <View style={styles.topBar}>
           <View style={styles.brandLockup}>
             <View style={styles.brandMark}>
               <Text style={styles.brandMarkText}>C</Text>
             </View>
 
-            <View>
+            <View style={{ flexShrink: 1 }}>
               <Text style={styles.brandName}>CampusSetu</Text>
               <Text style={styles.brandSubtitle}>
                 FACULTY WORKSPACE
@@ -665,25 +740,33 @@ export default function TeacherDashboardScreen({ navigation }) {
             </Text>
 
             <View style={styles.heroBottom}>
-              <View style={styles.heroMetric}>
+              <TouchableOpacity
+                style={styles.heroMetric}
+                onPress={() => selectFilter('awaiting')}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.heroMetricValue}>
                   {counts.awaiting}
                 </Text>
                 <Text style={styles.heroMetricLabel}>
                   Awaiting action
                 </Text>
-              </View>
+              </TouchableOpacity>
 
               <View style={styles.heroMetricDivider} />
 
-              <View style={styles.heroMetric}>
+              <TouchableOpacity
+                style={styles.heroMetric}
+                onPress={() => selectFilter('resolved')}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.heroMetricValue}>
                   {counts.resolved}
                 </Text>
                 <Text style={styles.heroMetricLabel}>
                   Resolved
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -707,7 +790,11 @@ export default function TeacherDashboardScreen({ navigation }) {
               accessibilityRole="button"
               accessibilityLabel="Refresh dashboard"
             >
-              <Text style={styles.refreshIcon}>↻</Text>
+              {refreshing ? (
+                <ActivityIndicator size="small" color="#0D806A" />
+              ) : (
+                <Text style={styles.refreshIcon}>↻</Text>
+              )}
             </TouchableOpacity>
           }
         />
@@ -719,6 +806,8 @@ export default function TeacherDashboardScreen({ navigation }) {
             icon="▤"
             tone="teal"
             detail="All complaints"
+            active={activeFilter === 'all' && !search}
+            onPress={showAllIssues}
           />
 
           <StatCard
@@ -727,6 +816,8 @@ export default function TeacherDashboardScreen({ navigation }) {
             icon="◷"
             tone="amber"
             detail="Pending or assigned"
+            active={activeFilter === 'awaiting'}
+            onPress={() => selectFilter('awaiting')}
           />
 
           <StatCard
@@ -735,6 +826,8 @@ export default function TeacherDashboardScreen({ navigation }) {
             icon="↗"
             tone="blue"
             detail="Being addressed"
+            active={activeFilter === 'in_progress'}
+            onPress={() => selectFilter('in_progress')}
           />
 
           <StatCard
@@ -743,12 +836,20 @@ export default function TeacherDashboardScreen({ navigation }) {
             icon="✓"
             tone="purple"
             detail="Successfully closed"
+            active={activeFilter === 'resolved'}
+            onPress={() => selectFilter('resolved')}
           />
         </View>
 
         {/* CRITICAL ALERT */}
         {!loading && !error && counts.critical > 0 ? (
-          <View style={styles.criticalAlert}>
+          <TouchableOpacity
+            style={styles.criticalAlert}
+            activeOpacity={0.8}
+            onPress={showCriticalIssues}
+            accessibilityRole="button"
+            accessibilityLabel="Show critical complaints"
+          >
             <View style={styles.criticalAlertIcon}>
               <Text style={styles.criticalAlertIconText}>!</Text>
             </View>
@@ -768,19 +869,30 @@ export default function TeacherDashboardScreen({ navigation }) {
             </View>
 
             <Text style={styles.criticalAlertArrow}>›</Text>
-          </View>
+          </TouchableOpacity>
         ) : null}
 
         {/* COMPLAINTS */}
         <SectionHeading
           title="Assigned complaints"
-          subtitle="Prioritized to help you focus on what matters"
+          subtitle={
+            activeFilter === 'all' && !search
+              ? `${issues.length} total assigned complaints`
+              : `${filteredIssues.length} matching complaints`
+          }
           right={
-            <View style={styles.totalCountBadge}>
+            // FIX: The count badge is now clickable.
+            <TouchableOpacity
+              style={styles.totalCountBadge}
+              onPress={showAllIssues}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={`Show all assigned complaints. ${issues.length} total.`}
+            >
               <Text style={styles.totalCountText}>
                 {filteredIssues.length}
               </Text>
-            </View>
+            </TouchableOpacity>
           }
         />
 
@@ -812,7 +924,7 @@ export default function TeacherDashboardScreen({ navigation }) {
           ) : null}
         </View>
 
-        {/* FILTERS */}
+        {/* STATUS FILTERS */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -833,7 +945,7 @@ export default function TeacherDashboardScreen({ navigation }) {
                   styles.filterButton,
                   selected && styles.filterButtonActive,
                 ]}
-                onPress={() => setActiveFilter(filter.value)}
+                onPress={() => selectFilter(filter.value)}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityState={{ selected }}

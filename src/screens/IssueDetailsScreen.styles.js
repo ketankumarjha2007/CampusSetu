@@ -1,7 +1,4 @@
-import { StyleSheet, Dimensions } from 'react-native';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const IS_SMALL = SCREEN_WIDTH < 360;
+import { StyleSheet } from 'react-native';
 
 const COLORS = {
   background: '#F5F7F2',
@@ -16,6 +13,14 @@ const COLORS = {
   red: '#C24141',
 };
 
+/*
+ * CHANGED:
+ * - No module-level Dimensions.get() any more (it never updated on rotation
+ *   or split-screen). Layout now uses flex, percentages and aspectRatio,
+ *   and the screen applies the *Small overrides from useWindowDimensions.
+ * - Content is centered with a max width so tablets / landscape stay tidy.
+ * - Photos use aspectRatio instead of a fixed pixel height.
+ */
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -121,6 +126,7 @@ const styles = StyleSheet.create({
 
   primaryButton: {
     width: '100%',
+    maxWidth: 420,
     minHeight: 54,
     borderRadius: 17,
     backgroundColor: COLORS.green,
@@ -157,9 +163,10 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    minHeight: 76,
-    paddingHorizontal: IS_SMALL ? 16 : 20,
-    paddingVertical: 12,
+    minHeight: 72,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.background,
@@ -199,7 +206,7 @@ const styles = StyleSheet.create({
 
   headerTitle: {
     color: COLORS.text,
-    fontSize: IS_SMALL ? 17 : 19,
+    fontSize: 19,
     fontWeight: '900',
     letterSpacing: -0.5,
   },
@@ -228,16 +235,27 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    paddingHorizontal: IS_SMALL ? 15 : 20,
+    alignItems: 'center',
+    paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
+  },
+
+  contentSmall: {
+    paddingHorizontal: 14,
+  },
+
+  // Keeps the layout readable on tablets and landscape
+  contentInner: {
+    width: '100%',
+    maxWidth: 720,
   },
 
   // Hero
   heroCard: {
     backgroundColor: COLORS.darkGreen,
     borderRadius: 26,
-    padding: IS_SMALL ? 17 : 21,
+    padding: 20,
     overflow: 'hidden',
     position: 'relative',
     marginBottom: 14,
@@ -289,7 +307,7 @@ const styles = StyleSheet.create({
 
   heroHeading: {
     color: COLORS.white,
-    fontSize: IS_SMALL ? 14 : 16,
+    fontSize: 16,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
@@ -302,7 +320,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 7,
     marginLeft: 7,
-    maxWidth: 112,
+    maxWidth: 120,
+    flexShrink: 0,
   },
 
   statusBadgeDot: {
@@ -342,9 +361,13 @@ const styles = StyleSheet.create({
   complaintIdValue: {
     flex: 1,
     color: COLORS.white,
-    fontSize: IS_SMALL ? 21 : 25,
+    fontSize: 25,
     fontWeight: '900',
     letterSpacing: 0.3,
+  },
+
+  complaintIdValueSmall: {
+    fontSize: 21,
   },
 
   referenceIcon: {
@@ -443,6 +466,7 @@ const styles = StyleSheet.create({
 
   statusSummaryContent: {
     flex: 1,
+    minWidth: 0,
     paddingRight: 5,
   },
 
@@ -503,7 +527,7 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     color: COLORS.text,
-    fontSize: IS_SMALL ? 20 : 22,
+    fontSize: 21,
     fontWeight: '900',
     letterSpacing: -0.8,
   },
@@ -513,7 +537,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: IS_SMALL ? 15 : 18,
+    paddingHorizontal: 18,
     paddingVertical: 17,
   },
 
@@ -639,7 +663,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 
-  // Photo
+  // Photo (student's original)
   photoCard: {
     backgroundColor: COLORS.white,
     borderRadius: 22,
@@ -648,9 +672,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
 
+  // CHANGED: aspectRatio instead of a fixed height, so the photo
+  // scales with the card on every screen size.
   issuePhoto: {
     width: '100%',
-    height: Math.min(280, Math.max(190, SCREEN_WIDTH * 0.62)),
+    aspectRatio: 4 / 3,
     borderRadius: 16,
     backgroundColor: '#E8ECE7',
   },
@@ -680,6 +706,7 @@ const styles = StyleSheet.create({
 
   photoCaptionContent: {
     flex: 1,
+    minWidth: 0,
   },
 
   photoCaptionTitle: {
@@ -727,6 +754,7 @@ const styles = StyleSheet.create({
 
   resolutionHeaderContent: {
     flex: 1,
+    minWidth: 0,
   },
 
   resolutionTitle: {
@@ -756,10 +784,64 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
+  resolutionLabelSpaced: {
+    marginTop: 18,
+  },
+
+  // NEW: the teacher's proof photo
+  resolutionPhoto: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 16,
+    backgroundColor: '#DCEADF',
+  },
+
+  resolutionPhotoHint: {
+    color: COLORS.muted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 8,
+  },
+
   resolutionText: {
     color: '#405B49',
     fontSize: 13,
     lineHeight: 22,
+  },
+
+  // NEW: full-screen photo viewer
+  viewerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  viewerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  viewerImage: {
+    width: '100%',
+    height: '80%',
+  },
+
+  viewerClose: {
+    position: 'absolute',
+    top: 48,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  viewerCloseText: {
+    color: COLORS.white,
+    fontSize: 20,
+    fontWeight: '800',
   },
 
   // Timeline
@@ -783,7 +865,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: IS_SMALL ? 15 : 19,
+    paddingHorizontal: 19,
     paddingTop: 20,
     paddingBottom: 6,
   },
@@ -929,7 +1011,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  // Delete
+  // Reopen / delete cards
   deleteCard: {
     backgroundColor: '#FFF7F5',
     borderRadius: 22,
@@ -962,6 +1044,7 @@ const styles = StyleSheet.create({
 
   deleteHeaderContent: {
     flex: 1,
+    minWidth: 0,
   },
 
   deleteTitle: {

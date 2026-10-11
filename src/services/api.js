@@ -1,10 +1,7 @@
 import Constants from 'expo-constants';
 import { auth } from '../config/firebase';
 
-const API_BASE_URL =
-  Constants.expoConfig?.extra?.apiUrl ||
-  process.env.EXPO_PUBLIC_API_URL ||
-  'http://192.168.1.20:5000/api';
+const API_BASE_URL = 'http://192.168.1.20:5000/api';
 
 export const getFirebaseToken = async () => {
   console.log(
@@ -13,36 +10,61 @@ export const getFirebaseToken = async () => {
   );
 
   if (!auth.currentUser) {
-    throw new Error(
-      'No authenticated Firebase user found'
-    );
+    throw new Error('No authenticated Firebase user found');
   }
 
-  const token =
-    await auth.currentUser.getIdToken();
+  const token = await auth.currentUser.getIdToken();
 
-  console.log(
-    'API: Firebase ID token obtained'
-  );
+  console.log('API: Firebase ID token obtained');
 
   return token;
 };
 
-export const apiRequest = async (
-  endpoint,
-  options = {}
-) => {
+/*
+ * ==========================================
+ * FORM-DATA UPLOAD VIA XMLHttpRequest
+ * ==========================================
+ *
+ * Newer Expo SDKs replace the global fetch with expo/fetch,
+ * which throws "Unsupported FormData part implementation" for
+ * React Native file parts like { uri, name, type }.
+ *
+ * XMLHttpRequest uses React Native's own networking layer,
+ * which fully supports those parts, so file uploads go through it.
+ */
+const sendFormData = (url, { method = 'POST', headers = {}, body }) => {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.open(method, url);
+    xhr.timeout = 60000;
+
+    Object.entries(headers).forEach(([key, value]) => {
+      xhr.setRequestHeader(key, value);
+    });
+
+    xhr.onload = () => {
+      resolve({
+        status: xhr.status,
+        ok: xhr.status >= 200 && xhr.status < 300,
+        text: xhr.responseText,
+      });
+    };
+
+    xhr.onerror = () => reject(new Error('Network request failed'));
+    xhr.ontimeout = () => reject(new Error('Upload timed out'));
+
+    xhr.send(body);
+  });
+};
+
+export const apiRequest = async (endpoint, options = {}) => {
   try {
-    const token =
-      await getFirebaseToken();
+    const token = await getFirebaseToken();
 
-    const url =
-      `${API_BASE_URL}${endpoint}`;
+    const url = `${API_BASE_URL}${endpoint}`;
 
-    console.log(
-      'API: Calling:',
-      url
-    );
+    console.log('API: Calling:', url);
 
     const isFormData =
       typeof FormData !== 'undefined' &&
@@ -50,107 +72,91 @@ export const apiRequest = async (
 
     console.log(
       'API: Request body type:',
-      isFormData
-        ? 'FormData'
-        : 'JSON'
+      isFormData ? 'FormData' : 'JSON'
     );
 
+    // Do NOT set Content-Type for FormData; the multipart
+    // boundary must be generated automatically.
     const headers = {
       ...(isFormData
         ? {}
-        : {
-            'Content-Type':
-              'application/json',
-          }),
+        : { 'Content-Type': 'application/json' }),
 
-      Authorization:
-        `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
 
       ...(options.headers || {}),
     };
 
-    const response = await fetch(
-      url,
-      {
+    let status;
+    let ok;
+    let responseText;
+
+    if (isFormData) {
+      const result = await sendFormData(url, {
+        method: options.method || 'POST',
+        headers,
+        body: options.body,
+      });
+
+      status = result.status;
+      ok = result.ok;
+      responseText = result.text;
+    } else {
+      const response = await fetch(url, {
         ...options,
         headers,
-      }
-    );
+      });
 
-    console.log(
-      'API: Response status:',
-      response.status
-    );
+      status = response.status;
+      ok = response.ok;
+      responseText = await response.text();
+    }
 
-    const responseText =
-      await response.text();
-
-    console.log(
-      'API: Raw response:',
-      responseText
-    );
+    console.log('API: Response status:', status);
+    console.log('API: Raw response:', responseText);
 
     let data;
 
     try {
-      data =
-        JSON.parse(responseText);
+      data = JSON.parse(responseText);
     } catch (parseError) {
-      console.error(
-        'API: JSON parse error:',
-        parseError
-      );
+      console.error('API: JSON parse error:', parseError);
 
       const error = new Error(
-        `Server returned invalid JSON. Status: ${response.status}`
+        `Server returned invalid JSON. Status: ${status}`
       );
 
-      error.status =
-        response.status;
+      error.status = status;
 
       throw error;
     }
 
-    if (!response.ok) {
+    if (!ok) {
       const error = new Error(
         data.message ||
-          `API request failed with status ${response.status}`
+          `API request failed with status ${status}`
       );
 
-      // Preserve backend response so
-      // screens can handle special cases
-      // like duplicate complaints.
-      error.status =
-        response.status;
-
+      // Preserve backend response so screens can handle
+      // special cases like duplicate complaints.
+      error.status = status;
       error.data = data;
 
       throw error;
     }
 
-    console.log(
-      'API: Request successful:',
-      data
-    );
+    console.log('API: Request successful:', data);
 
     return data;
   } catch (error) {
-    console.error(
-      'API: Request failed:',
-      error.message
-    );
+    console.error('API: Request failed:', error.message);
 
     throw error;
   }
 };
 
-export const getCurrentUser =
-  async () => {
-    console.log(
-      'API: Fetching current CampusSetu user...'
-    );
+export const getCurrentUser = async () => {
+  console.log('API: Fetching current CampusSetu user...');
 
-    return await apiRequest(
-      '/users/me'
-    );
-  };
+  return await apiRequest('/users/me');
+};

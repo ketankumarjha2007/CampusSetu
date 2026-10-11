@@ -27,9 +27,9 @@ const C = {
 const shadow = Platform.select({
   ios: {
     shadowColor: '#14233D',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.065,
-    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
   },
   android: { elevation: 3 },
   default: {},
@@ -45,33 +45,36 @@ const styles = StyleSheet.create({
     backgroundColor: C.bg,
   },
   content: {
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 34,
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 40,
     width: '100%',
     maxWidth: 1080,
     alignSelf: 'center',
   },
 
-  // ─── Premium brand header ──────────────────────
+  // Premium header
   topBar: {
-    minHeight: 66,
+    minHeight: 62,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 22,
-    gap: 12,
+    marginBottom: 20,
+    gap: 10,
+    width: '100%',
   },
   brandLockup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     flexShrink: 1,
+    minWidth: 0,
   },
   brandMark: {
-    width: 48,
-    height: 48,
-    borderRadius: 17,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     backgroundColor: C.navy,
     alignItems: 'center',
     justifyContent: 'center',
@@ -81,7 +84,7 @@ const styles = StyleSheet.create({
   },
   brandMarkText: {
     color: C.white,
-    fontSize: 24,
+    fontSize: 23,
     fontWeight: '900',
     letterSpacing: -1,
   },
@@ -89,31 +92,33 @@ const styles = StyleSheet.create({
     color: C.ink,
     fontSize: 20,
     fontWeight: '900',
-    letterSpacing: -0.7,
+    letterSpacing: -0.6,
+    flexShrink: 1,
   },
   brandSubtitle: {
     color: C.muted,
     fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 1.6,
+    letterSpacing: 1.1,
     marginTop: 5,
+    flexShrink: 1,
   },
   profileButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 6,
     padding: 5,
     paddingLeft: 7,
-    borderRadius: 18,
+    borderRadius: 17,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
     ...shadow,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 13,
     backgroundColor: C.teal,
     alignItems: 'center',
     justifyContent: 'center',
@@ -124,8 +129,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   profileChevron: {
-    width: 20,
-    height: 30,
+    width: 18,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -135,14 +140,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // ─── Hero / welcome panel ──────────────────────
+  // Hero panel
   heroCard: {
     position: 'relative',
     overflow: 'hidden',
     backgroundColor: C.navy,
-    borderRadius: 28,
-    padding: 23,
-    minHeight: 250,
+    borderRadius: 25,
+    padding: 20,
+    minHeight: 225,
     borderWidth: 1,
     borderColor: '#263B5B',
     ...shadow,
@@ -162,19 +167,21 @@ const styles = StyleSheet.create({
     width: 165,
     height: 165,
     borderRadius: 83,
-    backgroundColor: '#087F8C',
+    backgroundColor: C.teal,
     opacity: 0.24,
     right: 50,
     bottom: -105,
   },
   heroContent: {
     zIndex: 2,
+    width: '100%',
     maxWidth: 650,
   },
   heroEyebrow: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
+    flexWrap: 'wrap',
     gap: 8,
     paddingHorizontal: 11,
     paddingVertical: 8,
@@ -193,22 +200,23 @@ const styles = StyleSheet.create({
     color: '#C5D9EB',
     fontSize: 9,
     fontWeight: '900',
-    letterSpacing: 1.4,
+    letterSpacing: 1.1,
   },
   heroGreeting: {
     color: '#C5D6E9',
     fontSize: 14,
     fontWeight: '700',
-    marginTop: 22,
+    marginTop: 20,
   },
   heroTitle: {
     color: C.white,
     fontSize: 28,
     lineHeight: 35,
     fontWeight: '900',
-    letterSpacing: -0.9,
+    letterSpacing: -0.8,
     marginTop: 8,
     maxWidth: 460,
+    flexShrink: 1,
   },
   heroDescription: {
     color: '#B8C9DE',
@@ -221,18 +229,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    marginTop: 23,
-    paddingTop: 17,
+    flexWrap: 'wrap',
+    marginTop: 22,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.17)',
-    gap: 22,
+    gap: 18,
   },
   heroMetric: {
-    minWidth: 90,
+    minWidth: 75,
   },
   heroMetricValue: {
     color: C.white,
-    fontSize: 25,
+    fontSize: 24,
     fontWeight: '900',
     letterSpacing: -0.7,
   },
@@ -243,20 +252,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   heroMetricDivider: {
-    height: 36,
+    height: 34,
     width: 1,
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   heroDecoration: {
     position: 'absolute',
-    right: 25,
-    bottom: 27,
-    opacity: 0.95,
+    right: 18,
+    bottom: 22,
+    opacity: 0.8,
   },
   heroDecorationCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 27,
+    width: 66,
+    height: 66,
+    borderRadius: 23,
     backgroundColor: 'rgba(18,184,166,0.18)',
     borderWidth: 1,
     borderColor: 'rgba(111,226,209,0.4)',
@@ -266,17 +275,17 @@ const styles = StyleSheet.create({
   },
   heroDecorationIcon: {
     color: '#77E5D1',
-    fontSize: 43,
+    fontSize: 38,
     fontWeight: '800',
   },
 
-  // ─── Section headings ──────────────────────────
+  // Section headings
   sectionHeading: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    marginTop: 29,
+    marginTop: 28,
     marginBottom: 15,
   },
   sectionHeadingText: {
@@ -312,67 +321,53 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // ─── Dashboard statistic cards ─────────────────
+  // Statistics
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+    width: '100%',
   },
   statCard: {
     flexGrow: 1,
     flexBasis: '45%',
-    minWidth: 140,
+    minWidth: 0,
     backgroundColor: C.white,
-    borderRadius: 23,
+    borderRadius: 21,
     borderWidth: 1,
     borderColor: C.border,
-    padding: 17,
+    padding: 15,
     ...shadow,
   },
   statCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   statIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: 15,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statIcon_teal: {
-    backgroundColor: C.tealSoft,
-  },
-  statIcon_amber: {
-    backgroundColor: C.amberSoft,
-  },
-  statIcon_blue: {
-    backgroundColor: C.blueSoft,
-  },
-  statIcon_purple: {
-    backgroundColor: C.purpleSoft,
-  },
+  statIcon_teal: { backgroundColor: C.tealSoft },
+  statIcon_amber: { backgroundColor: C.amberSoft },
+  statIcon_blue: { backgroundColor: C.blueSoft },
+  statIcon_purple: { backgroundColor: C.purpleSoft },
   statIconText: {
     fontSize: 20,
     fontWeight: '900',
   },
-  statIconText_teal: {
-    color: C.teal,
-  },
-  statIconText_amber: {
-    color: C.amber,
-  },
-  statIconText_blue: {
-    color: C.blue,
-  },
-  statIconText_purple: {
-    color: C.purple,
-  },
+  statIconText_teal: { color: C.teal },
+  statIconText_amber: { color: C.amber },
+  statIconText_blue: { color: C.blue },
+  statIconText_purple: { color: C.purple },
   statAccent: {
-    width: 30,
-    height: 30,
-    borderRadius: 11,
+    width: 28,
+    height: 28,
+    borderRadius: 10,
     backgroundColor: '#F5F7FB',
     alignItems: 'center',
     justifyContent: 'center',
@@ -382,24 +377,16 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  dot_teal: {
-    backgroundColor: C.teal,
-  },
-  dot_amber: {
-    backgroundColor: '#E9A23B',
-  },
-  dot_blue: {
-    backgroundColor: C.blue,
-  },
-  dot_purple: {
-    backgroundColor: C.purple,
-  },
+  dot_teal: { backgroundColor: C.teal },
+  dot_amber: { backgroundColor: '#E9A23B' },
+  dot_blue: { backgroundColor: C.blue },
+  dot_purple: { backgroundColor: C.purple },
   statValue: {
     color: C.ink,
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '900',
-    letterSpacing: -0.9,
-    marginTop: 17,
+    letterSpacing: -0.8,
+    marginTop: 15,
   },
   statLabel: {
     color: C.ink,
@@ -414,29 +401,29 @@ const styles = StyleSheet.create({
     marginTop: 7,
   },
 
-  // ─── Critical priority alert ───────────────────
+  // Critical alert
   criticalAlert: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 11,
     marginTop: 20,
-    padding: 15,
-    borderRadius: 19,
+    padding: 14,
+    borderRadius: 18,
     backgroundColor: C.redSoft,
     borderWidth: 1,
     borderColor: '#F4D1D7',
   },
   criticalAlertIcon: {
-    width: 43,
-    height: 43,
-    borderRadius: 15,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     backgroundColor: C.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
   criticalAlertIconText: {
     color: C.red,
-    fontSize: 24,
+    fontSize: 23,
     fontWeight: '900',
   },
   criticalAlertContent: {
@@ -456,18 +443,18 @@ const styles = StyleSheet.create({
   },
   criticalAlertArrow: {
     color: C.red,
-    fontSize: 27,
+    fontSize: 25,
     fontWeight: '700',
-    paddingHorizontal: 3,
+    paddingHorizontal: 2,
   },
 
-  // ─── Search bar ─────────────────────────────────
+  // Search
   searchContainer: {
     minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 15,
+    paddingHorizontal: 14,
     backgroundColor: C.white,
     borderRadius: 17,
     borderWidth: 1,
@@ -476,7 +463,7 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     color: C.teal,
-    fontSize: 25,
+    fontSize: 24,
     fontWeight: '700',
   },
   searchInput: {
@@ -484,7 +471,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     color: C.ink,
     fontSize: 13,
-    paddingVertical: 14,
+    paddingVertical: 13,
   },
   clearSearchButton: {
     width: 29,
@@ -501,7 +488,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // ─── Horizontal status filters ──────────────────
+  // Status filters — place this row inside a horizontal ScrollView
   filterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -514,7 +501,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     borderRadius: 14,
     backgroundColor: C.white,
     borderWidth: 1,
@@ -529,9 +516,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  filterTextActive: {
-    color: C.white,
-  },
+  filterTextActive: { color: C.white },
   filterCount: {
     minWidth: 22,
     height: 22,
@@ -549,9 +534,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
   },
-  filterCountTextActive: {
-    color: C.white,
-  },
+  filterCountTextActive: { color: C.white },
   totalCountBadge: {
     minWidth: 38,
     height: 38,
@@ -567,14 +550,16 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  // ─── Complaint cards ────────────────────────────
+  // Complaint list
   issueList: {
     gap: 14,
+    width: '100%',
   },
   issueCard: {
+    width: '100%',
     backgroundColor: C.white,
-    borderRadius: 23,
-    padding: 17,
+    borderRadius: 22,
+    padding: 16,
     borderWidth: 1,
     borderColor: C.border,
     ...shadow,
@@ -591,7 +576,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 9,
     flex: 1,
-    minWidth: 120,
+    minWidth: 0,
   },
   issueMiniIcon: {
     width: 34,
@@ -662,7 +647,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     flex: 1,
-    minWidth: 115,
+    minWidth: 0,
   },
   detailSymbol: {
     color: C.teal,
@@ -671,6 +656,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     flex: 1,
+    minWidth: 0,
     color: C.muted,
     fontSize: 11,
     fontWeight: '600',
@@ -679,6 +665,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: 10,
     marginTop: 16,
     paddingTop: 13,
@@ -687,6 +674,7 @@ const styles = StyleSheet.create({
   },
   reportedBy: {
     flex: 1,
+    minWidth: 0,
     color: C.muted,
     fontSize: 10,
     fontWeight: '600',
@@ -707,7 +695,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // ─── Status badges ──────────────────────────────
+  // Status badges
   statusBadge: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -718,64 +706,34 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#EEF2F7',
   },
-  statusBadge_pending: {
-    backgroundColor: C.amberSoft,
-  },
-  statusBadge_assigned: {
-    backgroundColor: C.blueSoft,
-  },
-  statusBadge_in_progress: {
-    backgroundColor: C.purpleSoft,
-  },
-  statusBadge_resolved: {
-    backgroundColor: C.greenSoft,
-  },
-  statusBadge_rejected: {
-    backgroundColor: C.redSoft,
-  },
+  statusBadge_pending: { backgroundColor: C.amberSoft },
+  statusBadge_assigned: { backgroundColor: C.blueSoft },
+  statusBadge_in_progress: { backgroundColor: C.purpleSoft },
+  statusBadge_resolved: { backgroundColor: C.greenSoft },
+  statusBadge_rejected: { backgroundColor: C.redSoft },
   statusDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
     backgroundColor: C.muted,
   },
-  statusDot_pending: {
-    backgroundColor: C.amber,
-  },
-  statusDot_assigned: {
-    backgroundColor: C.blue,
-  },
-  statusDot_in_progress: {
-    backgroundColor: C.purple,
-  },
-  statusDot_resolved: {
-    backgroundColor: C.green,
-  },
-  statusDot_rejected: {
-    backgroundColor: C.red,
-  },
+  statusDot_pending: { backgroundColor: C.amber },
+  statusDot_assigned: { backgroundColor: C.blue },
+  statusDot_in_progress: { backgroundColor: C.purple },
+  statusDot_resolved: { backgroundColor: C.green },
+  statusDot_rejected: { backgroundColor: C.red },
   statusText: {
     color: C.muted,
     fontSize: 10,
     fontWeight: '900',
   },
-  statusText_pending: {
-    color: C.amber,
-  },
-  statusText_assigned: {
-    color: C.blue,
-  },
-  statusText_in_progress: {
-    color: C.purple,
-  },
-  statusText_resolved: {
-    color: C.green,
-  },
-  statusText_rejected: {
-    color: C.red,
-  },
+  statusText_pending: { color: C.amber },
+  statusText_assigned: { color: C.blue },
+  statusText_in_progress: { color: C.purple },
+  statusText_resolved: { color: C.green },
+  statusText_rejected: { color: C.red },
 
-  // ─── Priority badges ────────────────────────────
+  // Priority badges
   priorityBadge: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -786,36 +744,20 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#EEF2F7',
   },
-  priorityBadge_low: {
-    backgroundColor: C.greenSoft,
-  },
-  priorityBadge_medium: {
-    backgroundColor: C.blueSoft,
-  },
-  priorityBadge_high: {
-    backgroundColor: C.amberSoft,
-  },
-  priorityBadge_critical: {
-    backgroundColor: C.redSoft,
-  },
+  priorityBadge_low: { backgroundColor: C.greenSoft },
+  priorityBadge_medium: { backgroundColor: C.blueSoft },
+  priorityBadge_high: { backgroundColor: C.amberSoft },
+  priorityBadge_critical: { backgroundColor: C.redSoft },
   priorityDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
     backgroundColor: C.muted,
   },
-  priorityDot_low: {
-    backgroundColor: C.green,
-  },
-  priorityDot_medium: {
-    backgroundColor: C.blue,
-  },
-  priorityDot_high: {
-    backgroundColor: C.amber,
-  },
-  priorityDot_critical: {
-    backgroundColor: C.red,
-  },
+  priorityDot_low: { backgroundColor: C.green },
+  priorityDot_medium: { backgroundColor: C.blue },
+  priorityDot_high: { backgroundColor: C.amber },
+  priorityDot_critical: { backgroundColor: C.red },
   priorityText: {
     color: C.muted,
     fontSize: 10,
@@ -823,20 +765,12 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
-  priorityText_low: {
-    color: C.green,
-  },
-  priorityText_medium: {
-    color: C.blue,
-  },
-  priorityText_high: {
-    color: C.amber,
-  },
-  priorityText_critical: {
-    color: C.red,
-  },
+  priorityText_low: { color: C.green },
+  priorityText_medium: { color: C.blue },
+  priorityText_high: { color: C.amber },
+  priorityText_critical: { color: C.red },
 
-  // ─── Loading, error and empty states ────────────
+  // Loading, error and empty states
   stateCard: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -932,7 +866,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  // ─── Footer ─────────────────────────────────────
+  // Footer
   footer: {
     alignItems: 'center',
     justifyContent: 'center',

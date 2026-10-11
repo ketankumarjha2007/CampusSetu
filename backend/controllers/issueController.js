@@ -67,13 +67,19 @@ const ensureComplaintId = async (issue) => {
  * ==========================================
  * CLOUDINARY IMAGE UPLOAD
  * ==========================================
+ *
+ * CHANGED: accepts an optional folder so the same helper
+ * serves student photos and teacher resolution proofs.
  */
 
-const uploadImageToCloudinary = async (buffer) => {
+const uploadImageToCloudinary = async (
+  buffer,
+  folder = 'campussetu/complaints'
+) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: 'campussetu/complaints',
+        folder,
         resource_type: 'image',
       },
       (error, result) => {
@@ -1126,6 +1132,22 @@ const getActiveTeachers = async (req, res) => {
     });
   }
 };
+
+/*
+ * ==========================================
+ * UPDATE COMPLAINT STATUS
+ * ==========================================
+ *
+ * PATCH /api/issues/:id/status
+ *
+ * Accepts:
+ * - JSON                  (assigned -> in_progress, rejected, etc.)
+ * - multipart/form-data   (in_progress -> resolved, with proof photo)
+ *
+ * Rule: a TEACHER cannot resolve a complaint without
+ *       1) a resolution note, and
+ *       2) a proof photo (form field name: "photo").
+ */
 const updateIssueStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1201,19 +1223,82 @@ const updateIssueStatus = async (req, res) => {
       });
     }
 
-    if (status === 'resolved' && !updateNote) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide a resolution note',
-      });
+    /*
+     * ==========================================
+     * RESOLUTION VALIDATION
+     * ==========================================
+     * Validate everything BEFORE uploading to Cloudinary,
+     * so failed requests never create orphan uploads.
+     */
+    if (status === 'resolved') {
+      if (!updateNote) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide a resolution note',
+        });
+      }
+
+      // Teachers MUST attach a proof photo.
+      if (isTeacher && !req.file) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'A proof photo is required to resolve this complaint',
+        });
+      }
+
+      if (req.file && !req.file.mimetype?.startsWith('image/')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Proof must be an image file',
+        });
+      }
+    }
+
+    /*
+     * ==========================================
+     * UPLOAD RESOLUTION PROOF PHOTO
+     * ==========================================
+     */
+    let resolutionPhotoUrl = '';
+
+    if (status === 'resolved' && req.file) {
+      try {
+        const uploadResult = await uploadImageToCloudinary(
+          req.file.buffer,
+          'campussetu/resolutions'
+        );
+
+        resolutionPhotoUrl = uploadResult?.secure_url || '';
+      } catch (uploadError) {
+        console.error(
+          'Resolution photo upload error:',
+          uploadError.message
+        );
+
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload resolution proof photo',
+        });
+      }
+
+      if (isTeacher && !resolutionPhotoUrl) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload resolution proof photo',
+        });
+      }
     }
 
     const previousStatus = issue.status;
 
     issue.status = status;
 
-    // Only resolution updates belong in resolutionNote.
+    // Only resolution updates belong in resolutionNote / resolutionPhotoUrl.
     issue.resolutionNote = status === 'resolved' ? updateNote : '';
+    issue.resolutionPhotoUrl =
+      status === 'resolved' ? resolutionPhotoUrl : '';
+
     if (status === 'rejected') {
       issue.rejectionReason = updateNote;
     }
@@ -1246,6 +1331,7 @@ const updateIssueStatus = async (req, res) => {
         previousStatus,
         newStatus: status,
         note: updateNote,
+        resolutionPhotoUrl: resolutionPhotoUrl || undefined,
       },
     });
 
@@ -1310,6 +1396,7 @@ const updateIssueStatus = async (req, res) => {
     });
   }
 };
+
 // ==========================================
 // REOPEN A RESOLVED/REJECTED COMPLAINT (STUDENT OR ADMIN)
 // ==========================================
@@ -1350,6 +1437,13 @@ const reopenIssue = async (req, res) => {
     const previousStatus = issue.status;
     issue.status = 'in_progress';
     issue.reopenReason = reason.trim();
+
+    // CHANGED: clear the old proof so a stale photo is not shown
+    // while the complaint is open again. The teacher must upload
+    // a fresh proof photo when resolving it a second time.
+    issue.resolutionPhotoUrl = '';
+    issue.resolvedAt = null;
+
     issue.history.push({
       status: 'in_progress',
       note: `Complaint reopened (${previousStatus} -> in_progress): ${reason.trim()}`,
@@ -1478,7 +1572,7 @@ const requestAdditionalInfo = async (req, res) => {
 
     await issue.save();
 
-    const { createInAppNotification, sendPushNotification } = require('../services/notificationService');
+    const { createInAppNotification } = require('../services/notificationService');
     const studentUser = await require('../models/User').findById(issue.reportedBy);
 
     if (studentUser) {

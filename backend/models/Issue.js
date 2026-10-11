@@ -58,7 +58,7 @@ const issueSchema = new mongoose.Schema(
       default: '',
     },
 
-    // Optional complaint photo
+    // Optional complaint photo (uploaded by the student)
     photoUrl: {
       type: String,
       default: '',
@@ -105,6 +105,15 @@ const issueSchema = new mongoose.Schema(
 
     // Resolution information
     resolutionNote: {
+      type: String,
+      default: '',
+    },
+
+    /*
+     * NEW: Proof photo uploaded by the teacher/official
+     * when the complaint is resolved.
+     */
+    resolutionPhotoUrl: {
       type: String,
       default: '',
     },

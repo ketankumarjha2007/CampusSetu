@@ -88,11 +88,19 @@ router.patch(
   assignIssueToTeacher
 );
 
-// Update complaint status
+/*
+ * Update complaint status.
+ *
+ * CHANGED: upload.single('photo') added so the teacher can send the
+ * resolution proof photo as multipart/form-data. Plain JSON requests
+ * (e.g. assigned -> in_progress) still work because multer skips
+ * non-multipart requests.
+ */
 router.patch(
   '/:id/status',
   authenticateUser,
   requireRole('college_admin', 'principal', 'cluster_head', 'teacher'),
+  upload.single('photo'),
   updateIssueStatus
 );
 
