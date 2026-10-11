@@ -4,6 +4,7 @@ import {
   ScrollView,
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
@@ -11,12 +12,12 @@ import {
   Image,
   Modal,
   StatusBar,
+  StyleSheet,
+  Platform,
+  KeyboardAvoidingView,
   useWindowDimensions,
 } from 'react-native';
 
-// CHANGED: SafeAreaView from react-native-safe-area-context handles the
-// Android status bar and iOS notch, so the header no longer merges with
-// the top of the phone.
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -175,11 +176,11 @@ const SectionHeading = ({ eyebrow, title, right }) => (
   </View>
 );
 
+const MIN_REASON_LENGTH = 5;
+
 export default function IssueDetailsScreen({ navigation, route }) {
   const issueId = route?.params?.issueId;
 
-  // CHANGED: responsive values follow the live window size
-  // (rotation, split-screen, tablets, foldables).
   const { width } = useWindowDimensions();
   const isSmall = width < 360;
 
@@ -188,6 +189,11 @@ export default function IssueDetailsScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  // Reopen dialog (works on both iOS and Android)
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
+  const [reopening, setReopening] = useState(false);
 
   // Full-screen viewer for the proof photo.
   const [previewUri, setPreviewUri] = useState(null);
@@ -230,9 +236,6 @@ export default function IssueDetailsScreen({ navigation, route }) {
     [issueId]
   );
 
-  // CHANGED: refetch every time the screen gains focus, so a complaint
-  // resolved by the teacher (with its proof photo) shows up immediately
-  // instead of staying stale.
   useFocusEffect(
     useCallback(() => {
       fetchIssue(true);
@@ -313,64 +316,68 @@ export default function IssueDetailsScreen({ navigation, route }) {
     );
   };
 
-  const submitReopen = async (reason) => {
+  /* ------------------------- REOPEN (FIXED) -------------------------
+   * Why it was broken: on Android, `Alert.prompt` exists as a function
+   * but does nothing, so `if (Alert.prompt)` was true and the tap showed
+   * no dialog at all. We now use our own modal with a TextInput, which
+   * behaves the same on iOS and Android.
+   * ------------------------------------------------------------------ */
+
+  const openReopenDialog = () => {
+    if (!issue?._id || reopening) return;
+    setReopenReason('');
+    setReopenOpen(true);
+  };
+
+  const closeReopenDialog = () => {
+    if (reopening) return;
+    setReopenOpen(false);
+    setReopenReason('');
+  };
+
+  const submitReopen = async () => {
+    const reason = reopenReason.trim();
+
+    if (reason.length < MIN_REASON_LENGTH) {
+      Alert.alert(
+        'Reason required',
+        `Please explain why you are reopening this complaint (at least ${MIN_REASON_LENGTH} characters).`
+      );
+      return;
+    }
+
+    if (!issue?._id || reopening) return;
+
     try {
+      setReopening(true);
+
       const res = await apiRequest(`/issues/${issue._id}/reopen`, {
         method: 'POST',
         body: JSON.stringify({ reason }),
       });
 
+      if (res && res.success === false) {
+        throw new Error(res.message || 'Failed to reopen complaint.');
+      }
+
+      setReopenOpen(false);
+      setReopenReason('');
+
       Alert.alert(
         'Complaint reopened',
-        res.message || 'The complaint has been reopened.'
+        res?.message || 'The complaint has been reopened.'
       );
 
-      fetchIssue(false);
+      await fetchIssue(false);
     } catch (err) {
+      console.error('Reopen complaint failed:', err);
       Alert.alert(
         'Reopen failed',
-        err.message || 'Failed to reopen complaint.'
+        err?.message || 'Failed to reopen complaint. Please try again.'
       );
+    } finally {
+      setReopening(false);
     }
-  };
-
-  const handleReopen = () => {
-    if (Alert.prompt) {
-      Alert.prompt(
-        'Reopen Complaint',
-        'Please provide a reason why this complaint is being reopened:',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Reopen',
-            onPress: (reason) => {
-              if (!reason || !reason.trim()) {
-                Alert.alert('Reason required', 'Please provide a reason.');
-                return;
-              }
-
-              submitReopen(reason.trim());
-            },
-          },
-        ]
-      );
-      return;
-    }
-
-    Alert.alert(
-      'Reopen Complaint',
-      'Reopen this complaint so faculty can take further action?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reopen',
-          onPress: () =>
-            submitReopen(
-              'Student marked issue as unresolved upon verification.'
-            ),
-        },
-      ]
-    );
   };
 
   if (loading) {
@@ -392,7 +399,7 @@ export default function IssueDetailsScreen({ navigation, route }) {
 
           <Text style={styles.loadingTitle}>Loading your complaint</Text>
           <Text style={styles.loadingSubtitle}>
-            Getting the latest status and details...
+            Getting the latest status..
           </Text>
         </View>
       </SafeAreaView>
@@ -465,8 +472,6 @@ export default function IssueDetailsScreen({ navigation, route }) {
 
   const isResolved = issue.status === 'resolved';
 
-  // Resolution card only while the complaint is actually resolved,
-  // so a reopened complaint never shows an outdated proof.
   const showResolution =
     isResolved &&
     Boolean(
@@ -498,7 +503,7 @@ export default function IssueDetailsScreen({ navigation, route }) {
         </TouchableOpacity>
 
         <View style={styles.headerTextContainer}>
-          <Text style={styles.headerEyebrow}>CAMPUSSETU</Text>
+          <Text style={styles.headerEyebrow}>CampusSetu</Text>
           <Text style={styles.headerTitle} numberOfLines={1}>
             Complaint details
           </Text>
@@ -536,7 +541,6 @@ export default function IssueDetailsScreen({ navigation, route }) {
           />
         }
       >
-        {/* Keeps content readable on tablets / landscape */}
         <View style={styles.contentInner}>
           {/* Complaint overview */}
           <View style={styles.heroCard}>
@@ -1022,14 +1026,25 @@ export default function IssueDetailsScreen({ navigation, route }) {
               </View>
 
               <TouchableOpacity
-                style={[styles.deleteButton, { backgroundColor: '#0284C7' }]}
-                onPress={handleReopen}
+                style={[
+                  styles.deleteButton,
+                  { backgroundColor: '#0284C7' },
+                  reopening && styles.deleteButtonDisabled,
+                ]}
+                onPress={openReopenDialog}
+                disabled={reopening}
                 activeOpacity={0.85}
                 accessibilityRole="button"
                 accessibilityLabel="Reopen complaint"
               >
-                <Text style={styles.deleteButtonIcon}>↻</Text>
-                <Text style={styles.deleteButtonText}>Reopen Complaint</Text>
+                {reopening ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.deleteButtonIcon}>↻</Text>
+                )}
+                <Text style={styles.deleteButtonText}>
+                  {reopening ? 'Reopening...' : 'Reopen Complaint'}
+                </Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -1095,6 +1110,90 @@ export default function IssueDetailsScreen({ navigation, route }) {
         </View>
       </ScrollView>
 
+      {/* Reopen dialog */}
+      <Modal
+        visible={reopenOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={closeReopenDialog}
+      >
+        <KeyboardAvoidingView
+          style={reopenStyles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={reopenStyles.overlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={closeReopenDialog}
+            />
+
+            <View style={reopenStyles.card}>
+              <View style={reopenStyles.iconCircle}>
+                <Text style={reopenStyles.iconText}>↻</Text>
+              </View>
+
+              <Text style={reopenStyles.title}>Reopen complaint</Text>
+              <Text style={reopenStyles.subtitle}>
+                Tell the faculty why this issue is not solved so they can take
+                further action.
+              </Text>
+
+              <TextInput
+                style={reopenStyles.input}
+                placeholder="e.g. The leak is still happening after repair"
+                placeholderTextColor="#94A3B8"
+                value={reopenReason}
+                onChangeText={setReopenReason}
+                multiline
+                numberOfLines={4}
+                maxLength={500}
+                textAlignVertical="top"
+                editable={!reopening}
+                autoFocus
+              />
+
+              <Text style={reopenStyles.counter}>
+                {reopenReason.trim().length}/500
+              </Text>
+
+              <View style={reopenStyles.buttonRow}>
+                <TouchableOpacity
+                  style={reopenStyles.cancelButton}
+                  onPress={closeReopenDialog}
+                  disabled={reopening}
+                  activeOpacity={0.85}
+                >
+                  <Text style={reopenStyles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    reopenStyles.confirmButton,
+                    (reopening ||
+                      reopenReason.trim().length < MIN_REASON_LENGTH) &&
+                      reopenStyles.confirmDisabled,
+                  ]}
+                  onPress={submitReopen}
+                  disabled={
+                    reopening ||
+                    reopenReason.trim().length < MIN_REASON_LENGTH
+                  }
+                  activeOpacity={0.85}
+                >
+                  {reopening ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={reopenStyles.confirmText}>Reopen</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Full-screen photo viewer */}
       <Modal
         visible={Boolean(previewUri)}
@@ -1130,3 +1229,105 @@ export default function IssueDetailsScreen({ navigation, route }) {
     </SafeAreaView>
   );
 }
+
+const reopenStyles = StyleSheet.create({
+  flex: { flex: 1 },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(8, 20, 15, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  iconText: {
+    color: '#0369A1',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  title: {
+    color: '#172820',
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  subtitle: {
+    color: '#77847B',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  input: {
+    width: '100%',
+    minHeight: 100,
+    maxHeight: 160,
+    backgroundColor: '#F5F7F2',
+    borderWidth: 1,
+    borderColor: '#E5EAE3',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#172820',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  counter: {
+    alignSelf: 'flex-end',
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 6,
+    marginBottom: 14,
+  },
+  buttonRow: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  cancelButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 14,
+    backgroundColor: '#EEF2EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelText: {
+    color: '#47554C',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  confirmButton: {
+    flex: 1.4,
+    minHeight: 48,
+    borderRadius: 14,
+    backgroundColor: '#0284C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmDisabled: {
+    opacity: 0.5,
+  },
+  confirmText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+});

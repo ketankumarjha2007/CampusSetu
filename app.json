@@ -5,36 +5,29 @@
     "version": "1.0.0",
     "scheme": "campussetu",
     "orientation": "portrait",
-
     "icon": "./assets/icon.png",
-
     "userInterfaceStyle": "light",
-
     "splash": {
       "image": "./assets/campussetu-splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#F4F6E8"
     },
-
     "ios": {
       "supportsTablet": true
     },
-
     "android": {
       "package": "com.campussetu.app",
       "googleServicesFile": "./google-services.json",
       "softwareKeyboardLayoutMode": "resize"
     },
-
     "web": {
       "favicon": "./assets/icon.png"
     },
-
     "plugins": [
       "expo-web-browser",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-splash-screen"
     ],
-
     "extra": {
       "eas": {
         "projectId": "97f5656d-5be3-4b0c-9af0-f8d7bf4b60ba"
