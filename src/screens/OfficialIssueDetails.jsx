@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { apiRequest } from '../services/api';
+import { apiRequest, getCurrentUser } from '../services/api';
 import styles from './OfficialIssueDetails.styles';
 
 const STATUS = {
@@ -82,6 +82,14 @@ export default function OfficialIssueDetails({ navigation, route }) {
   const [infoPrompt, setInfoPrompt] = useState('');
   const [requestingInfo, setRequestingInfo] = useState(false);
 
+  // Reassignment for Principal / Cluster Head
+  const [currentUser, setCurrentUser] = useState(null);
+  const [teachers, setTeachers] = useState([]);
+  const [reassignModalOpen, setReassignModalOpen] = useState(false);
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
+  const [submittingReassign, setSubmittingReassign] = useState(false);
+  const [teacherSearch, setTeacherSearch] = useState('');
+
   const fetchIssue = useCallback(async (showLoader = true) => {
     if (!issueId) {
       setError('Complaint ID is missing.');
@@ -93,7 +101,10 @@ export default function OfficialIssueDetails({ navigation, route }) {
     setError('');
 
     try {
-      const response = await apiRequest(`/issues/${issueId}`);
+      const [response, userRes] = await Promise.all([
+        apiRequest(`/issues/${issueId}`),
+        getCurrentUser().catch(() => null),
+      ]);
 
       if (!response?.success || !response?.issue) {
         throw new Error(
@@ -102,6 +113,9 @@ export default function OfficialIssueDetails({ navigation, route }) {
       }
 
       setIssue(response.issue);
+      if (userRes?.user) {
+        setCurrentUser(userRes.user);
+      }
     } catch (err) {
       console.error('Official issue details error:', err);
       setError(
@@ -112,6 +126,46 @@ export default function OfficialIssueDetails({ navigation, route }) {
       if (showLoader) setLoading(false);
     }
   }, [issueId]);
+
+  const openReassignModal = async () => {
+    setSelectedTeacherId(issue?.assignedTo?._id || issue?.assignedTo || '');
+    setTeacherSearch('');
+    setReassignModalOpen(true);
+    if (teachers.length === 0) {
+      try {
+        const res = await apiRequest('/issues/admin/teachers');
+        if (Array.isArray(res?.teachers)) {
+          setTeachers(res.teachers);
+        }
+      } catch (err) {
+        console.error('Failed to load teachers for reassignment:', err);
+      }
+    }
+  };
+
+  const handleReassignSubmit = async () => {
+    if (!issue?._id || !selectedTeacherId || submittingReassign) return;
+    setSubmittingReassign(true);
+    try {
+      const res = await apiRequest(`/issues/${issue._id}/assign`, {
+        method: 'PATCH',
+        body: JSON.stringify({ teacherId: selectedTeacherId }),
+      });
+      if (!res?.success) throw new Error(res?.message || 'Assignment failed.');
+
+      Alert.alert('Assignment Updated', 'The complaint assignment has been updated.');
+      setReassignModalOpen(false);
+      await fetchIssue(false);
+    } catch (err) {
+      Alert.alert('Assignment Error', err.message);
+    } finally {
+      setSubmittingReassign(false);
+    }
+  };
+
+  const canReassign =
+    currentUser &&
+    ['principal', 'cluster_head', 'college_admin'].includes(currentUser.role);
 
   useFocusEffect(
     useCallback(() => {
@@ -650,14 +704,36 @@ export default function OfficialIssueDetails({ navigation, route }) {
 
         {/* Assignment */}
         <View style={styles.card}>
-          <Text style={styles.sectionKicker}>ASSIGNMENT</Text>
-          <Text style={styles.sectionTitle}>
-            Assignment information
-          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View>
+              <Text style={styles.sectionKicker}>ASSIGNMENT</Text>
+              <Text style={styles.sectionTitle}>
+                Assignment information
+              </Text>
+            </View>
+            {canReassign ? (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#F1F5F9',
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1',
+                }}
+                onPress={openReassignModal}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '800', color: '#1E293B' }}>
+                  {issue.assignedTo ? '🔄 Reassign' : '👤 Assign'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
           <InfoRow
             label="Assigned official"
-            value={assignedTeacher.name || assignedTeacher.email}
+            value={assignedTeacher.name || assignedTeacher.email || 'Unassigned'}
           />
           <InfoRow
             label="Last updated"
@@ -1064,6 +1140,235 @@ export default function OfficialIssueDetails({ navigation, route }) {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Reassign Faculty Modal */}
+      <Modal
+        visible={reassignModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          if (!submittingReassign) setReassignModalOpen(false);
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(2, 6, 23, 0.65)',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              padding: 22,
+              maxHeight: '85%',
+            }}
+          >
+            <View
+              style={{
+                width: 44,
+                height: 5,
+                borderRadius: 3,
+                backgroundColor: '#CBD5E1',
+                alignSelf: 'center',
+                marginBottom: 16,
+              }}
+            />
+
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 14,
+              }}
+            >
+              <View>
+                <Text
+                  style={{
+                    color: '#4F46E5',
+                    fontSize: 10,
+                    fontWeight: '900',
+                    letterSpacing: 1.2,
+                  }}
+                >
+                  FACULTY ALLOCATION
+                </Text>
+                <Text
+                  style={{
+                    color: '#0F172A',
+                    fontSize: 20,
+                    fontWeight: '900',
+                    marginTop: 2,
+                  }}
+                >
+                  {issue.assignedTo ? 'Reassign Complaint' : 'Assign Faculty'}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 12,
+                  backgroundColor: '#F1F5F9',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onPress={() => setReassignModalOpen(false)}
+                disabled={submittingReassign}
+              >
+                <Text style={{ color: '#1E293B', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={{
+                backgroundColor: '#F1F5F9',
+                borderRadius: 12,
+                paddingHorizontal: 14,
+                height: 42,
+                color: '#0F172A',
+                fontSize: 13,
+                marginBottom: 12,
+              }}
+              placeholder="Search faculty by name or department…"
+              placeholderTextColor="#94A3B8"
+              value={teacherSearch}
+              onChangeText={setTeacherSearch}
+            />
+
+            <ScrollView style={{ maxHeight: 280, marginBottom: 16 }}>
+              {teachers
+                .filter((t) => {
+                  if (!teacherSearch.trim()) return true;
+                  const term = teacherSearch.trim().toLowerCase();
+                  return (
+                    t.name?.toLowerCase().includes(term) ||
+                    t.department?.toLowerCase().includes(term) ||
+                    t.email?.toLowerCase().includes(term)
+                  );
+                })
+                .map((teacher) => {
+                  const isSelected = selectedTeacherId === teacher._id;
+                  return (
+                    <TouchableOpacity
+                      key={teacher._id}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        padding: 12,
+                        borderRadius: 14,
+                        borderWidth: 1.5,
+                        borderColor: isSelected ? '#4F46E5' : '#E2E8F0',
+                        backgroundColor: isSelected ? '#EEF2FF' : '#FFFFFF',
+                        marginBottom: 8,
+                      }}
+                      onPress={() => setSelectedTeacherId(teacher._id)}
+                    >
+                      <View
+                        style={{
+                          width: 38,
+                          height: 38,
+                          borderRadius: 12,
+                          backgroundColor: isSelected ? '#4F46E5' : '#E2E8F0',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 10,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: isSelected ? '#FFFFFF' : '#1E293B',
+                            fontSize: 14,
+                            fontWeight: '800',
+                          }}
+                        >
+                          {(teacher.name || 'T').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '800' }}>
+                          {teacher.name}
+                        </Text>
+                        <Text style={{ color: '#64748B', fontSize: 11, marginTop: 2 }}>
+                          {teacher.department || 'Faculty'} • {teacher.email}
+                        </Text>
+                      </View>
+
+                      <View
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 10,
+                          borderWidth: 1.5,
+                          borderColor: isSelected ? '#4F46E5' : '#CBD5E1',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {isSelected && (
+                          <View
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: 5,
+                              backgroundColor: '#4F46E5',
+                            }}
+                          />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#F1F5F9',
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onPress={() => setReassignModalOpen(false)}
+                disabled={submittingReassign}
+              >
+                <Text style={{ color: '#1E293B', fontSize: 13, fontWeight: '800' }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1.6,
+                  backgroundColor: '#1E1B4B',
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: !selectedTeacherId || submittingReassign ? 0.5 : 1,
+                }}
+                onPress={handleReassignSubmit}
+                disabled={!selectedTeacherId || submittingReassign}
+              >
+                {submittingReassign ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>
+                    {issue.assignedTo ? 'Confirm Reassignment →' : 'Confirm Assignment →'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );

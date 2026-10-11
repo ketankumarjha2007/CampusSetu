@@ -88,6 +88,17 @@ const inviteStaff = async (req, res) => {
       });
     }
 
+    // Only one Principal can exist per college
+    if (role === 'principal') {
+      const existingPrincipal = await User.findOne({ role: 'principal' });
+      if (existingPrincipal) {
+        return res.status(400).json({
+          success: false,
+          message: `Only one Principal can exist per college. Principal ${existingPrincipal.name} (${existingPrincipal.email}) is already registered.`,
+        });
+      }
+    }
+
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = name.trim();
     const cleanDept = (department || '').trim();

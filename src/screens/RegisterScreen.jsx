@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
-  SafeAreaView,
   View,
   Text,
   TextInput,
@@ -15,6 +14,7 @@ import {
   Alert,
   Keyboard,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   createUserWithEmailAndPassword,

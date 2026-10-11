@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 
 import {
-  SafeAreaView,
   ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import styles from './HelpScreen.styles';
 

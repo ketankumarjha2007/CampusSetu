@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 
 import {
-  SafeAreaView,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
@@ -14,6 +13,7 @@ import {
   Keyboard,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { sendPasswordResetEmail } from 'firebase/auth';
 

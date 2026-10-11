@@ -365,9 +365,14 @@ function App() {
 
   const [theme, setTheme] = useState(() => {
     try {
-      return localStorage.getItem('campussetu-theme') || 'dark';
+      const stored = localStorage.getItem('campussetu-theme');
+      if (!stored || stored === 'dark') {
+        localStorage.setItem('campussetu-theme', 'light');
+        return 'light';
+      }
+      return stored;
     } catch {
-      return 'dark';
+      return 'light';
     }
   });
 
@@ -461,6 +466,8 @@ function App() {
 
   /* ----- theme ----- */
   useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-theme', theme);
     try {
       localStorage.setItem('campussetu-theme', theme);
     } catch {
@@ -1566,6 +1573,7 @@ function App() {
     <StaffManagement
       complaints={complaints}
       showToast={showToast}
+      theme={theme}
       onChanged={() => loadData(false)}
     />
   );

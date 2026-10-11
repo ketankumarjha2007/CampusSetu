@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -13,6 +12,7 @@ import {
   Image,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';

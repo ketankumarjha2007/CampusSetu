@@ -1398,29 +1398,42 @@ const updateIssueStatus = async (req, res) => {
 };
 
 // ==========================================
-// REOPEN A RESOLVED/REJECTED COMPLAINT (STUDENT OR ADMIN)
+// REOPEN A RESOLVED/REJECTED COMPLAINT (STUDENT OR ADMIN/CLUSTER HEAD)
 // ==========================================
 const reopenIssue = async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
 
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'A reason for reopening the complaint is required',
-      });
+    const finalReason = (reason && String(reason).trim())
+      ? String(reason).trim()
+      : 'Student marked issue as unresolved upon verification.';
+
+    // Support lookup by Mongo _id or custom complaintId
+    let issue = null;
+    const mongoose = require('mongoose');
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      issue = await Issue.findById(id).populate('reportedBy', 'name email role');
+    }
+    if (!issue) {
+      issue = await Issue.findOne({ complaintId: id }).populate('reportedBy', 'name email role');
     }
 
-    const issue = await Issue.findById(id);
     if (!issue) {
       return res.status(404).json({ success: false, message: 'Complaint not found' });
     }
 
-    const isOwner = String(issue.reportedBy) === String(req.user._id);
-    const isAdmin = ['college_admin', 'principal'].includes(req.user.role);
+    const reportedById = issue.reportedBy?._id ? String(issue.reportedBy._id) : String(issue.reportedBy || '');
+    const currentUserId = String(req.user._id || '');
+    const reportedByEmail = (issue.reportedBy?.email || issue.studentEmail || '').toLowerCase();
+    const currentUserEmail = (req.user.email || '').toLowerCase();
 
-    if (!isOwner && !isAdmin) {
+    const isOwner =
+      (reportedById && reportedById === currentUserId) ||
+      (reportedByEmail && currentUserEmail && reportedByEmail === currentUserEmail);
+    const isPrivileged = ['college_admin', 'principal', 'cluster_head'].includes(req.user.role);
+
+    if (!isOwner && !isPrivileged) {
       return res.status(403).json({
         success: false,
         message: 'You are not authorized to reopen this complaint',
@@ -1436,34 +1449,52 @@ const reopenIssue = async (req, res) => {
 
     const previousStatus = issue.status;
     issue.status = 'in_progress';
-    issue.reopenReason = reason.trim();
+    issue.reopenReason = finalReason;
 
-    // CHANGED: clear the old proof so a stale photo is not shown
-    // while the complaint is open again. The teacher must upload
-    // a fresh proof photo when resolving it a second time.
+    // Clear old resolution proof so a fresh one is required upon re-resolution
     issue.resolutionPhotoUrl = '';
     issue.resolvedAt = null;
 
     issue.history.push({
       status: 'in_progress',
-      note: `Complaint reopened (${previousStatus} -> in_progress): ${reason.trim()}`,
+      note: `Complaint reopened (${previousStatus} -> in_progress): ${finalReason}`,
       changedBy: req.user._id,
       changedAt: new Date(),
     });
 
     await issue.save();
 
-    const AuditLog = require('../models/AuditLog');
-    await AuditLog.create({
-      action: 'REOPEN_COMPLAINT',
-      performedBy: req.user._id,
-      targetType: 'issue',
-      targetId: issue._id,
-      details: {
-        previousStatus,
-        reason: reason.trim(),
-      },
-    });
+    try {
+      const AuditLog = require('../models/AuditLog');
+      await AuditLog.create({
+        action: 'REOPEN_COMPLAINT',
+        performedBy: req.user._id,
+        targetType: 'issue',
+        targetId: issue._id,
+        details: {
+          previousStatus,
+          reason: finalReason,
+        },
+      });
+    } catch (auditErr) {
+      console.warn('AuditLog creation warning on reopen:', auditErr.message);
+    }
+
+    // Notify assigned faculty if one is assigned
+    if (issue.assignedTo) {
+      try {
+        const { createInAppNotification } = require('../services/notificationService');
+        await createInAppNotification({
+          userId: issue.assignedTo,
+          title: 'Complaint Reopened',
+          message: `Complaint #${issue.complaintId || issue._id.toString().slice(-6)} was reopened: ${finalReason}`,
+          type: 'issue_reopened',
+          issueId: issue._id,
+        });
+      } catch (notifyErr) {
+        console.warn('Notification warning on reopen:', notifyErr.message);
+      }
+    }
 
     const updatedIssue = await Issue.findById(issue._id)
       .populate('reportedBy', 'name email role department usn')

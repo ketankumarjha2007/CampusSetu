@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   getStaff,
   inviteStaff,
@@ -237,9 +238,11 @@ function EmailPreview({ role, name, email }) {
 /* Invite wizard                                                       */
 /* ------------------------------------------------------------------ */
 
-function InviteWizard({ initialRole, onClose, onDone }) {
-  const [step, setStep] = useState(initialRole ? 1 : 0);
-  const [role, setRole] = useState(initialRole || 'teacher');
+function InviteWizard({ initialRole, existingPrincipal, theme = 'light', onClose, onDone }) {
+  const isPrincipalTaken = Boolean(existingPrincipal);
+  const defaultRole = initialRole === 'principal' && isPrincipalTaken ? 'teacher' : (initialRole || 'teacher');
+  const [step, setStep] = useState(initialRole && !(initialRole === 'principal' && isPrincipalTaken) ? 1 : 0);
+  const [role, setRole] = useState(defaultRole);
   const [form, setForm] = useState({ name: '', email: '', department: '', phone: '' });
   const [touched, setTouched] = useState({});
   const [sending, setSending] = useState(false);
@@ -250,9 +253,6 @@ function InviteWizard({ initialRole, onClose, onDone }) {
   const errors = useMemo(() => validate(form), [form]);
 
   useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
     const onKey = (event) => {
       if (event.key === 'Escape' && !sending) onClose();
     };
@@ -260,8 +260,9 @@ function InviteWizard({ initialRole, onClose, onDone }) {
     window.addEventListener('keydown', onKey);
 
     return () => {
-      document.body.style.overflow = previous;
       window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     };
   }, [onClose, sending]);
 
@@ -276,6 +277,11 @@ function InviteWizard({ initialRole, onClose, onDone }) {
     event.preventDefault();
 
     setTouched({ name: true, email: true, phone: true });
+
+    if (role === 'principal' && existingPrincipal) {
+      setServerError(`Only one Principal is permitted per institution. Principal ${existingPrincipal.name} (${existingPrincipal.email}) is already active.`);
+      return;
+    }
 
     if (Object.keys(errors).length) return;
 
@@ -332,14 +338,16 @@ function InviteWizard({ initialRole, onClose, onDone }) {
     </label>
   );
 
-  return (
+  const modalContent = (
     <div
       className="pp-overlay"
+      data-theme={theme}
       onClick={() => !sending && onClose()}
       role="presentation"
     >
       <section
         className={`pp-modal step-${step}`}
+        data-theme={theme}
         role="dialog"
         aria-modal="true"
         aria-label="Invite staff member"
@@ -367,169 +375,220 @@ function InviteWizard({ initialRole, onClose, onDone }) {
 
         {/* STEP 0: role */}
         {step === 0 && (
-          <div className="pp-modal-body">
-            <p className="pp-lead">
-              Choose what this person will be able to do on the mobile app.
-            </p>
-
-            <div className="pp-role-grid" role="radiogroup" aria-label="Role">
-              {ROLE_ORDER.map((key) => {
-                const item = ROLES[key];
-                const on = role === key;
-
-                return (
-                  <button
-                    type="button"
-                    key={key}
-                    role="radio"
-                    aria-checked={on}
-                    className={`pp-role-card ${on ? 'on' : ''}`}
-                    style={{ '--t': item.tone }}
-                    onClick={() => setRole(key)}
-                  >
-                    <span className="pp-role-check"><Ico name="check" size={13} /></span>
-                    <span className="pp-role-icon"><Ico name={item.icon} size={24} /></span>
-                    <strong>{item.label}</strong>
-                    <em>{item.tagline}</em>
-                    <p>{item.blurb}</p>
-                    <ul>
-                      {item.perks.map((perk) => (
-                        <li key={perk}><Ico name="check" size={12} /> {perk}</li>
-                      ))}
-                    </ul>
-                  </button>
-                );
-              })}
-            </div>
-
-            <footer className="pp-modal-foot">
-              <button className="btn-ghost" onClick={onClose}>Cancel</button>
-              <button className="btn-primary" onClick={() => setStep(1)}>
-                Continue as {cfg.label} <Ico name="arrow" size={15} />
-              </button>
-            </footer>
-          </div>
-        )}
-
-        {/* STEP 1: details */}
-        {step === 1 && (
-          <form className="pp-modal-body pp-split" onSubmit={submit} noValidate>
-            <div className="pp-form">
-              <button type="button" className="pp-role-pill" style={{ '--t': cfg.tone }} onClick={() => setStep(0)}>
-                <Ico name={cfg.icon} size={15} />
-                Inviting a <b>{cfg.label}</b>
-                <span>Change</span>
-              </button>
-
-              {field('name', 'Full name', {
-                required: true,
-                icon: 'users',
-                input: { placeholder: 'e.g. Dr. Ramesh Kumar', autoComplete: 'off', autoFocus: true },
-              })}
-
-              {field('email', 'College email', {
-                required: true,
-                icon: 'mail',
-                input: { type: 'email', placeholder: 'name@college.edu', autoComplete: 'off', inputMode: 'email' },
-              })}
-
-              <div className="pp-row">
-                {field('department', cfg.deptLabel, {
-                  icon: 'pin',
-                  input: { placeholder: cfg.deptPlaceholder, autoComplete: 'off' },
-                })}
-
-                {field('phone', 'Phone number', {
-                  icon: 'phone',
-                  input: { type: 'tel', placeholder: '+91 98765 43210', autoComplete: 'off', inputMode: 'tel' },
-                })}
-              </div>
-
-              <div className="pp-note">
-                <Ico name="shield" size={16} />
-                <p>
-                  No password is shared by you. We email a one-time secure link
-                  so they can set their own, then sign in on the mobile app.
-                </p>
-              </div>
+          <>
+            <div className="pp-modal-body">
+              <p className="pp-lead">
+                Choose what this person will be able to do on the mobile app.
+              </p>
 
               {serverError && (
-                <div className="pp-alert" role="alert">
+                <div className="pp-alert" role="alert" style={{ marginBottom: '14px' }}>
                   <Ico name="alert" size={16} />
                   <span>{serverError}</span>
                 </div>
               )}
 
-              <footer className="pp-modal-foot">
-                <button type="button" className="btn-ghost" onClick={() => setStep(0)} disabled={sending}>
-                  <Ico name="back" size={15} /> Back
-                </button>
+              <div className="pp-role-grid" role="radiogroup" aria-label="Role">
+                {ROLE_ORDER.map((key) => {
+                  const item = ROLES[key];
+                  const isPrincipalDisabled = key === 'principal' && Boolean(existingPrincipal);
+                  const on = role === key;
 
-                <button type="submit" className="btn-primary" disabled={sending}>
-                  {sending ? (<><span className="spinner" /> Sending invite…</>) : (<><Ico name="send" size={15} /> Send invitation</>)}
-                </button>
-              </footer>
+                  return (
+                    <button
+                      type="button"
+                      key={key}
+                      role="radio"
+                      aria-checked={on}
+                      disabled={isPrincipalDisabled}
+                      className={`pp-role-card ${on ? 'on' : ''} ${isPrincipalDisabled ? 'disabled' : ''}`}
+                      style={{
+                        '--t': item.tone,
+                        opacity: isPrincipalDisabled ? 0.65 : 1,
+                        cursor: isPrincipalDisabled ? 'not-allowed' : 'pointer',
+                      }}
+                      onClick={() => {
+                        if (isPrincipalDisabled) {
+                          setServerError(`Only one Principal can exist per college. Principal ${existingPrincipal.name} (${existingPrincipal.email}) is already active.`);
+                          return;
+                        }
+                        setRole(key);
+                        setServerError('');
+                      }}
+                    >
+                      <span className="pp-role-check">
+                        {isPrincipalDisabled ? <Ico name="shield" size={13} /> : <Ico name="check" size={13} />}
+                      </span>
+                      <span className="pp-role-icon"><Ico name={item.icon} size={24} /></span>
+                      <div className="pp-role-meta">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                          <strong>{item.label}</strong>
+                          {isPrincipalDisabled && (
+                            <span style={{ fontSize: '10px', fontWeight: '800', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '2px 7px', borderRadius: '6px' }}>
+                              LIMIT: 1 (ACTIVE)
+                            </span>
+                          )}
+                        </div>
+                        <em>{isPrincipalDisabled ? `Occupied by ${existingPrincipal.name}` : item.tagline}</em>
+                        <p>{item.blurb}</p>
+                      </div>
+                      <ul>
+                        {item.perks.map((perk) => (
+                          <li key={perk}><Ico name="check" size={12} /> {perk}</li>
+                        ))}
+                      </ul>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <aside className="pp-preview">
-              <div className="pp-preview-label">LIVE EMAIL PREVIEW</div>
-              <EmailPreview role={role} name={form.name} email={form.email} />
-            </aside>
+            <footer className="pp-modal-foot">
+              <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={role === 'principal' && isPrincipalTaken}
+                onClick={() => setStep(1)}
+              >
+                Continue as {cfg.label} <Ico name="arrow" size={15} />
+              </button>
+            </footer>
+          </>
+        )}
+
+        {/* STEP 1: details */}
+        {step === 1 && (
+          <form className="pp-modal-form" onSubmit={submit} noValidate>
+            <div className="pp-modal-body pp-split">
+              <div className="pp-form">
+                <button type="button" className="pp-role-pill" style={{ '--t': cfg.tone }} onClick={() => setStep(0)}>
+                  <Ico name={cfg.icon} size={15} />
+                  Inviting a <b>{cfg.label}</b>
+                  <span>Change</span>
+                </button>
+
+                {role === 'principal' && isPrincipalTaken && (
+                  <div className="pp-alert" role="alert">
+                    <Ico name="alert" size={16} />
+                    <span>A Principal is already assigned to this institution ({existingPrincipal.name}). Only one Principal can exist.</span>
+                  </div>
+                )}
+
+                {field('name', 'Full name', {
+                  required: true,
+                  icon: 'users',
+                  input: { placeholder: 'e.g. Dr. Ramesh Kumar', autoComplete: 'off', autoFocus: true },
+                })}
+
+                {field('email', 'College email', {
+                  required: true,
+                  icon: 'mail',
+                  input: { type: 'email', placeholder: 'name@college.edu', autoComplete: 'off', inputMode: 'email' },
+                })}
+
+                <div className="pp-row">
+                  {field('department', cfg.deptLabel, {
+                    icon: 'pin',
+                    input: { placeholder: cfg.deptPlaceholder, autoComplete: 'off' },
+                  })}
+
+                  {field('phone', 'Phone number', {
+                    icon: 'phone',
+                    input: { type: 'tel', placeholder: '+91 98765 43210', autoComplete: 'off', inputMode: 'tel' },
+                  })}
+                </div>
+
+                <div className="pp-note">
+                  <Ico name="shield" size={16} />
+                  <p>
+                    No password is shared by you. We email a one-time secure link
+                    so they can set their own, then sign in on the mobile app.
+                  </p>
+                </div>
+
+                {serverError && (
+                  <div className="pp-alert" role="alert">
+                    <Ico name="alert" size={16} />
+                    <span>{serverError}</span>
+                  </div>
+                )}
+              </div>
+
+              <aside className="pp-preview">
+                <div className="pp-preview-label">LIVE EMAIL PREVIEW</div>
+                <EmailPreview role={role} name={form.name} email={form.email} />
+              </aside>
+            </div>
+
+            <footer className="pp-modal-foot">
+              <button type="button" className="btn-ghost" onClick={() => setStep(0)} disabled={sending}>
+                <Ico name="back" size={15} /> Back
+              </button>
+
+              <button type="submit" className="btn-primary" disabled={sending}>
+                {sending ? (<><span className="spinner" /> Sending invite…</>) : (<><Ico name="send" size={15} /> Send invitation</>)}
+              </button>
+            </footer>
           </form>
         )}
 
         {/* STEP 2: success */}
         {step === 2 && result && (
-          <div className="pp-modal-body pp-success">
-            <div className={`pp-success-ring ${result.emailSent ? '' : 'warn'}`}>
-              <Ico name={result.emailSent ? 'check' : 'alert'} size={34} />
-            </div>
+          <>
+            <div className="pp-modal-body pp-success">
+              <div className={`pp-success-ring ${result.emailSent ? '' : 'warn'}`}>
+                <Ico name={result.emailSent ? 'check' : 'alert'} size={34} />
+              </div>
 
-            <h4>
-              {result.emailSent
-                ? `${result.name.split(' ')[0]} is on the way in.`
-                : 'Account created — email not delivered'}
-            </h4>
+              <h4>
+                {result.emailSent
+                  ? `${result.name.split(' ')[0]} is on the way in.`
+                  : 'Account created — email not delivered'}
+              </h4>
 
-            <p>
-              {result.emailSent ? (
-                <>
-                  We emailed a secure set-password link to <b>{result.email}</b>.
-                  Once they set a password they can sign in on the CampusSetu
-                  mobile app as a <b>{ROLES[role].label}</b>.
-                </>
-              ) : (
-                <>
-                  The account for <b>{result.email}</b> exists, but the invitation
-                  email could not be sent. Use <b>Resend invite</b> on their card
-                  once the mail service is available.
-                </>
-              )}
-            </p>
+              <p>
+                {result.emailSent ? (
+                  <>
+                    We emailed a secure set-password link to <b>{result.email}</b>.
+                    Once they set a password they can sign in on the CampusSetu
+                    mobile app as a <b>{ROLES[role].label}</b>.
+                  </>
+                ) : (
+                  <>
+                    The account for <b>{result.email}</b> exists, but the invitation
+                    email could not be sent. Use <b>Resend invite</b> on their card
+                    once the mail service is available.
+                  </>
+                )}
+              </p>
 
-            <div className="pp-timeline">
-              <div className="done"><i><Ico name="check" size={12} /></i><span>Account created</span></div>
-              <div className={result.emailSent ? 'done' : 'fail'}><i><Ico name={result.emailSent ? 'check' : 'alert'} size={12} /></i><span>Invitation email</span></div>
-              <div><i /><span>Password set by member</span></div>
-              <div><i /><span>First sign-in on mobile</span></div>
+              <div className="pp-timeline">
+                <div className="done"><i><Ico name="check" size={12} /></i><span>Account created</span></div>
+                <div className={result.emailSent ? 'done' : 'fail'}><i><Ico name={result.emailSent ? 'check' : 'alert'} size={12} /></i><span>Invitation email</span></div>
+                <div><i /><span>Password set by member</span></div>
+                <div><i /><span>First sign-in on mobile</span></div>
+              </div>
             </div>
 
             <footer className="pp-modal-foot center">
-              <button className="btn-ghost" onClick={again}><Ico name="plus" size={15} /> Invite another</button>
-              <button className="btn-primary" onClick={onClose}>Done</button>
+              <button type="button" className="btn-ghost" onClick={again}><Ico name="plus" size={15} /> Invite another</button>
+              <button type="button" className="btn-primary" onClick={onClose}>Done</button>
             </footer>
-          </div>
+          </>
         )}
       </section>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 }
 
 /* ------------------------------------------------------------------ */
 /* Main screen                                                         */
 /* ------------------------------------------------------------------ */
 
-export default function StaffManagement({ complaints = [], showToast, onChanged }) {
+export default function StaffManagement({ complaints = [], showToast, onChanged, theme = 'light' }) {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -541,6 +600,16 @@ export default function StaffManagement({ complaints = [], showToast, onChanged 
   const [removeTarget, setRemoveTarget] = useState(null);
   const [removing, setRemoving] = useState(false);
   const [resendingId, setResendingId] = useState('');
+
+  const closeWizard = useCallback(() => {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    setWizard({ open: false, role: null });
+  }, []);
+
+  const existingPrincipal = useMemo(() => {
+    return staff.find((person) => person.role === 'principal');
+  }, [staff]);
 
   const notify = useCallback(
     (message, type = 'success') => showToast?.(message, type),
@@ -850,15 +919,29 @@ export default function StaffManagement({ complaints = [], showToast, onChanged 
       {wizard.open && (
         <InviteWizard
           initialRole={wizard.role}
-          onClose={() => setWizard({ open: false, role: null })}
+          existingPrincipal={existingPrincipal}
+          theme={theme}
+          onClose={closeWizard}
           onDone={() => { load(false); onChanged?.(); }}
         />
       )}
 
-      {removeTarget && (
-        <div className="pp-overlay" onClick={() => !removing && setRemoveTarget(null)} role="presentation">
+      {removeTarget && typeof document !== 'undefined' && createPortal(
+        <div
+          className="pp-overlay"
+          data-theme={theme}
+          onClick={() => {
+            if (!removing) {
+              document.body.style.overflow = '';
+              document.documentElement.style.overflow = '';
+              setRemoveTarget(null);
+            }
+          }}
+          role="presentation"
+        >
           <section
             className="pp-confirm"
+            data-theme={theme}
             role="alertdialog"
             aria-modal="true"
             aria-label="Remove team member"
@@ -876,13 +959,25 @@ export default function StaffManagement({ complaints = [], showToast, onChanged 
             </p>
 
             <footer className="pp-modal-foot center">
-              <button className="btn-ghost" onClick={() => setRemoveTarget(null)} disabled={removing}>Keep member</button>
-              <button className="pp-danger" onClick={handleRemove} disabled={removing}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  document.body.style.overflow = '';
+                  document.documentElement.style.overflow = '';
+                  setRemoveTarget(null);
+                }}
+                disabled={removing}
+              >
+                Keep member
+              </button>
+              <button type="button" className="pp-danger" onClick={handleRemove} disabled={removing}>
                 {removing ? (<><span className="spinner" /> Removing…</>) : 'Yes, remove'}
               </button>
             </footer>
           </section>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
