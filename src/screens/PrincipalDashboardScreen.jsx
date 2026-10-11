@@ -6,6 +6,7 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Modal,
   RefreshControl,
   SafeAreaView,
@@ -541,6 +542,45 @@ export default function PrincipalDashboardScreen({ navigation }) {
                       🎓 {issue.reportedBy?.name || 'Student'}
                     </Text>
                   </View>
+
+                  {/* Images Preview: Student Attached Photo & Teacher Resolution Proof */}
+                  {(issue.photoUrl || issue.resolutionPhotoUrl) ? (
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                      {issue.photoUrl ? (
+                        <TouchableOpacity
+                          style={{ flex: 1, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC' }}
+                          activeOpacity={0.9}
+                          onPress={() => navigation.navigate('OfficialIssueDetails', { issueId: issue._id })}
+                        >
+                          <Image
+                            source={{ uri: issue.photoUrl }}
+                            style={{ width: '100%', height: 110 }}
+                            resizeMode="cover"
+                          />
+                          <View style={{ paddingVertical: 4, paddingHorizontal: 6, backgroundColor: 'rgba(15, 23, 42, 0.75)' }}>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#FFFFFF' }}>📷 Student Photo</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ) : null}
+
+                      {issue.resolutionPhotoUrl ? (
+                        <TouchableOpacity
+                          style={{ flex: 1, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#BBF7D0', backgroundColor: '#F0FDF4' }}
+                          activeOpacity={0.9}
+                          onPress={() => navigation.navigate('OfficialIssueDetails', { issueId: issue._id })}
+                        >
+                          <Image
+                            source={{ uri: issue.resolutionPhotoUrl }}
+                            style={{ width: '100%', height: 110 }}
+                            resizeMode="cover"
+                          />
+                          <View style={{ paddingVertical: 4, paddingHorizontal: 6, backgroundColor: 'rgba(21, 128, 61, 0.85)' }}>
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#FFFFFF' }}>✓ Teacher Proof</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  ) : null}
 
                   {/* Principal Direct Actions */}
                   <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>

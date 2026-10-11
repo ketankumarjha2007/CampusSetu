@@ -13,9 +13,11 @@ import {
   requestComplaintInfo,
 } from './services/api';
 import AdminLogin from './pages/AdminLogin';
+import StaffManagement from './Staffmanagement';
 
 import './App.css';
 import './status-management.css';
+import './Staff.css';
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
@@ -401,6 +403,9 @@ function App() {
   // Audit Logs state
   const [auditLogs, setAuditLogs] = useState([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditActionFilter, setAuditActionFilter] = useState('all');
+  const [auditTargetFilter, setAuditTargetFilter] = useState('all');
 
   const searchRef = useRef(null);
   const paletteRef = useRef(null);
@@ -1090,6 +1095,56 @@ function App() {
     card.style.setProperty('--my', `${event.clientY - rect.top}px`);
   };
 
+  /* ----- audit logs computed data (MUST be above early returns) ----- */
+  const filteredAuditLogs = useMemo(() => {
+    const q = auditSearch.trim().toLowerCase();
+    return auditLogs.filter((log) => {
+      const matchesAction = auditActionFilter === 'all' || log.action === auditActionFilter;
+      const matchesTarget = auditTargetFilter === 'all' || log.targetType === auditTargetFilter;
+      if (!matchesAction || !matchesTarget) return false;
+      if (!q) return true;
+
+      const searchable = [
+        log.action,
+        log.targetType,
+        log.performedBy?.name,
+        log.performedBy?.email,
+        log.performedBy?.role,
+        JSON.stringify(log.details || {}),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return searchable.includes(q);
+    });
+  }, [auditLogs, auditSearch, auditActionFilter, auditTargetFilter]);
+
+  const uniqueAuditActions = useMemo(() => {
+    return Array.from(new Set(auditLogs.map((l) => l.action))).filter(Boolean);
+  }, [auditLogs]);
+
+  const exportAuditCsv = useCallback(() => {
+    if (!filteredAuditLogs.length) return;
+    const header = ['Action', 'Target Type', 'Performed By', 'Role', 'Email', 'Details', 'Timestamp'];
+    const rows = filteredAuditLogs.map((log) => [
+      csvCell(log.action),
+      csvCell(log.targetType || 'system'),
+      csvCell(log.performedBy?.name || 'Administrator'),
+      csvCell(log.performedBy?.role || 'System'),
+      csvCell(log.performedBy?.email || ''),
+      csvCell(JSON.stringify(log.details || {})),
+      csvCell(new Date(log.createdAt).toISOString()),
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [header.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const link = document.createElement('a');
+    link.href = encodeURI(csvContent);
+    link.download = `CampusSetu_Audit_Trail_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [filteredAuditLogs]);
+
   /* ----- early returns ----- */
   if (!authReady) {
     return (
@@ -1508,115 +1563,222 @@ function App() {
   );
 
   const teamView = (
-    <section>
-      <header className="section-head">
-        <div>
-          <div className="kicker">YOUR PEOPLE</div>
-          <h2>Response team <span className="count-pill">{teachers.length}</span></h2>
-          <p>Workload is sorted lightest first, so the best-fit teacher is always on top.</p>
-        </div>
-        <button
-          className="btn-primary"
-          onClick={() => setTeacherModalOpen(true)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-        >
-          <Icon name="users" size={16} /> + Add Teacher
-        </button>
-      </header>
-
-      {teacherLoad.length === 0 ? (
-        <div className="empty panel">
-          <div className="empty-icon"><Icon name="users" size={26} /></div>
-          <strong>No active teachers found</strong>
-          <span>Complaints can be assigned once teachers are active.</span>
-          <button className="btn-primary" onClick={() => setTeacherModalOpen(true)} style={{ marginTop: '12px' }}>
-            + Onboard Teacher
-          </button>
-        </div>
-      ) : (
-        <div className="team-grid">
-          {teacherLoad.map(({ teacher, active, resolved }, index) => (
-            <article className="teacher glow" key={teacher._id}>
-              {index === 0 && teacherLoad.length > 1 && <span className="best">Best fit</span>}
-              <button
-                className="teacher-delete-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteTeacher(teacher);
-                }}
-                title={`Remove ${teacher.name}`}
-                aria-label={`Remove ${teacher.name}`}
-              >
-                <Icon name="trash" size={14} />
-              </button>
-              <div className={`avatar lg tc-${index % 5}`}>{initials(teacher.name)}</div>
-              <h3>{teacher.name}</h3>
-              <p>{teacher.department || teacher.email || 'Faculty'}</p>
-              <div className="teacher-stats">
-                <div><b>{active}</b><span>Active</span></div>
-                <div><b>{resolved}</b><span>Resolved</span></div>
-              </div>
-              <div className="meter"><span style={{ width: `${(active / maxLoad) * 100}%` }} /></div>
-              <small>{active === 0 ? 'Fully available' : `${active} open ${active === 1 ? 'task' : 'tasks'}`}</small>
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
+    <StaffManagement
+      complaints={complaints}
+      showToast={showToast}
+      onChanged={() => loadData(false)}
+    />
   );
 
   const auditView = (
-    <section>
+    <section className="audit-section">
       <header className="section-head">
         <div>
           <div className="kicker">COMPLIANCE & GOVERNANCE</div>
-          <h2>Audit Trail <span className="count-pill">{auditLogs.length}</span></h2>
-          <p>Immutable record of complaint assignments, status transitions, and administrative actions.</p>
+          <h2>Audit Trail <span className="count-pill">{filteredAuditLogs.length}</span></h2>
+          <p>Cryptographically backed, immutable record of staff invitations, role assignments, complaints, and state changes.</p>
+        </div>
+        <div className="head-actions">
+          <button className="btn-ghost" onClick={exportAuditCsv} disabled={!filteredAuditLogs.length}>
+            <Icon name="download" size={15} /> Export Audit Log
+          </button>
         </div>
       </header>
+
+      {/* Audit Search & Filter Bar */}
+      <div className="toolbar" style={{ flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+        <div className="search" style={{ flex: '1 1 260px' }}>
+          <Icon name="search" size={17} />
+          <input
+            value={auditSearch}
+            onChange={(e) => setAuditSearch(e.target.value)}
+            placeholder="Search actions, emails, staff names, details..."
+            aria-label="Search audit records"
+          />
+          {auditSearch && <button onClick={() => setAuditSearch('')}>×</button>}
+        </div>
+
+        <div className="selects" style={{ flexWrap: 'wrap', gap: '8px' }}>
+          <select
+            value={auditActionFilter}
+            onChange={(e) => setAuditActionFilter(e.target.value)}
+            aria-label="Filter by action"
+          >
+            <option value="all">All Actions ({uniqueAuditActions.length})</option>
+            {uniqueAuditActions.map((act) => (
+              <option key={act} value={act}>{act}</option>
+            ))}
+          </select>
+
+          <select
+            value={auditTargetFilter}
+            onChange={(e) => setAuditTargetFilter(e.target.value)}
+            aria-label="Filter by target"
+          >
+            <option value="all">All Target Types</option>
+            <option value="issue">Complaint Issues</option>
+            <option value="user">User Accounts</option>
+            <option value="system">System Events</option>
+          </select>
+        </div>
+      </div>
 
       {loadingAudit ? (
         <div className="empty panel">
           <div className="empty-icon"><Icon name="clock" size={26} /></div>
           <strong>Loading audit records…</strong>
-          <span>Fetching the latest administrative compliance trail.</span>
+          <span>Connecting to the verified administrative audit ledger.</span>
         </div>
-      ) : auditLogs.length === 0 ? (
+      ) : filteredAuditLogs.length === 0 ? (
         <div className="empty panel">
           <div className="empty-icon"><Icon name="clock" size={26} /></div>
-          <strong>No audit records found</strong>
-          <span>Audit events are recorded when complaints and users are modified.</span>
+          <strong>No audit records match your filters</strong>
+          <span>Try clearing search queries or action filters.</span>
+          {(auditSearch || auditActionFilter !== 'all' || auditTargetFilter !== 'all') && (
+            <button
+              className="btn-ghost"
+              onClick={() => {
+                setAuditSearch('');
+                setAuditActionFilter('all');
+                setAuditTargetFilter('all');
+              }}
+              style={{ marginTop: '10px' }}
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       ) : (
-        <div className="list">
-          <div className="list-head" style={{ gridTemplateColumns: '160px 180px 1fr 180px' }}>
-            <span>Action</span><span>Performed By</span><span>Details</span><span>Timestamp</span>
-          </div>
-          {auditLogs.map((log) => (
-            <div
-              key={log._id}
-              className="list-row"
-              style={{ gridTemplateColumns: '160px 180px 1fr 180px' }}
-            >
-              <div>
-                <span className="badge" style={{ background: 'var(--surface-2)', color: 'var(--violet)' }}>
-                  {log.action}
-                </span>
-              </div>
-              <div>
-                <strong>{log.performedBy?.name || 'Administrator'}</strong>
-                <span style={{ fontSize: '11px', color: 'var(--text-3)', display: 'block' }}>
-                  {log.performedBy?.role || 'System'}
-                </span>
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>
-                {log.details ? JSON.stringify(log.details).replaceAll('"', ' ') : 'Action recorded'}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>
-                {formatDate(log.createdAt)} {new Date(log.createdAt).toLocaleTimeString()}
-              </div>
-            </div>
-          ))}
+        <div className="audit-cards-stream" style={{ display: 'grid', gap: '12px' }}>
+          {filteredAuditLogs.map((log) => {
+            const isUserAction = log.action.includes('TEACHER') || log.action.includes('INVITE') || log.action.includes('ADMIN') || log.action.includes('REMOVE');
+            const isEscalate = log.action.includes('ESCALATE');
+            const isAssign = log.action.includes('ASSIGN');
+            const isStatus = log.action.includes('STATUS');
+
+            const actionTone = isEscalate
+              ? 'var(--amber)'
+              : isUserAction
+                ? 'var(--violet)'
+                : isAssign
+                  ? 'var(--blue)'
+                  : isStatus
+                    ? 'var(--green)'
+                    : 'var(--text-2)';
+
+            const actionBg = isEscalate
+              ? 'rgba(217, 119, 6, 0.12)'
+              : isUserAction
+                ? 'rgba(139, 123, 255, 0.14)'
+                : isAssign
+                  ? 'rgba(59, 130, 246, 0.14)'
+                  : isStatus
+                    ? 'rgba(21, 128, 61, 0.14)'
+                    : 'var(--surface-2)';
+
+            return (
+              <article
+                key={log._id}
+                className="audit-item glow"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  padding: '16px 20px',
+                  borderRadius: '16px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--surface)',
+                  transition: 'border-color 0.2s, background 0.2s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        fontWeight: '800',
+                        fontSize: '11px',
+                        fontFamily: 'var(--mono)',
+                        letterSpacing: '0.4px',
+                        color: actionTone,
+                        background: actionBg,
+                        border: `1px solid color-mix(in srgb, ${actionTone} 30%, transparent)`,
+                      }}
+                    >
+                      {log.action}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '10.5px',
+                        fontWeight: '700',
+                        textTransform: 'uppercase',
+                        color: 'var(--text-3)',
+                        letterSpacing: '1px',
+                      }}
+                    >
+                      Target: {log.targetType || 'System'}
+                    </span>
+                  </div>
+
+                  <span style={{ fontSize: '11.5px', color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
+                    {formatDate(log.createdAt)} • {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="avatar sm" style={{ width: '26px', height: '26px', fontSize: '11px' }}>
+                      {initials(log.performedBy?.name || 'Admin')}
+                    </div>
+                    <div>
+                      <strong style={{ fontSize: '12.5px', color: 'var(--text)' }}>
+                        {log.performedBy?.name || 'Administrator'}
+                      </strong>
+                      <span style={{ fontSize: '11px', color: 'var(--text-3)', marginLeft: '6px' }}>
+                        ({pretty(log.performedBy?.role || 'system')})
+                      </span>
+                    </div>
+                  </div>
+
+                  {log.performedBy?.email && (
+                    <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>
+                      • {log.performedBy.email}
+                    </span>
+                  )}
+                </div>
+
+                {log.details && Object.keys(log.details).length > 0 && (
+                  <div
+                    style={{
+                      marginTop: '4px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      background: 'var(--surface-2)',
+                      border: '1px solid var(--line)',
+                      fontSize: '12px',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '8px 16px',
+                    }}
+                  >
+                    {Object.entries(log.details).map(([key, val]) => (
+                      <div key={key} style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                        <span style={{ color: 'var(--text-3)', fontWeight: '600', fontSize: '11px' }}>{key}:</span>
+                        <b style={{ color: 'var(--text-2)', fontFamily: typeof val === 'object' ? 'var(--mono)' : 'inherit', fontSize: '11.5px' }}>
+                          {typeof val === 'boolean'
+                            ? val ? '✓ True' : '✕ False'
+                            : typeof val === 'object'
+                              ? JSON.stringify(val)
+                              : String(val)}
+                        </b>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
     </section>
@@ -2150,19 +2312,74 @@ function App() {
                 </p>
               </div>
 
+              {/* Student Attached Photo */}
               {selectedComplaint.photoUrl && (
                 <div className="drawer-section">
-                  <h4>Attached photo</h4>
-                  <a
-                    href={selectedComplaint.photoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="photo-link"
-                  >
-                    <Icon name="photo" size={16} />
-                    View uploaded photo
-                    <Icon name="arrow" size={13} />
-                  </a>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <h4 style={{ margin: 0 }}>Student's Attached Photo</h4>
+                    <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.12)', color: 'var(--blue)', fontSize: '10px' }}>Original Report</span>
+                  </div>
+                  <div className="photo-preview-card" style={{ borderRadius: '14px', overflow: 'hidden', border: '1px solid var(--line-2)', background: 'var(--surface)' }}>
+                    <img
+                      src={selectedComplaint.photoUrl}
+                      alt="Student report attachment"
+                      style={{ width: '100%', maxHeight: '240px', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
+                      onClick={() => window.open(selectedComplaint.photoUrl, '_blank')}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface-solid)' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Click image to expand full-size</span>
+                      <a
+                        href={selectedComplaint.photoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="photo-link"
+                        style={{ padding: '4px 10px', fontSize: '11px' }}
+                      >
+                        <Icon name="photo" size={14} /> Open in new tab ↗
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Teacher Resolution Proof Photo */}
+              {selectedComplaint.resolutionPhotoUrl && (
+                <div className="drawer-section" style={{ background: 'rgba(21, 128, 61, 0.05)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(21, 128, 61, 0.2)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'var(--green)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '11px', fontWeight: 'bold' }}>✓</span>
+                      <h4 style={{ margin: 0, color: 'var(--green)' }}>Teacher Resolution Proof</h4>
+                    </div>
+                    <span className="badge" style={{ background: 'rgba(21, 128, 61, 0.15)', color: 'var(--green)', fontSize: '10px' }}>Verified Work</span>
+                  </div>
+                  <div className="photo-preview-card" style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(21, 128, 61, 0.3)', background: 'var(--surface)' }}>
+                    <img
+                      src={selectedComplaint.resolutionPhotoUrl}
+                      alt="Teacher resolution proof"
+                      style={{ width: '100%', maxHeight: '240px', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
+                      onClick={() => window.open(selectedComplaint.resolutionPhotoUrl, '_blank')}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--surface-solid)' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Uploaded upon completion by {selectedComplaint.assignedTo?.name || 'faculty'}</span>
+                      <a
+                        href={selectedComplaint.resolutionPhotoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="photo-link"
+                        style={{ padding: '4px 10px', fontSize: '11px', color: 'var(--green)', borderColor: 'rgba(21, 128, 61, 0.3)' }}
+                      >
+                        <Icon name="photo" size={14} /> Full Resolution Photo ↗
+                      </a>
+                    </div>
+                  </div>
+                  {selectedComplaint.resolutionNote && (
+                    <div style={{ marginTop: '12px', padding: '10px 12px', borderRadius: '8px', background: 'var(--surface)', border: '1px solid var(--line)' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-3)', textTransform: 'uppercase', marginBottom: '4px' }}>Resolution Note</div>
+                      <div style={{ fontSize: '12.5px', color: 'var(--text-2)', lineHeight: '1.5' }}>{selectedComplaint.resolutionNote}</div>
+                    </div>
+                  )}
                 </div>
               )}
 

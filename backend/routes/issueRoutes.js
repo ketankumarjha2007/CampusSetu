@@ -32,7 +32,7 @@ router.patch('/notifications/read-all', authenticateUser, markAllNotificationsRe
 router.patch('/notifications/:id/read', authenticateUser, markNotificationRead);
 
 // Audit logs
-router.get('/admin/audit-logs', authenticateUser, requireRole('college_admin', 'principal'), getAuditLogs);
+router.get('/admin/audit-logs', authenticateUser, requireRole('college_admin', 'principal', 'cluster_head'), getAuditLogs);
 
 // Create a new complaint
 router.post(

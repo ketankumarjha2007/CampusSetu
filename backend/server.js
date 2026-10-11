@@ -9,6 +9,7 @@ const authenticateUser = require('./middleware/authMiddleware');
 
 const userRoutes = require('./routes/userRoutes');
 const issueRoutes = require('./routes/issueRoutes');
+const staffRoutes = require('./routes/Staffroutes');
 
 const app = express();
 
@@ -80,6 +81,9 @@ app.use('/api/users', userRoutes);
 
 // Issue routes
 app.use('/api/issues', issueRoutes);
+
+// Staff management routes (teachers, cluster heads, principals)
+app.use('/api/staff', staffRoutes);
 
 // Global Error Handler (Hides stack traces in production)
 app.use((err, req, res, next) => {

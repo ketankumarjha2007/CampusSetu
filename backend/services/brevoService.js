@@ -1,8 +1,20 @@
 const { BrevoClient } = require('@getbrevo/brevo');
 
+const ROLE_DISPLAY_NAMES = {
+  teacher: 'Teacher / Faculty Handler',
+  cluster_head: 'Cluster Head / Operations Lead',
+  principal: 'College Principal / Executive Authority',
+};
+
+const ROLE_SUBJECT_LINES = {
+  teacher: 'Welcome to CampusSetu — Set Up Your Faculty Account',
+  cluster_head: 'Welcome to CampusSetu — Set Up Your Cluster Head Account',
+  principal: 'Welcome to CampusSetu — Set Up Your Principal Executive Account',
+};
+
 /**
  * Brevo Transactional Email Service
- * Sends teacher onboarding email with Firebase password setup link and teacher dashboard instructions.
+ * Sends staff onboarding emails (Teacher, Cluster Head, Principal) with Firebase password setup link and dashboard instructions.
  */
 class BrevoService {
   constructor() {
@@ -13,18 +25,20 @@ class BrevoService {
   }
 
   /**
-   * Send teacher onboarding email with secure Firebase password setup link.
+   * Send staff onboarding email (for teachers, cluster heads, and principals)
    *
    * @param {Object} params
-   * @param {string} params.toEmail - Teacher's college email address
-   * @param {string} params.toName - Teacher's full name
-   * @param {string} params.department - Academic department
+   * @param {string} params.toEmail - Recipient's official college email
+   * @param {string} params.toName - Full name
+   * @param {string} [params.role='teacher'] - 'teacher' | 'cluster_head' | 'principal'
+   * @param {string} [params.department=''] - Department, cluster, or institution
    * @param {string} params.setupPasswordLink - Firebase generated password setup / reset URL
-   * @param {string} params.loginUrl - Faculty portal URL
+   * @param {string} [params.loginUrl] - Portal login URL
    */
-  async sendTeacherOnboardingEmail({
+  async sendStaffOnboardingEmail({
     toEmail,
     toName,
+    role = 'teacher',
     department = '',
     setupPasswordLink,
     loginUrl = process.env.TEACHER_LOGIN_URL || 'http://localhost:5173',
@@ -38,13 +52,17 @@ class BrevoService {
       };
     }
 
+    const roleTitle = ROLE_DISPLAY_NAMES[role] || 'Faculty Member';
+    const subject = ROLE_SUBJECT_LINES[role] || `Welcome to CampusSetu — Set Up Your ${roleTitle} Account`;
+    const deptLabel = role === 'cluster_head' ? 'Cluster / Region' : role === 'principal' ? 'Institution / Campus' : 'Department';
+
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to CampusSetu Faculty Portal</title>
+  <title>Welcome to CampusSetu</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f7f9f6; margin: 0; padding: 24px; color: #1e293b; }
     .card { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
@@ -69,27 +87,27 @@ class BrevoService {
     </div>
     <div class="body">
       <p>Dear <strong>${toName}</strong>,</p>
-      <p>Welcome to <strong>CampusSetu</strong>. Your faculty account has been provisioned by the college administration.</p>
+      <p>Welcome to <strong>CampusSetu</strong>. Your official administrative account has been provisioned by the college leadership.</p>
       
       <div class="details">
-        <div><strong>Faculty Name:</strong> ${toName}</div>
+        <div><strong>Full Name:</strong> ${toName}</div>
         <div><strong>Official Email:</strong> ${toEmail}</div>
-        ${department ? `<div><strong>Department:</strong> ${department}</div>` : ''}
-        <div><strong>Role:</strong> Teacher / Faculty Handler</div>
+        <div><strong>Assigned Role:</strong> ${roleTitle}</div>
+        ${department ? `<div><strong>${deptLabel}:</strong> ${department}</div>` : ''}
       </div>
 
-      <p>To securely activate your faculty account and create your personal password, click the button below:</p>
+      <p>To securely activate your account and configure your personal credentials, click the button below:</p>
 
       <div style="text-align: center;">
         <a href="${setupPasswordLink}" class="btn" target="_blank" rel="noopener noreferrer">Set Up Your Secure Password</a>
       </div>
 
       <div class="security-note">
-        <strong>Security Notice:</strong> This password setup link is personalized and time-sensitive. CampusSetu will never ask for your password via email or telephone.
+        <strong>Security Notice:</strong> This link is encrypted, personalized, and time-sensitive. CampusSetu representatives will never ask for your password via email or telephone.
       </div>
 
-      <p style="margin-top: 24px;">Once your password is set up, you can sign in to the CampusSetu faculty mobile app and web dashboard:</p>
-      <p style="font-size: 13px; word-break: break-all;">Faculty Portal: <a href="${loginUrl}">${loginUrl}</a></p>
+      <p style="margin-top: 24px;">Once your password is set up, you can immediately access the CampusSetu mobile app or web console:</p>
+      <p style="font-size: 13px; word-break: break-all;">Portal Address: <a href="${loginUrl}">${loginUrl}</a></p>
     </div>
     <div class="footer">
       &copy; ${new Date().getFullYear()} CampusSetu Administration. All rights reserved.<br>
@@ -112,23 +130,30 @@ class BrevoService {
             name: toName,
           },
         ],
-        subject: 'Welcome to CampusSetu — Set Up Your Faculty Account',
+        subject,
         htmlContent,
       });
 
-      console.log(`BrevoService: Onboarding email dispatched to ${toEmail}. MessageId:`, response?.messageId);
+      console.log(`BrevoService: Onboarding email dispatched to ${toEmail} [role=${role}]. MessageId:`, response?.messageId);
       return {
         success: true,
         messageId: response?.messageId || null,
       };
     } catch (err) {
-      console.error('BrevoService: Failed to send onboarding email:', err.message);
+      console.error(`BrevoService: Failed to send onboarding email to ${toEmail}:`, err.message);
       return {
         success: false,
         error: err.message,
         details: err.body || null,
       };
     }
+  }
+
+  /**
+   * Backward-compatible alias for existing callers
+   */
+  async sendTeacherOnboardingEmail(params) {
+    return this.sendStaffOnboardingEmail({ ...params, role: 'teacher' });
   }
 }
 
