@@ -14,12 +14,12 @@ const COLORS = {
 };
 
 /*
- * CHANGED:
- * - No module-level Dimensions.get() any more (it never updated on rotation
- *   or split-screen). Layout now uses flex, percentages and aspectRatio,
+ * - No module-level Dimensions.get() (it never updated on rotation
+ *   or split-screen). Layout uses flex, percentages and aspectRatio,
  *   and the screen applies the *Small overrides from useWindowDimensions.
  * - Content is centered with a max width so tablets / landscape stay tidy.
  * - Photos use aspectRatio instead of a fixed pixel height.
+ * - The reopen dialog styles live in IssueDetailsScreen.js (reopenStyles).
  */
 const styles = StyleSheet.create({
   safeArea: {
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
 
-  // CHANGED: aspectRatio instead of a fixed height, so the photo
+  // aspectRatio instead of a fixed height, so the photo
   // scales with the card on every screen size.
   issuePhoto: {
     width: '100%',
@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
 
-  // NEW: the teacher's proof photo
+  // The teacher's proof photo
   resolutionPhoto: {
     width: '100%',
     aspectRatio: 4 / 3,
@@ -809,7 +809,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // NEW: full-screen photo viewer
+  // Full-screen photo viewer
   viewerOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.92)',

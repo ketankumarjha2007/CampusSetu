@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import {
   ScrollView,
@@ -11,10 +11,10 @@ import {
   Alert,
   Image,
   Modal,
+  Keyboard,
   StatusBar,
   StyleSheet,
   Platform,
-  KeyboardAvoidingView,
   useWindowDimensions,
 } from 'react-native';
 
@@ -177,6 +177,7 @@ const SectionHeading = ({ eyebrow, title, right }) => (
 );
 
 const MIN_REASON_LENGTH = 5;
+const MAX_REASON_LENGTH = 500;
 
 export default function IssueDetailsScreen({ navigation, route }) {
   const issueId = route?.params?.issueId;
@@ -194,9 +195,30 @@ export default function IssueDetailsScreen({ navigation, route }) {
   const [reopenOpen, setReopenOpen] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   const [reopening, setReopening] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   // Full-screen viewer for the proof photo.
   const [previewUri, setPreviewUri] = useState(null);
+
+  // Track the keyboard so the reopen dialog can move out of its way.
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () =>
+      setKeyboardOpen(true)
+    );
+    const hideSub = Keyboard.addListener(hideEvent, () =>
+      setKeyboardOpen(false)
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const fetchIssue = useCallback(
     async (showLoader = true) => {
@@ -316,12 +338,11 @@ export default function IssueDetailsScreen({ navigation, route }) {
     );
   };
 
-  /* ------------------------- REOPEN (FIXED) -------------------------
-   * Why it was broken: on Android, `Alert.prompt` exists as a function
-   * but does nothing, so `if (Alert.prompt)` was true and the tap showed
-   * no dialog at all. We now use our own modal with a TextInput, which
-   * behaves the same on iOS and Android.
-   * ------------------------------------------------------------------ */
+  /* ------------------------- REOPEN -------------------------
+   * Alert.prompt does nothing on Android, so we use our own modal
+   * with a TextInput. While the keyboard is open the dialog moves to
+   * the top of the screen so it can never be covered by the keyboard.
+   * ----------------------------------------------------------- */
 
   const openReopenDialog = () => {
     if (!issue?._id || reopening) return;
@@ -331,6 +352,7 @@ export default function IssueDetailsScreen({ navigation, route }) {
 
   const closeReopenDialog = () => {
     if (reopening) return;
+    Keyboard.dismiss();
     setReopenOpen(false);
     setReopenReason('');
   };
@@ -350,6 +372,7 @@ export default function IssueDetailsScreen({ navigation, route }) {
 
     try {
       setReopening(true);
+      Keyboard.dismiss();
 
       const res = await apiRequest(`/issues/${issue._id}/reopen`, {
         method: 'POST',
@@ -479,6 +502,9 @@ export default function IssueDetailsScreen({ navigation, route }) {
         issue.resolvedAt ||
         issue.resolutionPhotoUrl
     );
+
+  const reasonLength = reopenReason.trim().length;
+  const reasonValid = reasonLength >= MIN_REASON_LENGTH;
 
   return (
     <SafeAreaView
@@ -1118,27 +1144,58 @@ export default function IssueDetailsScreen({ navigation, route }) {
         statusBarTranslucent
         onRequestClose={closeReopenDialog}
       >
-        <KeyboardAvoidingView
-          style={reopenStyles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={reopenStyles.overlay}>
-            <TouchableOpacity
-              style={StyleSheet.absoluteFill}
-              activeOpacity={1}
-              onPress={closeReopenDialog}
-            />
+        <View style={reopenStyles.overlay}>
+          {/* Tap outside: first dismiss the keyboard, then close */}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => {
+              if (keyboardOpen) Keyboard.dismiss();
+              else closeReopenDialog();
+            }}
+          />
 
+          <ScrollView
+            style={reopenStyles.scroll}
+            contentContainerStyle={[
+              reopenStyles.scrollContent,
+              keyboardOpen
+                ? reopenStyles.scrollContentTop
+                : reopenStyles.scrollContentCenter,
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
             <View style={reopenStyles.card}>
-              <View style={reopenStyles.iconCircle}>
-                <Text style={reopenStyles.iconText}>↻</Text>
+              <View style={reopenStyles.headerRow}>
+                <View style={reopenStyles.iconCircle}>
+                  <Text style={reopenStyles.iconText}>↻</Text>
+                </View>
+
+                <View style={reopenStyles.headerText}>
+                  <Text style={reopenStyles.title}>Reopen complaint</Text>
+                  {!keyboardOpen ? (
+                    <Text style={reopenStyles.subtitle}>
+                      Tell the faculty why this issue is not solved so they
+                      can take further action.
+                    </Text>
+                  ) : null}
+                </View>
+
+                <TouchableOpacity
+                  style={reopenStyles.closeButton}
+                  onPress={closeReopenDialog}
+                  disabled={reopening}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close"
+                >
+                  <Text style={reopenStyles.closeText}>✕</Text>
+                </TouchableOpacity>
               </View>
 
-              <Text style={reopenStyles.title}>Reopen complaint</Text>
-              <Text style={reopenStyles.subtitle}>
-                Tell the faculty why this issue is not solved so they can take
-                further action.
-              </Text>
+              <Text style={reopenStyles.inputLabel}>REASON</Text>
 
               <TextInput
                 style={reopenStyles.input}
@@ -1147,16 +1204,27 @@ export default function IssueDetailsScreen({ navigation, route }) {
                 value={reopenReason}
                 onChangeText={setReopenReason}
                 multiline
-                numberOfLines={4}
-                maxLength={500}
+                maxLength={MAX_REASON_LENGTH}
                 textAlignVertical="top"
                 editable={!reopening}
                 autoFocus
               />
 
-              <Text style={reopenStyles.counter}>
-                {reopenReason.trim().length}/500
-              </Text>
+              <View style={reopenStyles.counterRow}>
+                <Text
+                  style={[
+                    reopenStyles.hint,
+                    reasonValid && reopenStyles.hintOk,
+                  ]}
+                >
+                  {reasonValid
+                    ? '✓ Looks good'
+                    : `Minimum ${MIN_REASON_LENGTH} characters`}
+                </Text>
+                <Text style={reopenStyles.counter}>
+                  {reasonLength}/{MAX_REASON_LENGTH}
+                </Text>
+              </View>
 
               <View style={reopenStyles.buttonRow}>
                 <TouchableOpacity
@@ -1171,27 +1239,25 @@ export default function IssueDetailsScreen({ navigation, route }) {
                 <TouchableOpacity
                   style={[
                     reopenStyles.confirmButton,
-                    (reopening ||
-                      reopenReason.trim().length < MIN_REASON_LENGTH) &&
+                    (reopening || !reasonValid) &&
                       reopenStyles.confirmDisabled,
                   ]}
                   onPress={submitReopen}
-                  disabled={
-                    reopening ||
-                    reopenReason.trim().length < MIN_REASON_LENGTH
-                  }
+                  disabled={reopening || !reasonValid}
                   activeOpacity={0.85}
                 >
                   {reopening ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
-                    <Text style={reopenStyles.confirmText}>Reopen</Text>
+                    <Text style={reopenStyles.confirmText}>
+                      Reopen complaint
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </ScrollView>
+        </View>
       </Modal>
 
       {/* Full-screen photo viewer */}
@@ -1231,54 +1297,98 @@ export default function IssueDetailsScreen({ navigation, route }) {
 }
 
 const reopenStyles = StyleSheet.create({
-  flex: { flex: 1 },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(8, 20, 15, 0.6)',
-    justifyContent: 'center',
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
     alignItems: 'center',
-    paddingHorizontal: 20,
+  },
+  // Keyboard closed: dialog centered
+  scrollContentCenter: {
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
+  // Keyboard open: dialog pinned to the top so it is never covered
+  scrollContentTop: {
+    justifyContent: 'flex-start',
+    paddingTop: 48,
+    paddingBottom: 12,
   },
   card: {
     width: '100%',
     maxWidth: 440,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 22,
-    alignItems: 'center',
+    padding: 18,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   iconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 15,
     backgroundColor: '#E0F2FE',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginRight: 12,
   },
   iconText: {
     color: '#0369A1',
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
+  },
+  headerText: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+    minHeight: 44,
   },
   title: {
     color: '#172820',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
-    marginBottom: 6,
-    textAlign: 'center',
+    letterSpacing: -0.3,
   },
   subtitle: {
     color: '#77847B',
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: 'center',
-    marginBottom: 16,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EEF2EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  closeText: {
+    color: '#47554C',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  inputLabel: {
+    color: '#176B4D',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    marginTop: 16,
+    marginBottom: 8,
   },
   input: {
     width: '100%',
-    minHeight: 100,
-    maxHeight: 160,
+    minHeight: 90,
+    maxHeight: 130,
     backgroundColor: '#F5F7F2',
     borderWidth: 1,
     borderColor: '#E5EAE3',
@@ -1289,15 +1399,26 @@ const reopenStyles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  counter: {
-    alignSelf: 'flex-end',
-    color: '#94A3B8',
-    fontSize: 11,
-    marginTop: 6,
+  counterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
     marginBottom: 14,
   },
+  hint: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  hintOk: {
+    color: '#16815D',
+    fontWeight: '700',
+  },
+  counter: {
+    color: '#94A3B8',
+    fontSize: 11,
+  },
   buttonRow: {
-    width: '100%',
     flexDirection: 'row',
     gap: 10,
   },
@@ -1315,12 +1436,13 @@ const reopenStyles = StyleSheet.create({
     fontWeight: '800',
   },
   confirmButton: {
-    flex: 1.4,
+    flex: 1.6,
     minHeight: 48,
     borderRadius: 14,
     backgroundColor: '#0284C7',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 10,
   },
   confirmDisabled: {
     opacity: 0.5,
