@@ -1,21 +1,7 @@
-import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import { apiRequest } from './api';
-
-// ==========================================
-// NOTIFICATION HANDLER
-// ==========================================
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
 
 // ==========================================
 // SAVE PUSH TOKEN TO BACKEND
@@ -63,6 +49,32 @@ const savePushTokenToBackend = async (
 export const registerForPushNotificationsAsync =
   async () => {
     try {
+      if (
+        Platform.OS === 'android' &&
+        (
+          Constants.appOwnership === 'expo' ||
+          Constants.expoGoConfig != null
+        )
+      ) {
+        console.log(
+          'Notification: Remote push notifications require a development build on Android.'
+        );
+
+        return null;
+      }
+
+      const Notifications =
+        await import('expo-notifications');
+
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        }),
+      });
+
       // --------------------------------------
       // ANDROID NOTIFICATION CHANNEL
       // --------------------------------------

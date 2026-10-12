@@ -13,6 +13,7 @@ web-build/
 node_modules/
 
 # Android
+/android/
 *.jks
 *.keystore
 

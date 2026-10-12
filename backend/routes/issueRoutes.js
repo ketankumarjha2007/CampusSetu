@@ -15,6 +15,7 @@ const {
   getActiveTeachers,
   assignIssueToTeacher,
   updateIssueStatus,
+  submitIssueFeedback,
   reopenIssue,
   escalateIssue,
   requestAdditionalInfo,
@@ -23,6 +24,7 @@ const {
   markAllNotificationsRead,
   getAuditLogs,
 } = require('../controllers/issueController');
+const { downloadReport } = require('../controllers/reportController');
 
 const router = express.Router();
 
@@ -33,6 +35,14 @@ router.patch('/notifications/:id/read', authenticateUser, markNotificationRead);
 
 // Audit logs
 router.get('/admin/audit-logs', authenticateUser, requireRole('college_admin', 'principal', 'cluster_head'), getAuditLogs);
+
+// PDF exports are limited to official leadership roles.
+router.get(
+  '/reports/download',
+  authenticateUser,
+  requireRole('principal', 'cluster_head'),
+  downloadReport
+);
 
 // Create a new complaint
 router.post(
@@ -102,6 +112,14 @@ router.patch(
   requireRole('college_admin', 'principal', 'cluster_head', 'teacher'),
   upload.single('photo'),
   updateIssueStatus
+);
+
+// Only the reporting student may rate a resolved complaint.
+router.post(
+  '/:id/feedback',
+  authenticateUser,
+  requireRole('student'),
+  submitIssueFeedback
 );
 
 // Reopen complaint

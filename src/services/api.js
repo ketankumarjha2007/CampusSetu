@@ -1,7 +1,11 @@
 import Constants from 'expo-constants';
 import { auth } from '../config/firebase';
 
-const API_BASE_URL = 'http://192.168.1.20:5000/api';
+const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_URL ||
+  Constants.expoConfig?.extra?.apiBaseUrl ||
+  'http://192.168.1.20:5000/api'
+).replace(/\/+$/, '');
 
 export const getFirebaseToken = async () => {
   console.log(
@@ -153,6 +157,62 @@ export const apiRequest = async (endpoint, options = {}) => {
 
     throw error;
   }
+};
+
+export const apiDownload = async (endpoint) => {
+  const token = await getFirebaseToken();
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.open('GET', url);
+    xhr.responseType = 'arraybuffer';
+    xhr.timeout = 120000;
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('Accept', 'application/pdf');
+
+    xhr.onload = () => {
+      const bytes = new Uint8Array(xhr.response || new ArrayBuffer(0));
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        let message = `Report download failed (${xhr.status})`;
+        try {
+          const responseText = Array.from(bytes)
+            .slice(0, 16384)
+            .map((byte) => String.fromCharCode(byte))
+            .join('');
+          const responseData = JSON.parse(responseText);
+          message = responseData.message || message;
+        } catch (parseError) {
+          console.warn('Could not read report error response:', parseError);
+        }
+        const error = new Error(message);
+        error.status = xhr.status;
+        reject(error);
+        return;
+      }
+
+      const isPdf =
+        bytes.length >= 5 &&
+        bytes[0] === 37 &&
+        bytes[1] === 80 &&
+        bytes[2] === 68 &&
+        bytes[3] === 70 &&
+        bytes[4] === 45;
+
+      if (!isPdf) {
+        reject(new Error('The server response was not a valid PDF report.'));
+        return;
+      }
+
+      resolve(bytes);
+    };
+
+    xhr.onerror = () => reject(new Error('Network request failed'));
+    xhr.ontimeout = () => reject(new Error('Report download timed out'));
+    xhr.send();
+  });
 };
 
 export const getCurrentUser = async () => {

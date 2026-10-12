@@ -11,12 +11,13 @@ const ROW_H = 18;
 
 const columns = [
   { key: 'complaintId', label: 'Complaint ID', width: 80 },
-  { key: 'title', label: 'Title', width: 130 },
-  { key: 'category', label: 'Category', width: 65 },
+  { key: 'title', label: 'Title', width: 105 },
+  { key: 'category', label: 'Category', width: 60 },
   { key: 'status', label: 'Status', width: 60 },
-  { key: 'priority', label: 'Priority', width: 50 },
+  { key: 'priority', label: 'Priority', width: 45 },
   { key: 'assignedTo', label: 'Assigned To', width: 70 },
   { key: 'created', label: 'Raised', width: 60 },
+  { key: 'feedback', label: 'Rating', width: 35 },
 ];
 const TABLE_W = columns.reduce((sum, c) => sum + c.width, 0);
 
@@ -89,7 +90,7 @@ const joinCounts = (obj) =>
     : 'None';
 
 const drawTableHeader = (doc, y) => {
-  doc.save().rect(MARGIN, y, TABLE_W, ROW_H).fill('#1F3A5F').restore();
+  doc.save().roundedRect(MARGIN, y, TABLE_W, ROW_H, 5).fill('#153C31').restore();
 
   let x = MARGIN;
   doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF');
@@ -105,6 +106,18 @@ const drawTableHeader = (doc, y) => {
 
   doc.fillColor('#000000');
   return y + ROW_H;
+};
+
+const drawMetricCard = (doc, { x, y, width, label: title, value, accent }) => {
+  doc.save()
+    .roundedRect(x, y, width, 58, 8)
+    .fillAndStroke('#F5F8F4', '#E4EBE3')
+    .restore();
+  doc.save().roundedRect(x, y, 4, 58, 2).fill(accent).restore();
+  doc.font('Helvetica-Bold').fontSize(7).fillColor('#718078')
+    .text(title.toUpperCase(), x + 12, y + 11, { width: width - 20, ellipsis: true });
+  doc.font('Helvetica-Bold').fontSize(17).fillColor('#15342A')
+    .text(clean(value), x + 12, y + 26, { width: width - 20, ellipsis: true });
 };
 
 /*
@@ -184,45 +197,122 @@ const downloadReport = async (req, res) => {
 
     doc.pipe(res);
 
-    // ---------- Title block ----------
-    doc.font('Helvetica-Bold').fontSize(20).fillColor('#1F3A5F')
-      .text('CampusSetu - Complaint Report', { align: 'center' });
+    const pageWidth = doc.page.width;
+    const cardGap = 9;
+    const metricWidth = (TABLE_W - cardGap * 3) / 4;
 
-    doc.moveDown(0.3);
-    doc.font('Helvetica').fontSize(11).fillColor('#333333')
-      .text(`Period: ${periodLabel}`, { align: 'center' });
-    doc.fontSize(9).fillColor('#666666').text(
-      `Generated on ${fmtDate(new Date())} by ${clean(req.user.name)} (${label(req.user.role)})`,
-      { align: 'center' }
-    );
+    // ---------- Branded report masthead ----------
+    doc.save().rect(0, 0, pageWidth, 128).fill('#0B3027').restore();
+    doc.save().rect(0, 124, pageWidth, 4).fill('#C8F36A').restore();
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#C8F36A')
+      .text('CAMPUSSETU  /  LEADERSHIP INTELLIGENCE', MARGIN, 25);
+    doc.font('Helvetica-Bold').fontSize(22).fillColor('#FFFFFF')
+      .text('Campus grievance report', MARGIN, 45);
+    doc.font('Helvetica').fontSize(11).fillColor('#D2E1D8')
+      .text(periodLabel, MARGIN, 78);
+    doc.fontSize(8).fillColor('#AFC7B9')
+      .text(
+        `Prepared ${fmtDate(new Date())}  |  ${clean(req.user.name)}  |  ${label(req.user.role)}`,
+        MARGIN,
+        99
+      );
 
-    doc.moveDown(1);
+    // ---------- At-a-glance metrics ----------
+    const activeCount =
+      (stats.byStatus.pending || 0) +
+      (stats.byStatus.assigned || 0) +
+      (stats.byStatus.in_progress || 0);
+    const metricY = 148;
+    [
+      { label: 'Total complaints', value: stats.total, accent: '#176B4D' },
+      { label: 'Resolved', value: stats.byStatus.resolved || 0, accent: '#31A675' },
+      { label: 'Still active', value: activeCount, accent: '#E6AB3E' },
+      {
+        label: 'Avg. student rating',
+        value: stats.ratingCount ? `${stats.avgRating} / 5` : 'No ratings',
+        accent: '#7886D9',
+      },
+    ].forEach((metric, index) => {
+      drawMetricCard(doc, {
+        ...metric,
+        x: MARGIN + index * (metricWidth + cardGap),
+        y: metricY,
+        width: metricWidth,
+      });
+    });
 
-    // ---------- Summary ----------
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#1F3A5F').text('Summary');
-    doc.moveDown(0.3);
-    doc.font('Helvetica').fontSize(10).fillColor('#000000');
+    // ---------- Visual status distribution ----------
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#15342A')
+      .text('Portfolio snapshot', MARGIN, 225);
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('#718078')
+      .text('STATUS DISTRIBUTION', MARGIN, 245);
 
-    doc.text(`Total complaints: ${stats.total}`);
-    doc.text(`By status: ${joinCounts(stats.byStatus)}`);
-    doc.text(`By priority: ${joinCounts(stats.byPriority)}`);
-    doc.text(`By category: ${joinCounts(stats.byCategory)}`);
-    doc.text(`Escalated complaints: ${stats.escalated}`);
-    doc.text(`Average resolution time: ${stats.avgResolution}`);
-    doc.text(
-      `Average student rating: ${stats.avgRating}${
-        stats.ratingCount ? ` / 5 (${stats.ratingCount} responses)` : ''
-      }`
-    );
+    const statusColors = {
+      pending: '#E8A83B',
+      assigned: '#7773D1',
+      in_progress: '#438AC7',
+      resolved: '#35A477',
+      rejected: '#D56C68',
+    };
+    const statusOrder = ['pending', 'assigned', 'in_progress', 'resolved', 'rejected'];
+    let statusX = MARGIN;
+    for (const status of statusOrder) {
+      const count = stats.byStatus[status] || 0;
+      doc.save().circle(statusX + 3, 269, 3).fill(statusColors[status]).restore();
+      doc.font('Helvetica-Bold').fontSize(7).fillColor('#57665D')
+        .text(label(status), statusX + 10, 265, { width: 82, ellipsis: true });
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#15342A')
+        .text(String(count), statusX + 10, 278);
+      statusX += 103;
+    }
 
-    doc.moveDown(1);
+    const barY = 299;
+    const barHeight = 8;
+    let barX = MARGIN;
+    if (stats.total === 0) {
+      doc.save().roundedRect(MARGIN, barY, TABLE_W, barHeight, 4).fill('#E4EBE3').restore();
+    } else {
+      for (const status of statusOrder) {
+        const count = stats.byStatus[status] || 0;
+        if (!count) continue;
+        const segmentWidth = TABLE_W * (count / stats.total);
+        doc.save().rect(barX, barY, segmentWidth, barHeight).fill(statusColors[status]).restore();
+        barX += segmentWidth;
+      }
+    }
 
-    // ---------- Table ----------
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#1F3A5F')
-      .text('Complaint Details');
-    doc.moveDown(0.4);
+    // ---------- Additional context ----------
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('#718078')
+      .text('PRIORITY MIX', MARGIN, 320);
+    doc.font('Helvetica').fontSize(8).fillColor('#35483D')
+      .text(joinCounts(stats.byPriority), MARGIN, 332, {
+        width: TABLE_W,
+        height: 12,
+        ellipsis: true,
+      });
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('#718078')
+      .text('CATEGORY MIX', MARGIN, 349);
+    doc.font('Helvetica').fontSize(8).fillColor('#35483D')
+      .text(joinCounts(stats.byCategory), MARGIN, 361, {
+        width: TABLE_W,
+        height: 12,
+        ellipsis: true,
+      });
+    doc.font('Helvetica').fontSize(8).fillColor('#57665D')
+      .text(
+        `Escalated: ${stats.escalated}    |    Average resolution: ${stats.avgResolution}    |    Feedback responses: ${stats.ratingCount}`,
+        MARGIN,
+        381,
+        { width: TABLE_W, ellipsis: true }
+      );
 
-    let y = drawTableHeader(doc, doc.y);
+    // ---------- Complaint register ----------
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#15342A')
+      .text('Complaint register', MARGIN, 407);
+    doc.font('Helvetica').fontSize(8).fillColor('#718078')
+      .text('One row per complaint, ordered from oldest to newest.', MARGIN, 423);
+
+    let y = drawTableHeader(doc, 441);
 
     if (!issues.length) {
       doc.font('Helvetica').fontSize(10).fillColor('#666666')
@@ -236,7 +326,7 @@ const downloadReport = async (req, res) => {
       }
 
       if (index % 2 === 0) {
-        doc.save().rect(MARGIN, y, TABLE_W, ROW_H).fill('#F3F5F8').restore();
+        doc.save().rect(MARGIN, y, TABLE_W, ROW_H).fill('#F3F7F3').restore();
       }
 
       const row = {
@@ -247,6 +337,9 @@ const downloadReport = async (req, res) => {
         priority: label(issue.priority),
         assignedTo: issue.assignedTo?.name || '-',
         created: fmtDate(issue.createdAt),
+        feedback: issue.feedback?.rating
+          ? `${issue.feedback.rating}/5`
+          : '-',
       };
 
       let x = MARGIN;
@@ -261,6 +354,8 @@ const downloadReport = async (req, res) => {
         x += c.width;
       });
 
+      doc.save().moveTo(MARGIN, y + ROW_H).lineTo(MARGIN + TABLE_W, y + ROW_H)
+        .lineWidth(0.35).strokeColor('#E8EDE8').stroke().restore();
       y += ROW_H;
     });
 
@@ -270,7 +365,7 @@ const downloadReport = async (req, res) => {
       doc.switchToPage(range.start + i);
       doc.page.margins.bottom = 0; // allow writing in the footer area
       doc.font('Helvetica').fontSize(8).fillColor('#888888').text(
-        `Page ${i + 1} of ${range.count}`,
+        `CampusSetu - Confidential  |  Page ${i + 1} of ${range.count}`,
         MARGIN,
         doc.page.height - 30,
         { width: TABLE_W, align: 'center' }

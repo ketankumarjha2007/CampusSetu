@@ -26,6 +26,7 @@ import TeacherDashboardScreen from '../screens/TeacherDashboardScreen';
 import OfficialIssueDetails from '../screens/OfficialIssueDetails';
 import ClusterHeadDashboardScreen from '../screens/ClusterHeadDashboardScreen';
 import PrincipalDashboardScreen from '../screens/PrincipalDashboardScreen';
+import ReportsScreen from '../screens/ReportsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -112,6 +113,11 @@ export default function AppNavigator() {
         <Stack.Screen
           name="PrincipalDashboard"
           component={PrincipalDashboardScreen}
+        />
+        <Stack.Screen
+          name="Reports"
+          component={ReportsScreen}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="OfficialIssueDetails"

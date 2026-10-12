@@ -809,6 +809,49 @@ export default function PrincipalDashboardScreen({ navigation }) {
             </View>
           </View>
 
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginTop: 12,
+              padding: 15,
+              borderRadius: 18,
+              borderWidth: 1,
+              borderColor: '#D5E7D9',
+              backgroundColor: '#F0F8F1',
+            }}
+            onPress={() => navigation.navigate('Reports')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Open leadership PDF reports"
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 13,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#DCEFE0',
+              }}
+            >
+              <Text style={{ color: '#176B4D', fontSize: 15, fontWeight: '900' }}>
+                PDF
+              </Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={{ color: '#15342A', fontSize: 13, fontWeight: '900' }}>
+                Leadership reports
+              </Text>
+              <Text style={{ color: '#718078', fontSize: 10, marginTop: 4 }}>
+                Monthly, yearly & all-time campus insights
+              </Text>
+            </View>
+            <Text style={{ color: '#176B4D', fontSize: 19, fontWeight: '900' }}>
+              ↗
+            </Text>
+          </TouchableOpacity>
+
           {/* ======================= ERROR BANNER ======================= */}
           {error ? (
             <View style={styles.errorBanner}>

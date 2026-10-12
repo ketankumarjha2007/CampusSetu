@@ -190,6 +190,9 @@ export default function IssueDetailsScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   // Reopen dialog (works on both iOS and Android)
   const [reopenOpen, setReopenOpen] = useState(false);
@@ -272,6 +275,39 @@ export default function IssueDetailsScreen({ navigation, route }) {
       setRefreshing(false);
     }
   }, [fetchIssue]);
+
+  const submitFeedback = async () => {
+    if (!feedbackRating || submittingFeedback || !issueId) return;
+
+    try {
+      setSubmittingFeedback(true);
+      const response = await apiRequest(`/issues/${issueId}/feedback`, {
+        method: 'POST',
+        body: JSON.stringify({
+          rating: feedbackRating,
+          comment: feedbackComment.trim(),
+        }),
+      });
+
+      if (!response?.success || !response?.issue?.feedback) {
+        throw new Error(response?.message || 'Unable to submit your feedback.');
+      }
+
+      setIssue((currentIssue) => ({
+        ...currentIssue,
+        feedback: response.issue.feedback,
+      }));
+      setFeedbackComment('');
+    } catch (feedbackError) {
+      console.error('Submit feedback failed:', feedbackError);
+      Alert.alert(
+        'Feedback not submitted',
+        feedbackError?.message || 'Please try again.'
+      );
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
 
   const handleDeleteIssue = () => {
     if (!issueId || !issue) return;
@@ -925,6 +961,112 @@ export default function IssueDetailsScreen({ navigation, route }) {
                   {issue.resolutionNote ||
                     'No resolution note has been provided yet.'}
                 </Text>
+              </View>
+
+              <View style={styles.feedbackCard}>
+                <View style={styles.feedbackHeading}>
+                  <View style={styles.feedbackIcon}>
+                    <Text style={styles.feedbackIconText}>★</Text>
+                  </View>
+                  <View style={styles.feedbackHeadingText}>
+                    <Text style={styles.feedbackTitle}>
+                      {issue.feedback?.submittedAt
+                        ? 'Thanks for your feedback'
+                        : 'How was the resolution?'}
+                    </Text>
+                    <Text style={styles.feedbackSubtitle}>
+                      {issue.feedback?.submittedAt
+                        ? 'Your response helps improve campus services.'
+                        : 'Rate how well this complaint was resolved.'}
+                    </Text>
+                  </View>
+                </View>
+
+                {issue.feedback?.submittedAt ? (
+                  <View style={styles.feedbackSubmitted}>
+                    <Text style={styles.feedbackStars}>
+                      {'★'.repeat(issue.feedback.rating || 0)}
+                      <Text style={styles.feedbackStarsMuted}>
+                        {'★'.repeat(5 - (issue.feedback.rating || 0))}
+                      </Text>
+                    </Text>
+                    {issue.feedback.comment ? (
+                      <Text style={styles.feedbackSubmittedComment}>
+                        “{issue.feedback.comment}”
+                      </Text>
+                    ) : null}
+                    <Text style={styles.feedbackSubmittedDate}>
+                      Submitted {formatDateTime(issue.feedback.submittedAt)}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <View
+                      style={styles.feedbackRatingRow}
+                      accessibilityLabel="Rate the complaint resolution from 1 to 5 stars"
+                    >
+                      {[1, 2, 3, 4, 5].map((rating) => (
+                        <TouchableOpacity
+                          key={rating}
+                          style={styles.feedbackStarButton}
+                          onPress={() => setFeedbackRating(rating)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${rating} out of 5 stars`}
+                          accessibilityState={{ selected: feedbackRating === rating }}
+                        >
+                          <Text
+                            style={[
+                              styles.feedbackStar,
+                              rating <= feedbackRating &&
+                                styles.feedbackStarSelected,
+                            ]}
+                          >
+                            ★
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                      <Text style={styles.feedbackRatingHint}>
+                        {feedbackRating ? `${feedbackRating} / 5` : 'Tap to rate'}
+                      </Text>
+                    </View>
+
+                    <TextInput
+                      style={styles.feedbackInput}
+                      value={feedbackComment}
+                      onChangeText={setFeedbackComment}
+                      placeholder="Add a note (optional)"
+                      placeholderTextColor="#839187"
+                      multiline
+                      maxLength={500}
+                      textAlignVertical="top"
+                      accessibilityLabel="Optional resolution feedback"
+                    />
+                    <View style={styles.feedbackFooter}>
+                      <Text style={styles.feedbackCharacterCount}>
+                        {feedbackComment.length}/500
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.feedbackSubmitButton,
+                          (!feedbackRating || submittingFeedback) &&
+                            styles.feedbackSubmitDisabled,
+                        ]}
+                        onPress={submitFeedback}
+                        disabled={!feedbackRating || submittingFeedback}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                      >
+                        {submittingFeedback ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.feedbackSubmitText}>
+                            Send feedback
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </View>
             </View>
           ) : null}

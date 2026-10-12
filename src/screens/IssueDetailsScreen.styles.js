@@ -809,6 +809,161 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
+  // Student resolution feedback
+  feedbackCard: {
+    marginTop: 14,
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: '#D8EADD',
+  },
+
+  feedbackHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  feedbackIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
+    backgroundColor: '#FFF5D8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  feedbackIconText: {
+    color: '#D99412',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+
+  feedbackHeadingText: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  feedbackTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+
+  feedbackSubtitle: {
+    color: COLORS.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 4,
+  },
+
+  feedbackRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 14,
+  },
+
+  feedbackStarButton: {
+    width: 38,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  feedbackStar: {
+    color: '#D9E0DA',
+    fontSize: 28,
+  },
+
+  feedbackStarSelected: {
+    color: '#E9A817',
+  },
+
+  feedbackRatingHint: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+
+  feedbackInput: {
+    minHeight: 82,
+    maxHeight: 140,
+    marginTop: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    color: COLORS.text,
+    fontSize: 13,
+    lineHeight: 19,
+    backgroundColor: '#FBFCFA',
+  },
+
+  feedbackFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+
+  feedbackCharacterCount: {
+    color: COLORS.muted,
+    fontSize: 10,
+  },
+
+  feedbackSubmitButton: {
+    minHeight: 44,
+    paddingHorizontal: 17,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.green,
+  },
+
+  feedbackSubmitDisabled: {
+    backgroundColor: '#A9B9AE',
+  },
+
+  feedbackSubmitText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  feedbackSubmitted: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 15,
+    backgroundColor: '#F4F8F3',
+  },
+
+  feedbackStars: {
+    color: '#E9A817',
+    fontSize: 20,
+    letterSpacing: 2,
+  },
+
+  feedbackStarsMuted: {
+    color: '#D9E0DA',
+  },
+
+  feedbackSubmittedComment: {
+    color: COLORS.text,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+
+  feedbackSubmittedDate: {
+    color: COLORS.muted,
+    fontSize: 10,
+    marginTop: 8,
+  },
+
   // Full-screen photo viewer
   viewerOverlay: {
     flex: 1,

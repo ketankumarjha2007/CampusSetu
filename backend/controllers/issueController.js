@@ -5,6 +5,7 @@ const { Readable } = require('stream');
 const {
   sendPushNotification,
 } = require('../services/notificationService');
+const brevoService = require('../services/brevoService');
 
 /*
  * ==========================================
@@ -1016,6 +1017,24 @@ const assignIssueToTeacher = async (req, res) => {
 
     await issue.save();
 
+    const updatedIssue = await Issue.findById(issue._id)
+      .populate('reportedBy', 'name email usn department')
+      .populate('assignedTo', 'name email role department')
+      .populate('history.changedBy', 'name email role');
+
+    const assignmentEmail = await brevoService.sendTaskAssignedEmail({
+      teacher,
+      issue: updatedIssue,
+      assignedBy: req.user,
+    });
+
+    if (!assignmentEmail.success) {
+      console.error(
+        `Assignment email was not sent for ${issue.complaintId || issue._id}:`,
+        assignmentEmail.message || assignmentEmail.error
+      );
+    }
+
     const AuditLog = require('../models/AuditLog');
     const { createInAppNotification } = require('../services/notificationService');
 
@@ -1083,15 +1102,11 @@ const assignIssueToTeacher = async (req, res) => {
       }).catch((err) => console.log('Push error:', err.message));
     }
 
-    const updatedIssue = await Issue.findById(issue._id)
-      .populate('reportedBy', 'name email usn department')
-      .populate('assignedTo', 'name email role department')
-      .populate('history.changedBy', 'name email role');
-
     return res.status(200).json({
       success: true,
       message: 'Complaint assigned successfully',
       issue: updatedIssue,
+      emailSent: assignmentEmail.success,
     });
   } catch (error) {
     console.error('Assign complaint error:', error.message);
@@ -1293,6 +1308,9 @@ const updateIssueStatus = async (req, res) => {
     const previousStatus = issue.status;
 
     issue.status = status;
+    if (previousStatus === 'resolved' && status !== 'resolved') {
+      issue.set('feedback', undefined);
+    }
 
     // Only resolution updates belong in resolutionNote / resolutionPhotoUrl.
     issue.resolutionNote = status === 'resolved' ? updateNote : '';
@@ -1398,6 +1416,99 @@ const updateIssueStatus = async (req, res) => {
 };
 
 // ==========================================
+// SUBMIT STUDENT FEEDBACK FOR A RESOLUTION
+// ==========================================
+const submitIssueFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rating = Number(req.body.rating);
+    const comment =
+      typeof req.body.comment === 'string' ? req.body.comment.trim() : '';
+
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint ID',
+      });
+    }
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating must be a whole number from 1 to 5',
+      });
+    }
+
+    if (comment.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback must be 500 characters or fewer',
+      });
+    }
+
+    const issue = await Issue.findOneAndUpdate(
+      {
+        _id: id,
+        reportedBy: req.user._id,
+        status: 'resolved',
+        $or: [
+          { 'feedback.submittedAt': { $exists: false } },
+          { 'feedback.submittedAt': null },
+        ],
+      },
+      {
+        $set: {
+          feedback: {
+            rating,
+            comment,
+            submittedAt: new Date(),
+          },
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (issue) {
+      return res.status(200).json({
+        success: true,
+        message: 'Thank you for your feedback',
+        issue,
+      });
+    }
+
+    const ownedIssue = await Issue.findOne({
+      _id: id,
+      reportedBy: req.user._id,
+    });
+
+    if (!ownedIssue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Complaint not found',
+      });
+    }
+
+    if (ownedIssue.status !== 'resolved') {
+      return res.status(400).json({
+        success: false,
+        message: 'Feedback can only be submitted after a complaint is resolved',
+      });
+    }
+
+    return res.status(409).json({
+      success: false,
+      message: 'Feedback has already been submitted for this resolution',
+    });
+  } catch (error) {
+    console.error('Submit issue feedback error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to submit feedback',
+    });
+  }
+};
+
+// ==========================================
 // REOPEN A RESOLVED/REJECTED COMPLAINT (STUDENT OR ADMIN/CLUSTER HEAD)
 // ==========================================
 const reopenIssue = async (req, res) => {
@@ -1454,6 +1565,7 @@ const reopenIssue = async (req, res) => {
     // Clear old resolution proof so a fresh one is required upon re-resolution
     issue.resolutionPhotoUrl = '';
     issue.resolvedAt = null;
+    issue.set('feedback', undefined);
 
     issue.history.push({
       status: 'in_progress',
@@ -1737,6 +1849,7 @@ module.exports = {
   getAllIssues,
   assignIssueToTeacher,
   updateIssueStatus,
+  submitIssueFeedback,
   getActiveTeachers,
   reopenIssue,
   escalateIssue,

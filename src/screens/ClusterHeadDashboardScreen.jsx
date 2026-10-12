@@ -770,6 +770,49 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
             </View>
           </View>
 
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginTop: 12,
+              padding: 15,
+              borderRadius: 18,
+              borderWidth: 1,
+              borderColor: 'rgba(200,243,106,0.26)',
+              backgroundColor: 'rgba(255,255,255,0.06)',
+            }}
+            onPress={() => navigation.navigate('Reports')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Open leadership PDF reports"
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 13,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(200,243,106,0.14)',
+              }}
+            >
+              <Text style={{ color: '#C8F36A', fontSize: 15, fontWeight: '900' }}>
+                PDF
+              </Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '900' }}>
+                Leadership reports
+              </Text>
+              <Text style={{ color: '#B9D0C4', fontSize: 10, marginTop: 4 }}>
+                Monthly, yearly & all-time campus insights
+              </Text>
+            </View>
+            <Text style={{ color: '#C8F36A', fontSize: 19, fontWeight: '900' }}>
+              ↗
+            </Text>
+          </TouchableOpacity>
+
           {/* ======================= ERROR (with data) ======================= */}
           {error && !loading && issues.length > 0 ? (
             <View style={styles.errorBanner}>

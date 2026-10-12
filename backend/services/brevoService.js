@@ -193,6 +193,10 @@ class BrevoService {
       [issue.building, issue.floor, issue.roomNumber].filter(Boolean).join(', ') ||
       issue.location ||
       '-';
+    const student = issue.reportedBy || {};
+    const reportedAt = issue.createdAt
+      ? new Date(issue.createdAt).toLocaleString()
+      : '-';
 
     // Strip line breaks so user text can never inject extra headers into the subject
     const subject = `New Complaint Assigned: ${complaintId} - ${issue.title}`.replace(/[\r\n]+/g, ' ');
@@ -236,6 +240,11 @@ class BrevoService {
         <div><strong>Category:</strong> ${escapeHtml(issue.category)}</div>
         <div><strong>Location:</strong> ${escapeHtml(location)}</div>
         <div><strong>Priority:</strong> ${escapeHtml(String(issue.priority || 'medium').toUpperCase())}</div>
+        <div><strong>Reported by:</strong> ${escapeHtml(student.name || 'Student')}</div>
+        <div><strong>Student email:</strong> ${escapeHtml(student.email || '-')}</div>
+        ${student.usn ? `<div><strong>Student ID:</strong> ${escapeHtml(student.usn)}</div>` : ''}
+        <div><strong>Reported on:</strong> ${escapeHtml(reportedAt)}</div>
+        <div><strong>Student photo:</strong> ${issue.photoUrl ? 'Attached' : 'Not provided'}</div>
         <div><strong>Assigned By:</strong> ${escapeHtml(assignedBy?.name || 'College Administration')}</div>
       </div>
 
