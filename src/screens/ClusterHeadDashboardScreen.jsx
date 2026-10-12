@@ -778,8 +778,8 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
               padding: 15,
               borderRadius: 18,
               borderWidth: 1,
-              borderColor: 'rgba(200,243,106,0.26)',
-              backgroundColor: 'rgba(255,255,255,0.06)',
+              borderColor: 'rgba(8, 35, 52, 0.26)',
+              backgroundColor: 'rgba(17, 96, 83, 0.06)',
             }}
             onPress={() => navigation.navigate('Reports')}
             activeOpacity={0.85}
@@ -793,22 +793,22 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                 borderRadius: 13,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: 'rgba(200,243,106,0.14)',
+                backgroundColor: 'rgba(22, 32, 3, 0.14)',
               }}
             >
-              <Text style={{ color: '#C8F36A', fontSize: 15, fontWeight: '900' }}>
+              <Text style={{ color: '#374b0b', fontSize: 15, fontWeight: '900' }}>
                 PDF
               </Text>
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '900' }}>
+              <Text style={{ color: '#439453', fontSize: 13, fontWeight: '900' }}>
                 Leadership reports
               </Text>
-              <Text style={{ color: '#B9D0C4', fontSize: 10, marginTop: 4 }}>
+              <Text style={{ color: '#0f4f2e', fontSize: 10, marginTop: 4 }}>
                 Monthly, yearly & all-time campus insights
               </Text>
             </View>
-            <Text style={{ color: '#C8F36A', fontSize: 19, fontWeight: '900' }}>
+            <Text style={{ color: '#2f3f0c', fontSize: 19, fontWeight: '900' }}>
               ↗
             </Text>
           </TouchableOpacity>
