@@ -39,7 +39,7 @@ const issueSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // New structured location fields
+    // Structured location fields
     building: {
       type: String,
       trim: true,
@@ -109,10 +109,7 @@ const issueSchema = new mongoose.Schema(
       default: '',
     },
 
-    /*
-     * NEW: Proof photo uploaded by the teacher/official
-     * when the complaint is resolved.
-     */
+    // Proof photo uploaded by the teacher/official on resolution
     resolutionPhotoUrl: {
       type: String,
       default: '',
@@ -121,6 +118,29 @@ const issueSchema = new mongoose.Schema(
     resolvedAt: {
       type: Date,
       default: null,
+    },
+
+    /*
+     * NEW: Student feedback on the resolution.
+     * Only set after the complaint is resolved.
+     * Cleared when the complaint is reopened so the
+     * student can rate the next resolution.
+     */
+    feedback: {
+      rating: {
+        type: Number,
+        min: 1,
+        max: 5,
+      },
+      comment: {
+        type: String,
+        trim: true,
+        maxlength: 500,
+        default: '',
+      },
+      submittedAt: {
+        type: Date,
+      },
     },
 
     // Rejection reason
@@ -190,5 +210,6 @@ issueSchema.index({ reportedBy: 1, createdAt: -1 });
 issueSchema.index({ assignedTo: 1, status: 1 });
 issueSchema.index({ category: 1 });
 issueSchema.index({ priority: 1, status: 1 });
+issueSchema.index({ createdAt: -1 }); // NEW: used by report date filters
 
 module.exports = mongoose.model('Issue', issueSchema);

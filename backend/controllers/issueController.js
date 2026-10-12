@@ -92,7 +92,7 @@ const uploadImageToCloudinary = async (
       }
     );
 
-    Readable.from(buffer).pipe(uploadStream);
+    Readable.from([buffer]).pipe(uploadStream);
   });
 };
 
@@ -1699,9 +1699,9 @@ const markAllNotificationsRead = async (req, res) => {
   }
 };
 
-// ==========================================
+// =======================================
 // GET AUDIT LOGS FOR PRINCIPAL / ADMIN
-// ==========================================
+// ========================================
 const getAuditLogs = async (req, res) => {
   try {
     const AuditLog = require('../models/AuditLog');

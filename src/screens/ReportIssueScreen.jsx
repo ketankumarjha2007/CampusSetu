@@ -13,10 +13,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
-
 import styles from './ReportIssueScreen.styles';
 import { apiRequest } from '../services/api';
 
@@ -322,9 +319,15 @@ export default function ReportIssueScreen({ navigation }) {
       formData.append('priority', priority);
 
       // Attach a photo if selected.
+      // React Native supports this multipart file-part format.
       if (selectedImage?.uri) {
-        const imageFile = new File(selectedImage.uri);
-        formData.append('photo', imageFile);
+        formData.append('photo', {
+          uri: selectedImage.uri,
+          name:
+            selectedImage.fileName ||
+            `campussetu-${Date.now()}.jpg`,
+          type: selectedImage.mimeType || 'image/jpeg',
+        });
       }
 
       const response = await apiRequest('/issues', {
@@ -525,7 +528,9 @@ export default function ReportIssueScreen({ navigation }) {
           <View style={styles.fieldContainer}>
             <View style={styles.sectionHeadingRow}>
               <Text style={styles.label}>PRIORITY LEVEL</Text>
-              <Text style={styles.optionalHint}>Choose urgency</Text>
+              <Text style={styles.optionalHint}>
+                Choose urgency
+              </Text>
             </View>
 
             <View style={styles.priorityGrid}>

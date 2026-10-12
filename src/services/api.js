@@ -8,7 +8,7 @@ export const getFirebaseToken = async () => {
     'API: Firebase current user:',
     auth.currentUser?.email || 'NO USER'
   );
-
+  
   if (!auth.currentUser) {
     throw new Error('No authenticated Firebase user found');
   }
