@@ -119,20 +119,24 @@ export const apiRequest = async (endpoint, options = {}) => {
     console.log('API: Response status:', status);
     console.log('API: Raw response:', responseText);
 
-    let data;
+    let data = {};
 
-    try {
-      data = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error('API: JSON parse error:', parseError);
+    if (responseText && responseText.trim()) {
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('API: JSON parse error:', parseError);
 
-      const error = new Error(
-        `Server returned invalid JSON. Status: ${status}`
-      );
+        const error = new Error(
+          `Server returned invalid JSON. Status: ${status}`
+        );
 
-      error.status = status;
+        error.status = status;
 
-      throw error;
+        throw error;
+      }
+    } else if (status === 204 || status === 205) {
+      return { success: true };
     }
 
     if (!ok) {

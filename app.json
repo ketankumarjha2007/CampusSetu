@@ -26,7 +26,12 @@
         {
           "image": "./assets/campussetu-splash.png",
           "resizeMode": "contain",
-          "backgroundColor": "#F4F6E8"
+          "backgroundColor": "#F4F6E8",
+          "android": {
+            "image": "./assets/campussetu-splash.png",
+            "imageWidth": 320,
+            "backgroundColor": "#F4F6E8"
+          }
         }
       ],
       "expo-sharing"

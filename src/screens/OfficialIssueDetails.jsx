@@ -1,5 +1,5 @@
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -74,6 +74,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const [resolutionPhoto, setResolutionPhoto] = useState(null);
@@ -346,6 +347,33 @@ export default function OfficialIssueDetails({ navigation, route }) {
     }
   };
 
+  const handleClaim = async () => {
+    if (!issue?._id || claiming) return;
+    setClaiming(true);
+    try {
+      const response = await apiRequest(`/issues/${issue._id}/claim`, {
+        method: 'POST',
+      });
+      if (!response?.success || !response?.issue) {
+        throw new Error(response?.message || 'Unable to take this complaint.');
+      }
+      setIssue(response.issue);
+      Alert.alert(
+        'Complaint assigned',
+        'This complaint is now assigned to you.'
+      );
+    } catch (err) {
+      console.error('Claim complaint error:', err);
+      Alert.alert(
+        'Could not take complaint',
+        err?.message || 'Please refresh and try again.'
+      );
+      await fetchIssue(false);
+    } finally {
+      setClaiming(false);
+    }
+  };
+
   const handleRequestInfo = async () => {
     if (!issue || requestingInfo) return;
 
@@ -396,15 +424,12 @@ export default function OfficialIssueDetails({ navigation, route }) {
     }
   };
 
-  const history = useMemo(() => {
-    return Array.isArray(issue?.history)
-      ? [...issue.history].sort(
-          (a, b) =>
-            new Date(b.changedAt || 0) -
-            new Date(a.changedAt || 0)
-        )
-      : [];
-  }, [issue?.history]);
+  const history = Array.isArray(issue?.history)
+    ? [...issue.history].sort(
+        (a, b) =>
+          new Date(b.changedAt || 0) - new Date(a.changedAt || 0)
+      )
+    : [];
 
   if (loading) {
     return (
@@ -490,6 +515,33 @@ export default function OfficialIssueDetails({ navigation, route }) {
   const assignedTeacher = issue.assignedTo || {};
   const isResolved = issue.status === 'resolved';
   const isRejected = issue.status === 'rejected';
+  const isTeacher = currentUser?.role === 'teacher';
+  const isAssignedToCurrentUser =
+    isTeacher &&
+    String(assignedTeacher._id || assignedTeacher) ===
+      String(currentUser?._id || '');
+  const isAuthorizedAdministrator = [
+    'college_admin',
+    'cluster_head',
+    'principal',
+  ].includes(currentUser?.role);
+  const canManageIssue = Boolean(
+    isAuthorizedAdministrator || isAssignedToCurrentUser
+  );
+  const currentDepartment = String(currentUser?.department || '')
+    .trim()
+    .toLocaleLowerCase();
+  const issueDepartment = String(issue.department || '')
+    .trim()
+    .toLocaleLowerCase();
+  const canClaimIssue = Boolean(
+    isTeacher &&
+      currentDepartment &&
+      issueDepartment &&
+      !issue.assignedTo &&
+      issue.status === 'pending' &&
+      currentDepartment === issueDepartment
+  );
 
   return (
     <SafeAreaView
@@ -670,6 +722,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
 
           <InfoRow label="Location" value={issue.location} />
           <InfoRow label="Building" value={issue.building} />
+          <InfoRow label="Destination department" value={issue.department} />
           <InfoRow label="Floor" value={issue.floor} />
           <InfoRow label="Room" value={issue.roomNumber} />
 
@@ -774,8 +827,37 @@ export default function OfficialIssueDetails({ navigation, route }) {
           </View>
         ) : null}
 
+        {canClaimIssue ? (
+          <View style={styles.actionCard}>
+            <Text style={styles.sectionKicker}>DEPARTMENT QUEUE</Text>
+            <Text style={styles.sectionTitle}>Take ownership</Text>
+            <Text style={styles.actionDescription}>
+              This complaint is waiting for a teacher in {issue.department} to take it.
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.primaryButton,
+                claiming && styles.disabledButton,
+              ]}
+              onPress={handleClaim}
+              disabled={claiming}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Take ownership of this complaint"
+            >
+              {claiming ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryButtonText}>
+                  Take complaint  →
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Status update / resolve */}
-        {!isResolved && !isRejected && nextStatus ? (
+        {canManageIssue && !isResolved && !isRejected && nextStatus ? (
           <View style={styles.actionCard}>
             <View style={styles.actionTop}>
               <View style={styles.actionIcon}>
@@ -950,7 +1032,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
               </Text>
             </TouchableOpacity>
           </View>
-        ) : (
+        ) : !canClaimIssue ? (
           <View style={styles.completedCard}>
             <View style={styles.completedIcon}>
               <Text style={styles.completedIconText}>
@@ -960,7 +1042,9 @@ export default function OfficialIssueDetails({ navigation, route }) {
 
             <View style={styles.completedBody}>
               <Text style={styles.completedTitle}>
-                {isResolved
+                {!canManageIssue && issue.assignedTo
+                  ? 'Complaint is being handled'
+                  : isResolved
                   ? 'Complaint resolved'
                   : isRejected
                     ? 'Complaint rejected'
@@ -968,13 +1052,17 @@ export default function OfficialIssueDetails({ navigation, route }) {
               </Text>
 
               <Text style={styles.muted}>
-                {isResolved
+                {!canManageIssue && issue.assignedTo
+                  ? `Assigned to ${assignedTeacher.name || 'another teacher'}.`
+                  : isResolved
                   ? 'The complaint has been marked as resolved.'
+                  : isRejected
+                    ? 'This complaint has been rejected.'
                   : 'This complaint cannot be updated from this screen.'}
               </Text>
             </View>
           </View>
-        )}
+        ) : null}
 
         {/* Timeline */}
         <View style={styles.card}>

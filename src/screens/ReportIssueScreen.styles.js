@@ -187,6 +187,81 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
+  selectionHint: {
+    color: C.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: -3,
+    marginBottom: 10,
+  },
+
+  selectionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 9,
+  },
+
+  selectionChip: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 13,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: '#DDE5EF',
+  },
+
+  selectionChipSelected: {
+    backgroundColor: '#EAF2FF',
+    borderColor: C.blue,
+  },
+
+  selectionText: {
+    color: '#52627A',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  selectionTextSelected: {
+    color: C.blue,
+    fontWeight: '900',
+  },
+
+  departmentLoading: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  departmentError: {
+    padding: 14,
+    borderRadius: 13,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+
+  departmentErrorText: {
+    color: '#9A3412',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  departmentRetry: {
+    alignSelf: 'flex-start',
+    paddingVertical: 9,
+    paddingRight: 12,
+  },
+
+  departmentRetryText: {
+    color: C.blue,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
   descriptionInput: {
     minHeight: 132,
     paddingTop: 15,

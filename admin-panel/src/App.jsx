@@ -7,7 +7,6 @@ import {
   assignComplaint,
   updateComplaintStatus,
   addTeacher,
-  deleteTeacher,
   getAuditLogs,
   escalateComplaint,
   requestComplaintInfo,
@@ -604,32 +603,6 @@ function App() {
     return filteredComplaints.slice(0, visibleCount);
   }, [filteredComplaints, visibleCount]);
 
-  const teacherLoad = useMemo(() => {
-    const map = new Map();
-
-    teachers.forEach((teacher) => {
-      map.set(teacher._id, { teacher, active: 0, resolved: 0 });
-    });
-
-    complaints.forEach((item) => {
-      const id = item.assignedTo?._id;
-
-      if (!id || !map.has(id)) return;
-
-      const entry = map.get(id);
-
-      if (['assigned', 'in_progress'].includes(item.status)) entry.active += 1;
-      if (item.status === 'resolved') entry.resolved += 1;
-    });
-
-    return [...map.values()].sort((a, b) => a.active - b.active);
-  }, [teachers, complaints]);
-
-  const maxLoad = useMemo(
-    () => Math.max(1, ...teacherLoad.map((entry) => entry.active)),
-    [teacherLoad]
-  );
-
   const trend = useMemo(() => {
     const days = [];
 
@@ -807,22 +780,6 @@ function App() {
       showToast(err.message || 'Failed to onboard teacher.', 'error');
     } finally {
       setAddingTeacher(false);
-    }
-  };
-
-  const handleDeleteTeacher = async (teacher) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to remove teacher "${teacher.name}" (${teacher.email})?\n\n` +
-      `Any active complaints assigned to this teacher will automatically be returned to the pending queue.`
-    );
-    if (!confirmed) return;
-
-    try {
-      const res = await deleteTeacher(teacher._id);
-      showToast(res.message || `Teacher ${teacher.name} removed successfully.`);
-      await loadData(false);
-    } catch (err) {
-      showToast(err.message || 'Failed to remove teacher.', 'error');
     }
   };
 

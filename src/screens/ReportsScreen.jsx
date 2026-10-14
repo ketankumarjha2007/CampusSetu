@@ -3,15 +3,13 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  StyleSheet,
   StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiDownload } from '../services/api';
 
@@ -47,16 +45,6 @@ const COLORS = {
   lime: '#C8F36A',
 };
 
-const getFileName = (type, year, month) => {
-  const period =
-    type === 'monthly'
-      ? `${MONTHS[month - 1]}-${year}`
-      : type === 'yearly'
-        ? `Year-${year}`
-        : 'All-Time';
-  return `CampusSetu-Executive-Report-${period}.pdf`;
-};
-
 export default function ReportsScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -66,7 +54,6 @@ export default function ReportsScreen({ navigation }) {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [downloading, setDownloading] = useState(false);
-  const [readyFileName, setReadyFileName] = useState('');
 
   const periodLabel = useMemo(() => {
     if (reportType === 'monthly') return `${MONTHS[month - 1]} ${year}`;
@@ -82,33 +69,14 @@ export default function ReportsScreen({ navigation }) {
     if (downloading) return;
 
     setDownloading(true);
-    setReadyFileName('');
 
     try {
       const query = [`type=${reportType}`];
       if (reportType !== 'all') query.push(`year=${year}`);
       if (reportType === 'monthly') query.push(`month=${month}`);
 
-      const bytes = await apiDownload(
-        `/issues/reports/download?${query.join('&')}`
-      );
-      const fileName = getFileName(reportType, year, month);
-      const file = new File(Paths.cache, fileName);
-      file.create({ intermediates: true, overwrite: true });
-      file.write(bytes);
-
-      if (!(await Sharing.isAvailableAsync())) {
-        throw new Error(
-          'PDF sharing is not available on this device. Please try on a supported mobile device.'
-        );
-      }
-
-      await Sharing.shareAsync(file.uri, {
-        mimeType: 'application/pdf',
-        UTI: 'com.adobe.pdf',
-        dialogTitle: `CampusSetu report · ${periodLabel}`,
-      });
-      setReadyFileName(fileName);
+      await apiDownload(`/issues/reports/download?${query.join('&')}`);
+      Alert.alert('Report ready', `The ${periodLabel} report has been generated.`);
     } catch (error) {
       console.error('Report download failed:', error);
       Alert.alert(
@@ -132,10 +100,12 @@ export default function ReportsScreen({ navigation }) {
         >
           <Text style={styles.backArrow}>‹</Text>
         </TouchableOpacity>
+
         <View style={styles.topBarTitle}>
           <Text style={styles.topBarEyebrow}>CAMPUSSETU · LEADERSHIP</Text>
           <Text style={styles.topBarHeading}>Reports & insights</Text>
         </View>
+
         <View style={styles.pdfBadge}>
           <Text style={styles.pdfBadgeText}>PDF</Text>
         </View>
@@ -151,20 +121,15 @@ export default function ReportsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.hero, isWide && styles.heroWide]}>
-          <View pointerEvents="none" style={styles.heroGlow} />
           <View style={styles.heroCopy}>
-            <View style={styles.heroEyebrowRow}>
-              <View style={styles.heroEyebrowDot} />
-              <Text style={styles.heroEyebrow}>EXECUTIVE REPORT STUDIO</Text>
-            </View>
-            <Text style={styles.heroTitle}>The whole picture,{"\n"}beautifully clear.</Text>
+            <Text style={styles.heroEyebrow}>EXECUTIVE REPORT STUDIO</Text>
+            <Text style={styles.heroTitle}>The whole picture, beautifully clear.</Text>
             <Text style={styles.heroDescription}>
-              Turn campus activity into a polished, decision-ready report for
-              leadership and review meetings.
+              Turn campus activity into a polished, decision-ready report for leadership and review meetings.
             </Text>
           </View>
+
           <View style={[styles.heroDocument, isWide && styles.heroDocumentWide]}>
-            <View style={styles.documentTopLine} />
             <View style={styles.documentHeader}>
               <View style={styles.documentMark}><Text style={styles.documentMarkText}>C</Text></View>
               <View style={styles.documentBrandLines}>
@@ -175,27 +140,9 @@ export default function ReportsScreen({ navigation }) {
             </View>
             <View style={styles.documentRule} />
             <View style={styles.documentMetricRow}>
-              <View style={styles.documentMetric}>
-                <View style={[styles.documentMetricValue, { width: 35 }]} />
-                <View style={styles.documentMetricLabel} />
-              </View>
-              <View style={styles.documentMetric}>
-                <View style={[styles.documentMetricValue, { width: 24, backgroundColor: '#77C69A' }]} />
-                <View style={styles.documentMetricLabel} />
-              </View>
-              <View style={styles.documentMetric}>
-                <View style={[styles.documentMetricValue, { width: 29, backgroundColor: '#E6B95C' }]} />
-                <View style={styles.documentMetricLabel} />
-              </View>
-            </View>
-            <View style={styles.documentBars}>
-              <View style={[styles.documentBar, { width: '88%' }]} />
-              <View style={[styles.documentBar, { width: '62%' }]} />
-              <View style={[styles.documentBar, { width: '74%' }]} />
-            </View>
-            <View style={styles.documentFooter}>
-              <Text style={styles.documentFooterText}>CAMPUS HEALTH · PERIOD REVIEW</Text>
-              <Text style={styles.documentFooterArrow}>↗</Text>
+              <View style={styles.documentMetric}><View style={styles.documentMetricValue} /></View>
+              <View style={styles.documentMetric}><View style={[styles.documentMetricValue, { width: 24, backgroundColor: '#77C69A' }]} /></View>
+              <View style={styles.documentMetric}><View style={[styles.documentMetricValue, { width: 29, backgroundColor: '#E6B95C' }]} /></View>
             </View>
           </View>
         </View>
@@ -207,7 +154,7 @@ export default function ReportsScreen({ navigation }) {
               <Text style={styles.sectionTitle}>Choose a time range</Text>
             </View>
             <View style={styles.securePill}>
-              <Text style={styles.securePillText}>●  PRIVATE EXPORT</Text>
+              <Text style={styles.securePillText}>● PRIVATE EXPORT</Text>
             </View>
           </View>
 
@@ -220,12 +167,11 @@ export default function ReportsScreen({ navigation }) {
                   style={[
                     styles.typeCard,
                     isWide && styles.typeCardWide,
-                    active && styles.typeCardActive,
                     index > 0 && isWide && styles.typeCardGap,
+                    active && styles.typeCardActive,
                   ]}
                   onPress={() => {
                     setReportType(type.value);
-                    setReadyFileName('');
                   }}
                   activeOpacity={0.85}
                   accessibilityRole="button"
@@ -237,9 +183,7 @@ export default function ReportsScreen({ navigation }) {
                     </Text>
                   </View>
                   <View style={styles.typeCardCopy}>
-                    <Text style={[styles.typeLabel, active && styles.typeLabelActive]}>
-                      {type.label}
-                    </Text>
+                    <Text style={[styles.typeLabel, active && styles.typeLabelActive]}>{type.label}</Text>
                     <Text style={styles.typeDetail}>{type.detail}</Text>
                   </View>
                   <View style={[styles.radio, active && styles.radioActive]}>
@@ -280,22 +224,16 @@ export default function ReportsScreen({ navigation }) {
               </View>
 
               {reportType === 'monthly' ? (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.monthList}
-                >
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.monthList}>
                   {MONTHS.map((monthName, index) => {
                     const monthValue = index + 1;
                     const active = month === monthValue;
+
                     return (
                       <TouchableOpacity
                         key={monthName}
                         style={[styles.monthChip, active && styles.monthChipActive]}
-                        onPress={() => {
-                          setMonth(monthValue);
-                          setReadyFileName('');
-                        }}
+                        onPress={() => setMonth(monthValue)}
                         activeOpacity={0.82}
                         accessibilityRole="button"
                         accessibilityState={{ selected: active }}
@@ -314,9 +252,7 @@ export default function ReportsScreen({ navigation }) {
               <View style={styles.allTimeIcon}><Text style={styles.allTimeIconText}>∞</Text></View>
               <View style={styles.allTimeCopy}>
                 <Text style={styles.allTimeTitle}>Every record, one clear view</Text>
-                <Text style={styles.allTimeDescription}>
-                  Includes all complaints recorded in CampusSetu.
-                </Text>
+                <Text style={styles.allTimeDescription}>Includes all complaints recorded in CampusSetu.</Text>
               </View>
             </View>
           )}
@@ -344,16 +280,6 @@ export default function ReportsScreen({ navigation }) {
             </View>
           </View>
 
-          {readyFileName ? (
-            <View style={styles.readyBanner}>
-              <View style={styles.readyMark}><Text style={styles.readyMarkText}>✓</Text></View>
-              <View style={styles.readyCopy}>
-                <Text style={styles.readyTitle}>Report prepared</Text>
-                <Text style={styles.readyFile} numberOfLines={1}>{readyFileName}</Text>
-              </View>
-            </View>
-          ) : null}
-
           <TouchableOpacity
             style={[styles.downloadButton, downloading && styles.downloadButtonBusy]}
             onPress={downloadReport}
@@ -374,8 +300,9 @@ export default function ReportsScreen({ navigation }) {
               </>
             )}
           </TouchableOpacity>
+
           <Text style={styles.downloadHint}>
-            Your report opens in the secure system share sheet. Choose “Save to Files” to keep a copy.
+            Your report opens in the secured share sheet. Choose “Save to Files” to keep a copy.
           </Text>
         </View>
 
@@ -421,30 +348,19 @@ const styles = StyleSheet.create({
   },
   pdfBadgeText: { color: COLORS.lime, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   scrollView: { flex: 1 },
-  content: { padding: 18, paddingTop: 16, maxWidth: 820, width: '100%', alignSelf: 'center' },
+  content: { padding: 18, paddingTop: 16, width: '100%', maxWidth: 820, alignSelf: 'center' },
   contentWide: { paddingTop: 24 },
   hero: {
-    minHeight: 306,
+    minHeight: 260,
     overflow: 'hidden',
     borderRadius: 26,
     padding: 22,
     backgroundColor: COLORS.forest,
   },
   heroWide: { minHeight: 270, flexDirection: 'row', alignItems: 'center', padding: 30 },
-  heroGlow: {
-    position: 'absolute',
-    width: 230,
-    height: 230,
-    borderRadius: 115,
-    top: -105,
-    right: -42,
-    backgroundColor: 'rgba(200,243,106,0.10)',
-  },
   heroCopy: { flex: 1, zIndex: 1 },
-  heroEyebrowRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  heroEyebrowDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.lime, marginRight: 8 },
   heroEyebrow: { color: '#A9C9B8', fontSize: 9, fontWeight: '900', letterSpacing: 1.6 },
-  heroTitle: { color: COLORS.white, fontSize: 27, fontWeight: '900', lineHeight: 32, letterSpacing: -0.8 },
+  heroTitle: { color: COLORS.white, fontSize: 27, fontWeight: '900', lineHeight: 32, letterSpacing: -0.8, marginTop: 12 },
   heroDescription: { maxWidth: 440, color: '#C4D7CD', fontSize: 12, lineHeight: 19, marginTop: 10 },
   heroDocument: {
     alignSelf: 'flex-end',
@@ -462,7 +378,6 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   heroDocumentWide: { alignSelf: 'center', marginTop: 0, marginLeft: 22 },
-  documentTopLine: { position: 'absolute', top: 0, left: 0, right: 0, height: 4, borderTopLeftRadius: 14, borderTopRightRadius: 14, backgroundColor: COLORS.lime },
   documentHeader: { flexDirection: 'row', alignItems: 'center' },
   documentMark: { width: 20, height: 20, borderRadius: 7, backgroundColor: COLORS.green, alignItems: 'center', justifyContent: 'center' },
   documentMarkText: { color: COLORS.white, fontSize: 11, fontWeight: '900' },
@@ -475,12 +390,6 @@ const styles = StyleSheet.create({
   documentMetricRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 7 },
   documentMetric: { width: '30%' },
   documentMetricValue: { height: 9, borderRadius: 4, backgroundColor: COLORS.green },
-  documentMetricLabel: { width: 37, height: 3, borderRadius: 2, backgroundColor: '#CFD8D0', marginTop: 4 },
-  documentBars: { marginTop: 7, gap: 4 },
-  documentBar: { height: 3, borderRadius: 2, backgroundColor: '#E6ECE6' },
-  documentFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
-  documentFooterText: { color: '#8B9990', fontSize: 5, fontWeight: '800', letterSpacing: 0.6 },
-  documentFooterArrow: { color: COLORS.green, fontSize: 10, fontWeight: '900' },
   builderCard: {
     marginTop: 16,
     padding: 18,
@@ -488,11 +397,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
-    shadowColor: '#102E22',
-    shadowOpacity: 0.04,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
   },
   builderCardWide: { padding: 26 },
   sectionIntro: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
@@ -554,18 +458,11 @@ const styles = StyleSheet.create({
   previewFormat: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 8, backgroundColor: '#E9F3E8' },
   previewFormatText: { color: COLORS.green, fontSize: 8, fontWeight: '900' },
   previewDivider: { height: 1, backgroundColor: '#E5EAE4', marginVertical: 13 },
-  previewIncludes: {},
   previewIncludesTitle: { color: COLORS.muted, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
   previewTagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9 },
   previewTag: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, paddingVertical: 7, borderRadius: 9, backgroundColor: COLORS.white },
   previewTagCheck: { color: COLORS.green, fontSize: 10, fontWeight: '900', marginRight: 5 },
   previewTagText: { color: '#506057', fontSize: 9, fontWeight: '700' },
-  readyBanner: { flexDirection: 'row', alignItems: 'center', marginTop: 13, padding: 12, borderRadius: 14, backgroundColor: '#EFF8EF', borderWidth: 1, borderColor: '#D6EBD9' },
-  readyMark: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#D8F0DB' },
-  readyMarkText: { color: COLORS.green, fontSize: 15, fontWeight: '900' },
-  readyCopy: { flex: 1, marginLeft: 10 },
-  readyTitle: { color: COLORS.green, fontSize: 11, fontWeight: '900' },
-  readyFile: { color: COLORS.muted, fontSize: 9, marginTop: 3 },
   downloadButton: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, marginTop: 16, borderRadius: 17, backgroundColor: COLORS.lime },
   downloadButtonBusy: { backgroundColor: '#DDE8D3' },
   downloadIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(11,48,39,0.1)', marginRight: 9 },

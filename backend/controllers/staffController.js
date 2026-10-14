@@ -88,6 +88,15 @@ const inviteStaff = async (req, res) => {
       });
     }
 
+    const requestedDepartment =
+      typeof department === 'string' ? department.trim() : '';
+    if (role === 'teacher' && !requestedDepartment) {
+      return res.status(400).json({
+        success: false,
+        message: 'A department is required when inviting a teacher.',
+      });
+    }
+
     // Only one Principal can exist per college
     if (role === 'principal') {
       const existingPrincipal = await User.findOne({ role: 'principal' });
@@ -101,8 +110,25 @@ const inviteStaff = async (req, res) => {
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = name.trim();
-    const cleanDept = (department || '').trim();
+    let cleanDept = requestedDepartment;
     const cleanPhone = (phone || '').trim();
+
+    if (role === 'teacher') {
+      const activeTeachers = await User.find({
+        role: 'teacher',
+        isActive: true,
+        department: { $type: 'string', $ne: '' },
+      }).select('department');
+      const normalizedDepartment = cleanDept.toLocaleLowerCase();
+      const existingDepartment = activeTeachers.find(
+        (teacher) =>
+          teacher.department.trim().toLocaleLowerCase() ===
+          normalizedDepartment
+      );
+      if (existingDepartment) {
+        cleanDept = existingDepartment.department.trim();
+      }
+    }
 
     // Check existing in MongoDB
     const existingMongo = await User.findOne({ email: cleanEmail });

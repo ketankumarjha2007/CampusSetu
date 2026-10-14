@@ -3,7 +3,6 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import {
@@ -29,6 +28,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { auth } from '../config/firebase';
 import { apiRequest, getCurrentUser } from '../services/api';
+import { logoutAndClearPushToken } from '../services/notificationService';
 import styles from './ClusterHeadDashboardScreen.styles';
 
 /* ----------------------------- CONSTANTS ----------------------------- */
@@ -70,6 +70,17 @@ const WORKLOAD_CAPACITY = 5;
 // To use your real logo file: const LOGO_SOURCE = require('../../assets/logo.png');
 const LOGO_SOURCE = null;
 
+const useNow = (intervalMs = 60000) => {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(timer);
+  }, [intervalMs]);
+
+  return now;
+};
+
 /* ------------------------------ HELPERS ------------------------------ */
 
 const getId = (value) => {
@@ -80,9 +91,9 @@ const getId = (value) => {
 const isEscalatedIssue = (issue) =>
   Number(issue.escalationLevel || 0) > 0 || issue.priority === 'critical';
 
-const timeAgo = (date) => {
+const timeAgo = (date, now) => {
   if (!date) return '';
-  const diff = Date.now() - new Date(date).getTime();
+  const diff = (now ?? Date.now()) - new Date(date).getTime();
   if (Number.isNaN(diff) || diff < 0) return 'just now';
   const m = Math.floor(diff / 60000);
   if (m < 1) return 'just now';
@@ -136,6 +147,7 @@ const ComplaintCard = memo(function ComplaintCard({
   issue,
   width,
   escalatingId,
+  now,
   onAssign,
   onEscalate,
   onReview,
@@ -148,8 +160,8 @@ const ComplaintCard = memo(function ComplaintCard({
   const teacher =
     issue.assignedTo && typeof issue.assignedTo === 'object' ? issue.assignedTo : null;
   const closed = ['resolved', 'rejected'].includes(issue.status);
-  const overdue =
-    !closed && Date.now() - new Date(issue.createdAt || Date.now()).getTime() > OVERDUE_MS;
+  const createdAtMs = issue.createdAt ? new Date(issue.createdAt).getTime() : 0;
+  const overdue = !closed && createdAtMs > 0 && now - createdAtMs > OVERDUE_MS;
   const busy = escalatingId === issue._id;
 
   return (
@@ -210,6 +222,11 @@ const ComplaintCard = memo(function ComplaintCard({
             <Text style={styles.metaChipText}>🏷️ {issue.category}</Text>
           </View>
         ) : null}
+        {issue.department ? (
+          <View style={styles.metaChip}>
+            <Text style={styles.metaChipText}>📨 To: {issue.department}</Text>
+          </View>
+        ) : null}
         {issue.reportedBy?.name ? (
           <View style={styles.metaChip}>
             <Text style={styles.metaChipText} numberOfLines={1}>
@@ -221,7 +238,7 @@ const ComplaintCard = memo(function ComplaintCard({
         <View style={[styles.metaChip, overdue && styles.metaChipOverdue]}>
           <Text style={[styles.metaChipText, overdue && styles.metaChipOverdueText]}>
             {overdue ? '⚠️ Overdue • ' : '🕒 '}
-            {timeAgo(issue.createdAt)}
+            {timeAgo(issue.createdAt, now)}
           </Text>
         </View>
       </View>
@@ -323,10 +340,10 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
   const isDesktop = width >= 1000;
   const narrow = width < 340;
 
+  const now = useNow();
   const [issues, setIssues] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [user, setUser] = useState(null);
-
   const [activeFilter, setActiveFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [search, setSearch] = useState('');
@@ -343,8 +360,8 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
   const [escalatingId, setEscalatingId] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
 
-  const progressAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const progressAnim = useMemo(() => new Animated.Value(0), []);
+  const fadeAnim = useMemo(() => new Animated.Value(0), []);
 
   /* ------------------------------ DATA ------------------------------ */
 
@@ -411,7 +428,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await auth.signOut();
+              await logoutAndClearPushToken(auth);
               navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
             } catch (err) {
               Alert.alert('Sign out error', err.message || 'Unable to sign out.');
@@ -529,7 +546,6 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
     let escalated = 0;
     let overdue = 0;
     let unassigned = 0;
-    const now = Date.now();
 
     issues.forEach((i) => {
       if (i.status === 'pending') pending += 1;
@@ -556,7 +572,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
       unassigned,
       resolutionRate: issues.length ? Math.round((resolved / issues.length) * 100) : 0,
     };
-  }, [issues]);
+  }, [issues, now]);
 
   useEffect(() => {
     Animated.timing(progressAnim, {
@@ -817,7 +833,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
           {error && !loading && issues.length > 0 ? (
             <View style={styles.errorBanner}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.errorTitle}>Couldn't refresh data</Text>
+                <Text style={styles.errorTitle}>Couldn&apos;t refresh data</Text>
                 <Text style={styles.errorText} numberOfLines={2}>
                   {error}
                 </Text>
@@ -1087,6 +1103,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                   issue={issue}
                   width={cardWidth}
                   escalatingId={escalatingId}
+                  now={now}
                   onAssign={openAssignModal}
                   onEscalate={handleEscalate}
                   onReview={openReview}

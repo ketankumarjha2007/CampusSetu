@@ -25,6 +25,9 @@ import {
   apiRequest,
   getCurrentUser,
 } from '../services/api';
+import {
+  logoutAndClearPushToken,
+} from '../services/notificationService';
 
 import styles from './TeacherDashboardScreen.styles';
 
@@ -255,7 +258,7 @@ export default function TeacherDashboardScreen({ navigation }) {
       setError('');
 
       try {
-        const issuesPromise = apiRequest('/issues/teacher/assigned');
+        const issuesPromise = apiRequest('/issues/teacher/workspace');
 
         const userPromise = getCurrentUser().catch((userError) => {
           console.warn(
@@ -454,7 +457,7 @@ export default function TeacherDashboardScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await auth.signOut();
+              await logoutAndClearPushToken(auth);
 
               navigation.reset({
                 index: 0,
@@ -523,7 +526,9 @@ export default function TeacherDashboardScreen({ navigation }) {
         <View style={styles.issueMetaRow}>
           <View style={styles.categoryPill}>
             <Text style={styles.categoryPillText} numberOfLines={1}>
-              {issue.category || 'General'}
+              {issue.department
+                ? `${issue.category || 'General'} · ${issue.department}`
+                : issue.category || 'General'}
             </Text>
           </View>
 
@@ -577,7 +582,7 @@ export default function TeacherDashboardScreen({ navigation }) {
           </Text>
 
           <Text style={styles.stateDescription}>
-            Fetching your assigned complaints and latest updates.
+            Fetching department complaints and your assigned work.
           </Text>
         </View>
       );
@@ -591,7 +596,7 @@ export default function TeacherDashboardScreen({ navigation }) {
           </View>
 
           <Text style={styles.stateTitle}>
-            Couldn't load your workspace
+            Could not load your workspace
           </Text>
 
           <Text style={styles.stateDescription}>{error}</Text>
@@ -613,7 +618,7 @@ export default function TeacherDashboardScreen({ navigation }) {
       const emptyMessage = hasSearch
         ? 'Try another complaint ID, title, student, or location.'
         : activeFilter === 'all'
-          ? 'There are no complaints assigned to you right now. New assignments will appear here.'
+          ? 'There are no complaints in your department or assigned to you right now.'
           : activeFilter === 'awaiting'
             ? 'There are no pending or assigned complaints awaiting action.'
             : `No ${
@@ -874,10 +879,10 @@ export default function TeacherDashboardScreen({ navigation }) {
 
         {/* COMPLAINTS */}
         <SectionHeading
-          title="Assigned complaints"
+          title="Department complaints"
           subtitle={
             activeFilter === 'all' && !search
-              ? `${issues.length} total assigned complaints`
+              ? `${issues.length} department and assigned complaints`
               : `${filteredIssues.length} matching complaints`
           }
           right={
@@ -887,7 +892,7 @@ export default function TeacherDashboardScreen({ navigation }) {
               onPress={showAllIssues}
               activeOpacity={0.75}
               accessibilityRole="button"
-              accessibilityLabel={`Show all assigned complaints. ${issues.length} total.`}
+              accessibilityLabel={`Show all department complaints. ${issues.length} total.`}
             >
               <Text style={styles.totalCountText}>
                 {filteredIssues.length}
@@ -907,7 +912,7 @@ export default function TeacherDashboardScreen({ navigation }) {
             placeholderTextColor="#8A96A8"
             style={styles.searchInput}
             returnKeyType="search"
-            accessibilityLabel="Search assigned complaints"
+            accessibilityLabel="Search department complaints"
             autoCapitalize="none"
             autoCorrect={false}
           />

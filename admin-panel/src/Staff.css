@@ -372,9 +372,15 @@
   flex: 1; min-width: 0; height: 100%; border: 0; outline: none;
   color: #0f172a; background: transparent; font-size: 14px; font-weight: 600;
 }
+.pp-input select {
+  flex: 1; min-width: 0; height: 100%; border: 0; outline: none;
+  color: #0f172a; background: transparent; font-size: 14px; font-weight: 600;
+}
+.pp-input select:invalid { color: #94a3b8; font-weight: 400; }
 .pp-input input::placeholder { color: #94a3b8; font-weight: 400; }
 .pp-field.bad .pp-input { border-color: #e11d48; box-shadow: 0 0 0 4px rgba(225, 29, 72, .12); }
 .pp-err { color: #e11d48; font-size: 11px; font-weight: 700; }
+.pp-dept-hint { color: #64748b; font-size: 11px; }
 
 .pp-note {
   display: flex; gap: 12px;

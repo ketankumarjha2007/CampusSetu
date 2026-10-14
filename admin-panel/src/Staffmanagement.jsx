@@ -79,10 +79,13 @@ const fmtDate = (value) => {
       });
 };
 
-const validate = (form) => {
+const validate = (form, role) => {
   const errors = {};
   if (form.name.trim().length < 2) errors.name = 'Enter the full name.';
   if (!EMAIL_RE.test(form.email.trim())) errors.email = 'Enter a valid email address.';
+  if (role === 'teacher' && !form.department.trim()) {
+    errors.department = 'Choose or enter a teacher department.';
+  }
   if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) {
     errors.phone = 'Phone number looks too short.';
   }
@@ -238,19 +241,20 @@ function EmailPreview({ role, name, email }) {
 /* Invite wizard                                                       */
 /* ------------------------------------------------------------------ */
 
-function InviteWizard({ initialRole, existingPrincipal, theme = 'light', onClose, onDone }) {
+function InviteWizard({ initialRole, existingPrincipal, departments, theme = 'light', onClose, onDone }) {
   const isPrincipalTaken = Boolean(existingPrincipal);
   const defaultRole = initialRole === 'principal' && isPrincipalTaken ? 'teacher' : (initialRole || 'teacher');
   const [step, setStep] = useState(initialRole && !(initialRole === 'principal' && isPrincipalTaken) ? 1 : 0);
   const [role, setRole] = useState(defaultRole);
   const [form, setForm] = useState({ name: '', email: '', department: '', phone: '' });
+  const [addingDepartment, setAddingDepartment] = useState(false);
   const [touched, setTouched] = useState({});
   const [sending, setSending] = useState(false);
   const [serverError, setServerError] = useState('');
   const [result, setResult] = useState(null);
 
   const cfg = ROLES[role];
-  const errors = useMemo(() => validate(form), [form]);
+  const errors = useMemo(() => validate(form, role), [form, role]);
 
   useEffect(() => {
     const onKey = (event) => {
@@ -276,7 +280,7 @@ function InviteWizard({ initialRole, existingPrincipal, theme = 'light', onClose
   const submit = async (event) => {
     event.preventDefault();
 
-    setTouched({ name: true, email: true, phone: true });
+    setTouched({ name: true, email: true, department: true, phone: true });
 
     if (role === 'principal' && existingPrincipal) {
       setServerError(`Only one Principal is permitted per institution. Principal ${existingPrincipal.name} (${existingPrincipal.email}) is already active.`);
@@ -298,10 +302,11 @@ function InviteWizard({ initialRole, existingPrincipal, theme = 'light', onClose
       });
 
       setResult({
-        emailSent: response.emailSent !== false,
+        emailSent: response.emailDispatched !== false,
         message: response.message,
         email: form.email.trim().toLowerCase(),
         name: form.name.trim(),
+        department: role === 'teacher' ? form.department.trim() : '',
       });
 
       setStep(2);
@@ -315,6 +320,7 @@ function InviteWizard({ initialRole, existingPrincipal, theme = 'light', onClose
 
   const again = () => {
     setForm({ name: '', email: '', department: '', phone: '' });
+    setAddingDepartment(false);
     setTouched({});
     setResult(null);
     setServerError('');
@@ -487,11 +493,60 @@ function InviteWizard({ initialRole, existingPrincipal, theme = 'light', onClose
                   input: { type: 'email', placeholder: 'name@college.edu', autoComplete: 'off', inputMode: 'email' },
                 })}
 
-                <div className="pp-row">
-                  {field('department', cfg.deptLabel, {
-                    icon: 'pin',
-                    input: { placeholder: cfg.deptPlaceholder, autoComplete: 'off' },
-                  })}
+                <div className={`pp-row ${role === 'teacher' ? 'pp-row-department' : ''}`}>
+                  {role === 'teacher' ? (
+                    <label className={`pp-field ${touched.department && errors.department ? 'bad' : ''}`}>
+                      <span>Department<em>*</em></span>
+                      <div className="pp-input">
+                        <Ico name="pin" size={16} />
+                        <select
+                          value={addingDepartment ? '__new_department__' : form.department}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setAddingDepartment(value === '__new_department__');
+                            setForm((current) => ({
+                              ...current,
+                              department: value === '__new_department__' ? '' : value,
+                            }));
+                            setServerError('');
+                          }}
+                          onBlur={blur('department')}
+                          disabled={sending}
+                          aria-label="Teacher department"
+                        >
+                          <option value="">Select a department</option>
+                          {departments.map((department) => (
+                            <option key={department} value={department}>{department}</option>
+                          ))}
+                          <option value="__new_department__">＋ Add a new department</option>
+                        </select>
+                      </div>
+                      {addingDepartment && (
+                        <div className="pp-input pp-dept-new-input">
+                          <Ico name="pin" size={16} />
+                          <input
+                            value={form.department}
+                            onChange={setField('department')}
+                            onBlur={blur('department')}
+                            disabled={sending}
+                            placeholder="Enter a new department"
+                            autoComplete="off"
+                          />
+                        </div>
+                      )}
+                      {touched.department && errors.department && (
+                        <small className="pp-err">{errors.department}</small>
+                      )}
+                      <small className="pp-dept-hint">
+                        Select an existing department or add a new one.
+                      </small>
+                    </label>
+                  ) : (
+                    field('department', cfg.deptLabel, {
+                      icon: 'pin',
+                      input: { placeholder: cfg.deptPlaceholder, autoComplete: 'off' },
+                    })
+                  )}
 
                   {field('phone', 'Phone number', {
                     icon: 'phone',
@@ -553,6 +608,9 @@ function InviteWizard({ initialRole, existingPrincipal, theme = 'light', onClose
                     We emailed a secure set-password link to <b>{result.email}</b>.
                     Once they set a password they can sign in on the CampusSetu
                     mobile app as a <b>{ROLES[role].label}</b>.
+                    {role === 'teacher' && result.department && (
+                      <> Their department is <b>{result.department}</b>.</>
+                    )}
                   </>
                 ) : (
                   <>
@@ -611,6 +669,26 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
     return staff.find((person) => person.role === 'principal');
   }, [staff]);
 
+  const departments = useMemo(() => {
+    const uniqueDepartments = new Map();
+    staff.forEach((person) => {
+      const department = String(person.department || '').trim();
+      if (
+        person.role === 'teacher' &&
+        person.isActive !== false &&
+        department
+      ) {
+        const key = department.toLocaleLowerCase();
+        if (!uniqueDepartments.has(key)) {
+          uniqueDepartments.set(key, department);
+        }
+      }
+    });
+    return [...uniqueDepartments.values()].sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [staff]);
+
   const notify = useCallback(
     (message, type = 'success') => showToast?.(message, type),
     [showToast]
@@ -631,8 +709,24 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let isActive = true;
+    getStaff()
+      .then((result) => {
+        if (isActive) setStaff(result.staff || []);
+      })
+      .catch((err) => {
+        if (isActive) {
+          setError(err.message || 'Could not load team members.');
+        }
+      })
+      .finally(() => {
+        if (isActive) setLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   /* workload per teacher, from the complaints already in memory */
   const workload = useMemo(() => {
@@ -753,13 +847,14 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
             Team directory <span className="count-pill">{staff.length}</span>
           </h2>
           <p>
-            Invite teachers, cluster heads and principals. Each person gets an
+            Invite teachers into a selected department, or invite cluster heads
+            and principals. Each person gets an
             email, sets their own password and signs in on the mobile app.
           </p>
         </div>
 
-        <button className="btn-primary pp-add" onClick={() => openWizard()}>
-          <Ico name="plus" size={16} /> Invite member
+        <button className="btn-primary pp-add" onClick={() => openWizard('teacher')}>
+          <Ico name="plus" size={16} /> Invite Members
         </button>
       </header>
 
@@ -832,9 +927,9 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
           </span>
           <button
             className="btn-primary"
-            onClick={() => (staff.length === 0 ? openWizard() : (setQuery(''), setRoleFilter('all')))}
+            onClick={() => (staff.length === 0 ? openWizard('teacher') : (setQuery(''), setRoleFilter('all')))}
           >
-            {staff.length === 0 ? 'Invite member' : 'Reset filters'}
+            {staff.length === 0 ? 'Invite teacher by department' : 'Reset filters'}
           </button>
         </div>
       ) : (
@@ -920,6 +1015,7 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
         <InviteWizard
           initialRole={wizard.role}
           existingPrincipal={existingPrincipal}
+          departments={departments}
           theme={theme}
           onClose={closeWizard}
           onDone={() => { load(false); onChanged?.(); }}

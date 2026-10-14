@@ -3,7 +3,6 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import {
@@ -28,6 +27,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native';
 import { auth } from '../config/firebase';
 import { apiRequest, getCurrentUser } from '../services/api';
+import { logoutAndClearPushToken } from '../services/notificationService';
 import styles from './PrincipalDashboardScreen.styles';
 
 /* ----------------------------- CONSTANTS ----------------------------- */
@@ -67,16 +67,31 @@ const SEGMENT_ORDER = ['pending', 'assigned', 'in_progress', 'resolved', 'reject
 const DEPT_COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899', '#06B6D4'];
 const OVERDUE_MS = 3 * 24 * 60 * 60 * 1000;
 
+const useNow = (intervalMs = 60000) => {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(timer);
+  }, [intervalMs]);
+
+  return now;
+};
+
 /* ------------------------------ HELPERS ------------------------------ */
 
 const isIssueCritical = (issue) =>
   issue.priority === 'critical' || (issue.escalationLevel || 0) > 0;
 
-const getDept = (issue) => issue.reportedBy?.department || issue.category || 'General';
+const getDept = (issue) =>
+  issue.department ||
+  issue.reportedBy?.department ||
+  issue.category ||
+  'General';
 
-const timeAgo = (date) => {
+const timeAgo = (date, now) => {
   if (!date) return '';
-  const diff = Date.now() - new Date(date).getTime();
+  const diff = (now ?? Date.now()) - new Date(date).getTime();
   if (Number.isNaN(diff) || diff < 0) return 'just now';
   const m = Math.floor(diff / 60000);
   if (m < 1) return 'just now';
@@ -141,6 +156,7 @@ const ComplaintCard = memo(function ComplaintCard({
   issue,
   width,
   actionLoadingId,
+  now,
   onAssign,
   onEscalate,
   onReview,
@@ -152,8 +168,8 @@ const ComplaintCard = memo(function ComplaintCard({
   const complaintId = issue.complaintId || issue._id?.slice(-6) || 'N/A';
   const teacher = issue.assignedTo;
   const closed = ['resolved', 'rejected'].includes(issue.status);
-  const overdue =
-    !closed && Date.now() - new Date(issue.createdAt || Date.now()).getTime() > OVERDUE_MS;
+  const createdAtMs = issue.createdAt ? new Date(issue.createdAt).getTime() : 0;
+  const overdue = !closed && createdAtMs > 0 && now - createdAtMs > OVERDUE_MS;
   const busy = actionLoadingId === issue._id;
 
   return (
@@ -217,6 +233,11 @@ const ComplaintCard = memo(function ComplaintCard({
             <Text style={styles.metaChipText}>🏷️ {issue.category}</Text>
           </View>
         ) : null}
+        {issue.department ? (
+          <View style={styles.metaChip}>
+            <Text style={styles.metaChipText}>📨 To: {issue.department}</Text>
+          </View>
+        ) : null}
         {issue.reportedBy?.name ? (
           <View style={styles.metaChip}>
             <Text style={styles.metaChipText} numberOfLines={1}>
@@ -228,7 +249,7 @@ const ComplaintCard = memo(function ComplaintCard({
         <View style={[styles.metaChip, overdue && styles.metaChipOverdue]}>
           <Text style={[styles.metaChipText, overdue && styles.metaChipOverdueText]}>
             {overdue ? '⚠️ Overdue • ' : '🕒 '}
-            {timeAgo(issue.createdAt)}
+            {timeAgo(issue.createdAt, now)}
           </Text>
         </View>
       </View>
@@ -333,6 +354,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
   const isTablet = width >= 768;
   const isDesktop = width >= 1100;
   const insets = useSafeAreaInsets();
+  const now = useNow();
 
   const [issues, setIssues] = useState([]);
   const [teachers, setTeachers] = useState([]);
@@ -368,8 +390,8 @@ export default function PrincipalDashboardScreen({ navigation }) {
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
   // Animations
-  const progressAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const progressAnim = useMemo(() => new Animated.Value(0), []);
+  const fadeAnim = useMemo(() => new Animated.Value(0), []);
 
   /* ------------------------------ DATA ------------------------------ */
 
@@ -429,7 +451,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await auth.signOut();
+              await logoutAndClearPushToken(auth);
               navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
             } catch (err) {
               Alert.alert('Sign out error', err.message);
@@ -526,6 +548,13 @@ export default function PrincipalDashboardScreen({ navigation }) {
       Alert.alert('Missing Details', 'Please provide full name and college email.');
       return;
     }
+    if (inviteRole === 'teacher' && !inviteDept.trim()) {
+      Alert.alert(
+        'Department required',
+        'Choose or enter the department this teacher will serve.'
+      );
+      return;
+    }
     if (!isValidEmail(inviteEmail.trim())) {
       Alert.alert('Invalid Email', 'Please enter a valid college email address.');
       return;
@@ -573,7 +602,6 @@ export default function PrincipalDashboardScreen({ navigation }) {
     let critical = 0;
     let agingCount = 0;
     let unassigned = 0;
-    const now = Date.now();
     const deptMap = {};
 
     issues.forEach((item) => {
@@ -606,7 +634,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
       topDepartments,
       maxDept: topDepartments[0]?.[1] || 1,
     };
-  }, [issues]);
+  }, [issues, now]);
 
   useEffect(() => {
     Animated.timing(progressAnim, {
@@ -856,7 +884,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
           {error ? (
             <View style={styles.errorBanner}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.errorTitle}>Couldn't refresh data</Text>
+                <Text style={styles.errorTitle}>Couldn&apos;t refresh data</Text>
                 <Text style={styles.errorText} numberOfLines={2}>
                   {error}
                 </Text>
@@ -1120,6 +1148,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
                   issue={issue}
                   width={cardWidth}
                   actionLoadingId={actionLoadingId}
+                  now={now}
                   onAssign={openAssignModal}
                   onEscalate={handleEscalate}
                   onReview={openReview}
@@ -1354,7 +1383,9 @@ export default function PrincipalDashboardScreen({ navigation }) {
                 </View>
 
                 <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Department / Academic Division</Text>
+                  <Text style={styles.formLabel}>
+                    Department / Academic Division{inviteRole === 'teacher' ? ' *' : ''}
+                  </Text>
                   <TextInput
                     style={styles.formInput}
                     placeholder="e.g. Computer Science & Engineering"

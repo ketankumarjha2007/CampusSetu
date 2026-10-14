@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ScrollView,
   View,
@@ -58,6 +58,8 @@ const PRIORITIES = [
   },
 ];
 
+const BUILDINGS = ['SJB', 'CV Raman', 'BSN Block'];
+
 export default function ReportIssueScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const compact = width < 380;
@@ -71,9 +73,67 @@ export default function ReportIssueScreen({ navigation }) {
   const [floor, setFloor] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
   const [location, setLocation] = useState('');
+  const [department, setDepartment] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [departmentsError, setDepartmentsError] = useState('');
 
   const [selectedImage, setSelectedImage] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const fetchDepartments = useCallback(async () => {
+    const response = await apiRequest('/issues/departments');
+    if (!Array.isArray(response?.departments)) {
+      throw new Error('Available departments could not be loaded.');
+    }
+    return response.departments;
+  }, []);
+
+  const applyDepartments = useCallback((availableDepartments) => {
+    setDepartmentsError('');
+    setDepartments(availableDepartments);
+    setDepartment((selected) =>
+      availableDepartments.includes(selected) ? selected : ''
+    );
+  }, []);
+
+  const loadDepartments = useCallback(async () => {
+    setDepartmentsLoading(true);
+    setDepartmentsError('');
+    try {
+      applyDepartments(await fetchDepartments());
+    } catch (error) {
+      console.error('Report Issue: Department loading failed:', error);
+      setDepartmentsError(
+        error?.message || 'Unable to load departments. Please try again.'
+      );
+    } finally {
+      setDepartmentsLoading(false);
+    }
+  }, [applyDepartments, fetchDepartments]);
+
+  useEffect(() => {
+    let isActive = true;
+    fetchDepartments()
+      .then((availableDepartments) => {
+        if (isActive) applyDepartments(availableDepartments);
+      })
+      .catch((error) => {
+        if (!isActive) return;
+        console.error('Report Issue: Department loading failed:', error);
+        setDepartmentsError(
+          error?.message ||
+            'Unable to load departments. Please try again.'
+        );
+      })
+      .finally(() => {
+        if (isActive) setDepartmentsLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [applyDepartments, fetchDepartments]);
 
   // Save the selected image.
   const saveSelectedImage = (asset) => {
@@ -276,15 +336,18 @@ export default function ReportIssueScreen({ navigation }) {
     const cleanRoomNumber = roomNumber.trim();
     const cleanLocation = location.trim();
 
-    if (
-      !cleanBuilding &&
-      !cleanFloor &&
-      !cleanRoomNumber &&
-      !cleanLocation
-    ) {
+    if (!cleanBuilding) {
       Alert.alert(
-        'Missing location',
-        'Please enter at least a building, floor, room number, or additional location detail.'
+        'Select a building',
+        'Please choose SJB, CV Raman, or BSN Block.'
+      );
+      return;
+    }
+
+    if (!department || !departments.includes(department)) {
+      Alert.alert(
+        'Select a department',
+        'Choose the campus department that should receive this complaint.'
       );
       return;
     }
@@ -314,6 +377,7 @@ export default function ReportIssueScreen({ navigation }) {
       formData.append('building', cleanBuilding);
       formData.append('floor', cleanFloor);
       formData.append('roomNumber', cleanRoomNumber);
+      formData.append('department', department);
 
       // Send the student's selected priority.
       formData.append('priority', priority);
@@ -474,7 +538,7 @@ export default function ReportIssueScreen({ navigation }) {
           {/* INTRO */}
           <View style={styles.intro}>
             <Text style={styles.introTitle}>
-              What's happening?
+              What is happening?
             </Text>
 
             <Text style={styles.introSubtitle}>
@@ -623,12 +687,102 @@ export default function ReportIssueScreen({ navigation }) {
           </View>
 
           {/* BUILDING */}
-          {renderInput(
-            'BUILDING / BLOCK',
-            building,
-            setBuilding,
-            'e.g. Main Block, Library Block'
-          )}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.label}>BUILDING / BLOCK</Text>
+            <View style={styles.selectionGrid}>
+              {BUILDINGS.map((item) => {
+                const selected = building === item;
+                return (
+                  <TouchableOpacity
+                    key={item}
+                    style={[
+                      styles.selectionChip,
+                      selected && styles.selectionChipSelected,
+                    ]}
+                    onPress={() => setBuilding(item)}
+                    disabled={submitting}
+                    activeOpacity={0.8}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                  >
+                    <Text
+                      style={[
+                        styles.selectionText,
+                        selected && styles.selectionTextSelected,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* DEPARTMENT ROUTING */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.label}>SEND TO DEPARTMENT</Text>
+            <Text style={styles.selectionHint}>
+              Active teachers in this department will be notified.
+            </Text>
+            {departmentsLoading ? (
+              <View style={styles.departmentLoading}>
+                <ActivityIndicator color="#2563EB" />
+                <Text style={styles.selectionHint}>
+                  Loading available departments…
+                </Text>
+              </View>
+            ) : departmentsError ? (
+              <View style={styles.departmentError}>
+                <Text style={styles.departmentErrorText}>
+                  {departmentsError}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    loadDepartments();
+                  }}
+                  disabled={submitting}
+                  style={styles.departmentRetry}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.departmentRetryText}>Try again</Text>
+                </TouchableOpacity>
+              </View>
+            ) : departments.length === 0 ? (
+              <Text style={styles.departmentErrorText}>
+                No departments currently have active teachers. Please try again later.
+              </Text>
+            ) : (
+              <View style={styles.selectionGrid}>
+                {departments.map((item) => {
+                  const selected = department === item;
+                  return (
+                    <TouchableOpacity
+                      key={item}
+                      style={[
+                        styles.selectionChip,
+                        selected && styles.selectionChipSelected,
+                      ]}
+                      onPress={() => setDepartment(item)}
+                      disabled={submitting}
+                      activeOpacity={0.8}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                    >
+                      <Text
+                        style={[
+                          styles.selectionText,
+                          selected && styles.selectionTextSelected,
+                        ]}
+                      >
+                        {item}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
 
           {/* FLOOR AND ROOM */}
           <View

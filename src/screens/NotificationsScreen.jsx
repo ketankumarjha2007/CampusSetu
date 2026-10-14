@@ -423,7 +423,7 @@ export default function NotificationsScreen({
           <Text
             style={styles.emptyTitle}
           >
-            Couldn't load notifications
+            Could not load notifications
           </Text>
 
           <Text
@@ -549,7 +549,7 @@ export default function NotificationsScreen({
                   styles.introText
                 }
               >
-                You'll see updates about
+                You will see updates about
                 your complaints here.
               </Text>
             </View>

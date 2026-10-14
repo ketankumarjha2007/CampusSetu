@@ -21,6 +21,7 @@ import { auth } from '../config/firebase';
 import { getCurrentUser } from '../services/api';
 
 import {
+  logoutAndClearPushToken,
   registerForPushNotificationsAsync,
 } from '../services/notificationService';
 
@@ -75,9 +76,9 @@ export default function LoginScreen({ navigation }) {
   const emailRef = useRef(null);
   const passwordRef = useRef(null);
 
-  const pageAnim = useRef(new Animated.Value(0)).current;
-  const roleAnim = useRef(new Animated.Value(0)).current;
-  const formAnim = useRef(new Animated.Value(0)).current;
+  const [pageAnim] = useState(() => new Animated.Value(0));
+  const [roleAnim] = useState(() => new Animated.Value(0));
+  const [formAnim] = useState(() => new Animated.Value(0));
 
   // ----------------------------------------
   // SCREEN ANIMATIONS
@@ -195,8 +196,6 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
 
-    let loginSucceeded = false;
-
     try {
       // STEP 1: Authenticate with Firebase
 
@@ -216,7 +215,7 @@ export default function LoginScreen({ navigation }) {
           'Please verify your email before signing in to CampusSetu.'
         );
 
-        await auth.signOut();
+        await logoutAndClearPushToken(auth);
         return;
       }
 
@@ -248,7 +247,7 @@ export default function LoginScreen({ navigation }) {
           'Your Firebase login succeeded, but CampusSetu could not connect to the server. Ensure the backend is running and your phone is connected to the same Wi-Fi as your computer.'
         );
 
-        await auth.signOut();
+        await logoutAndClearPushToken(auth);
         return;
       }
 
@@ -268,7 +267,7 @@ export default function LoginScreen({ navigation }) {
           'Your CampusSetu account does not have a valid assigned role. Please contact your college administrator.'
         );
 
-        await auth.signOut();
+        await logoutAndClearPushToken(auth);
         return;
       }
 
@@ -285,7 +284,7 @@ export default function LoginScreen({ navigation }) {
           `This account is registered as ${actualRole || backendRole}. Please select the correct role to continue.`
         );
 
-        await auth.signOut();
+        await logoutAndClearPushToken(auth);
         return;
       }
 
@@ -324,7 +323,6 @@ export default function LoginScreen({ navigation }) {
         `CampusSetu: Navigating ${backendRole} to ${destination}`
       );
 
-      loginSucceeded = true;
       navigation.replace(destination);
     } catch (error) {
       console.error('CampusSetu login error:', error);

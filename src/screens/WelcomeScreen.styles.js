@@ -668,6 +668,7 @@ const styles = StyleSheet.create({
   // CTA
   ctaSection: {
     marginTop: 7,
+    marginBottom: 16,
   },
 
   primaryButton: {

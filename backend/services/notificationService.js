@@ -1,4 +1,23 @@
 const Notification = require('../models/Notification');
+const User = require('../models/User');
+
+const invalidatePushToken = async (pushToken) => {
+  if (!pushToken || typeof pushToken !== 'string') {
+    return;
+  }
+
+  try {
+    await User.updateMany(
+      { pushToken: pushToken.trim() },
+      { $set: { pushToken: '' } }
+    );
+  } catch (error) {
+    console.warn(
+      'Notification: Could not invalidate expired push token:',
+      error.message
+    );
+  }
+};
 
 const createInAppNotification = async ({
   recipientId,
@@ -64,6 +83,8 @@ const sendPushNotification = async ({
       sound: 'default',
       title,
       body,
+      priority: 'high',
+      channelId: 'default',
       data,
     };
 
@@ -99,47 +120,97 @@ const sendPushNotification = async ({
 
     if (!response.ok) {
       console.error(
-        'Notification: Expo request failed.'
+        'Notification: Expo request failed:',
+        responseData?.errors || responseData
       );
 
       return {
         success: false,
         message:
+          responseData?.errors?.[0]?.message ||
           'Expo notification request failed',
         response:
           responseData,
       };
     }
 
-    const ticket =
-      responseData?.data;
+    const tickets = Array.isArray(responseData?.data)
+      ? responseData.data
+      : responseData?.data
+        ? [responseData.data]
+        : [];
 
-    if (
-      ticket?.status === 'error'
-    ) {
+    if (tickets.length === 0) {
+      const errorMessage =
+        responseData?.errors?.[0]?.message ||
+        'Expo returned no push ticket';
+
       console.error(
-        'Notification: Expo returned an error:',
-        ticket
+        'Notification: Expo returned no push ticket:',
+        errorMessage
       );
+
+      if (
+        /DeviceNotRegistered|InvalidCredentials|not registered|expired/i.test(
+          errorMessage
+        )
+      ) {
+        await invalidatePushToken(normalizedToken);
+      }
 
       return {
         success: false,
-        message:
-          ticket.message ||
-          'Expo notification failed',
+        message: errorMessage,
         response:
           responseData,
       };
     }
 
+    const failedTicket = tickets.find(
+      (ticket) => ticket?.status !== 'ok'
+    );
+
+    if (failedTicket) {
+      const failureMessage =
+        failedTicket.message ||
+        failedTicket.details?.error ||
+        'Expo notification failed';
+
+      console.error(
+        'Notification: Expo push ticket failed:',
+        {
+          message: failureMessage,
+          error: failedTicket.details?.error,
+        }
+      );
+
+      if (
+        /DeviceNotRegistered|InvalidCredentials|not registered|expired/i.test(
+          failureMessage
+        ) ||
+        /DeviceNotRegistered|InvalidCredentials|not registered|expired/i.test(
+          failedTicket.details?.error || ''
+        )
+      ) {
+        await invalidatePushToken(normalizedToken);
+      }
+
+      return {
+        success: false,
+        message: failureMessage,
+        response: responseData,
+      };
+    }
+
     console.log(
-      'Notification: Push notification sent successfully.'
+      'Notification: Expo accepted push notification:',
+      tickets[0].id || 'ticket ID unavailable'
     );
 
     return {
       success: true,
-      message:
-        'Push notification sent successfully',
+      message: 'Expo accepted push notification',
+      ticketId: tickets[0].id,
       response:
         responseData,
     };

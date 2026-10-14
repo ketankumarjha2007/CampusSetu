@@ -42,6 +42,38 @@ const savePushTokenToBackend = async (
   }
 };
 
+export const clearPushTokenFromBackend = async () => {
+  try {
+    await apiRequest('/users/push-token/clear', {
+      method: 'POST',
+    });
+
+    return true;
+  } catch (error) {
+    console.warn(
+      'Notification: Failed to clear push token from backend:',
+      error?.message || error
+    );
+
+    return false;
+  }
+};
+
+export const logoutAndClearPushToken = async (authInstance) => {
+  try {
+    await clearPushTokenFromBackend();
+  } catch (error) {
+    console.warn(
+      'Notification: Error while clearing backend push token on logout:',
+      error?.message || error
+    );
+  }
+
+  if (authInstance && typeof authInstance.signOut === 'function') {
+    await authInstance.signOut();
+  }
+};
+
 // ==========================================
 // REGISTER FOR PUSH NOTIFICATIONS
 // ==========================================
@@ -167,16 +199,27 @@ export const registerForPushNotificationsAsync =
         tokenResponse.data;
 
       console.log(
-        'Notification: Expo Push Token:',
-        pushToken
+        'Notification: Expo push token obtained.'
       );
 
       // --------------------------------------
       // SAVE TOKEN TO BACKEND
       // --------------------------------------
 
-      await savePushTokenToBackend(
+      const tokenSaved = await savePushTokenToBackend(
         pushToken
+      );
+
+      if (!tokenSaved) {
+        console.error(
+          'Notification: Push token was not saved; this device will not receive push notifications.'
+        );
+
+        return null;
+      }
+
+      console.log(
+        'Notification: Push token saved successfully.'
       );
 
       return pushToken;

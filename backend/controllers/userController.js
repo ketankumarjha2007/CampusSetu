@@ -1,4 +1,7 @@
 const User = require('../models/User');
+const {
+  sendPushNotification,
+} = require('../services/notificationService');
 
 const getCurrentUser = async (req, res) => {
   try {
@@ -195,10 +198,6 @@ const savePushToken = async (
       });
     }
 
-    // ----------------------------------------
-    // SAVE TOKEN
-    // ----------------------------------------
-
     user.pushToken =
       normalizedToken;
 
@@ -223,6 +222,95 @@ const savePushToken = async (
       success: false,
       message:
         'Failed to save push token',
+    });
+  }
+};
+
+const clearPushToken = async (req, res) => {
+  try {
+    const user = await User.findOne({
+      firebaseUid: req.firebaseUser.uid,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User profile not found',
+      });
+    }
+
+    user.pushToken = '';
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Push token cleared successfully',
+    });
+  } catch (error) {
+    console.error('Clear push token error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to clear push token',
+    });
+  }
+};
+
+const sendTestPush = async (req, res) => {
+  try {
+    const { userId, title, body } = req.body;
+
+    if (!userId || !/^[0-9a-fA-F]{24}$/.test(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid user ID is required',
+      });
+    }
+
+    const targetUser = await User.findById(userId);
+
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (!targetUser.pushToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Target user has no saved push token',
+      });
+    }
+
+    const result = await sendPushNotification({
+      pushToken: targetUser.pushToken,
+      title: title || 'CampusSetu Test Notification',
+      body: body || 'This is a test notification from the admin dashboard.',
+      data: {
+        type: 'admin_test_push',
+        sentBy: req.user._id.toString(),
+      },
+    });
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.message || 'Test notification could not be sent',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Test notification sent successfully',
+      ticketId: result.ticketId,
+    });
+  } catch (error) {
+    console.error('Send test push error:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send test notification',
     });
   }
 };
@@ -256,8 +344,16 @@ const addTeacher = async (req, res) => {
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = name.trim();
-    const cleanDept = (department || '').trim();
+    const cleanDept =
+      typeof department === 'string' ? department.trim() : '';
     const cleanPhone = (phone || '').trim();
+
+    if (!cleanDept) {
+      return res.status(400).json({
+        success: false,
+        message: 'A department is required when inviting a teacher.',
+      });
+    }
 
     // Check if user already exists in MongoDB
     const existingUser = await User.findOne({ email: cleanEmail });
@@ -524,6 +620,8 @@ module.exports = {
   getCurrentUser,
   createOrUpdateProfile,
   savePushToken,
+  clearPushToken,
+  sendTestPush,
   addTeacher,
   deleteTeacher,
   bootstrapAdmin,

@@ -490,7 +490,7 @@ export default function IssueDetailsScreen({ navigation, route }) {
             <Text style={styles.errorIllustrationText}>!</Text>
           </View>
 
-          <Text style={styles.errorTitle}>We couldn't load this</Text>
+          <Text style={styles.errorTitle}>We could not load this</Text>
           <Text style={styles.errorSubtitle}>
             {error || 'The requested complaint could not be found.'}
           </Text>

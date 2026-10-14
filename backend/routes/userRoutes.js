@@ -7,6 +7,8 @@ const {
   getCurrentUser,
   createOrUpdateProfile,
   savePushToken,
+  clearPushToken,
+  sendTestPush,
   addTeacher,
   deleteTeacher,
   bootstrapAdmin,
@@ -44,6 +46,19 @@ router.post(
   '/push-token',
   authenticateUser,
   savePushToken
+);
+
+router.post(
+  '/push-token/clear',
+  authenticateUser,
+  clearPushToken
+);
+
+router.post(
+  '/push-token/test',
+  authenticateUser,
+  requireRole('college_admin', 'principal'),
+  sendTestPush
 );
 
 // ==========================================

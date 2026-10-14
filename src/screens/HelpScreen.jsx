@@ -86,7 +86,7 @@ export default function HelpScreen({ navigation }) {
           </Text>
 
           <Text style={styles.headerSubtitle}>
-            We're here to help you
+            We are here to help you
           </Text>
         </View>
       </View>

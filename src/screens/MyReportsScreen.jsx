@@ -1,7 +1,6 @@
 
 import React, {
   useCallback,
-  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -162,18 +161,12 @@ const getPriorityConfig = (priority) => {
 
 export default function MyReportsScreen({ navigation, route }) {
   const [reports, setReports] = useState([]);
-  const [activeFilter, setActiveFilter] = useState(
+  const [activeFilter, setActiveFilter] = useState(() =>
     normalizeNavigationFilter(route?.params?.filter)
   );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    setActiveFilter(
-      normalizeNavigationFilter(route?.params?.filter)
-    );
-  }, [route?.params?.filter]);
 
   const fetchMyReports = useCallback(async (showLoader = true) => {
     try {
@@ -432,7 +425,7 @@ export default function MyReportsScreen({ navigation, route }) {
 
         <Text style={styles.emptySubtitle}>
           {isFiltered
-            ? `You don't have any ${activeFilter.toLowerCase()} complaints right now. Try another filter to see your other reports.`
+            ? `You do not have any ${activeFilter.toLowerCase()} complaints right now. Try another filter to see your other reports.`
             : "You haven't submitted any complaints yet. Report a campus issue and follow its progress here."}
         </Text>
 
@@ -543,7 +536,7 @@ export default function MyReportsScreen({ navigation, route }) {
 
           <Text style={styles.heroTitle}>Your voice matters.</Text>
           <Text style={styles.heroSubtitle}>
-            Keep track of the campus issues you've reported and see
+            Keep track of the campus issues you have reported and see
             their latest recorded progress.
           </Text>
 
@@ -706,7 +699,7 @@ export default function MyReportsScreen({ navigation, route }) {
             </View>
 
             <Text style={styles.stateTitle}>
-              Couldn't load your reports
+              Could not load your reports
             </Text>
 
             <Text style={styles.stateSubtitle}>{error}</Text>

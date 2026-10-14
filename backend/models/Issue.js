@@ -32,6 +32,12 @@ const issueSchema = new mongoose.Schema(
       trim: true,
     },
 
+    department: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
     // Existing location field — kept for backward compatibility
     location: {
       type: String,

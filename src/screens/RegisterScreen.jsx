@@ -50,13 +50,8 @@ export default function RegisterScreen({ navigation }) {
   const [focusedField, setFocusedField] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const pageAnim = useRef(
-    new Animated.Value(0),
-  ).current;
-
-  const formAnim = useRef(
-    new Animated.Value(0),
-  ).current;
+  const [pageAnim] = useState(() => new Animated.Value(0));
+  const [formAnim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const animation = Animated.stagger(120, [

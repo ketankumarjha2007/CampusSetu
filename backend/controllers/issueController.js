@@ -1,11 +1,14 @@
 const Issue = require('../models/Issue');
+const User = require('../models/User');
 const cloudinary = require('../config/cloudinary');
 const { Readable } = require('stream');
-
 const {
+  createInAppNotification,
   sendPushNotification,
 } = require('../services/notificationService');
 const brevoService = require('../services/brevoService');
+
+const ALLOWED_BUILDINGS = ['SJB', 'CV Raman', 'BSN Block'];
 
 /*
  * ==========================================
@@ -117,6 +120,22 @@ const cleanOptionalText = (value) => {
   }
 
   return String(value).trim();
+};
+
+const getActiveTeachersInDepartment = async (department) => {
+  const normalizedDepartment = normalizeText(department);
+  if (!normalizedDepartment) return [];
+
+  const teachers = await User.find({
+    role: 'teacher',
+    isActive: true,
+    department: { $type: 'string', $ne: '' },
+  }).select('_id department pushToken');
+
+  return teachers.filter(
+    (teacher) =>
+      normalizeText(teacher.department) === normalizedDepartment
+  );
 };
 
 /*
@@ -348,10 +367,11 @@ const findDuplicateComplaint = async ({
  * - JSON without a photo
  * - multipart/form-data with a photo
  *
- * New optional fields:
+ * New fields:
  * - building
  * - floor
  * - roomNumber
+ * - department
  */
 
 const createIssue = async (req, res) => {
@@ -364,14 +384,13 @@ const createIssue = async (req, res) => {
       building,
       floor,
       roomNumber,
+      department,
       photoUrl,
       priority,
     } = req.body;
 
     /*
-     * Validate required fields.
-     * Structured location fields remain optional
-     * for compatibility with existing clients.
+     * Validate the required complaint details.
      */
     if (
       !title ||
@@ -397,6 +416,35 @@ const createIssue = async (req, res) => {
     const cleanBuilding = cleanOptionalText(building);
     const cleanFloor = cleanOptionalText(floor);
     const cleanRoomNumber = cleanOptionalText(roomNumber);
+    const requestedDepartment = cleanOptionalText(department);
+
+    if (!ALLOWED_BUILDINGS.includes(cleanBuilding)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Choose a valid campus building',
+      });
+    }
+
+    if (!requestedDepartment) {
+      return res.status(400).json({
+        success: false,
+        message: 'A destination department is required',
+      });
+    }
+
+    const departmentTeachers =
+      await getActiveTeachersInDepartment(requestedDepartment);
+
+    if (departmentTeachers.length === 0) {
+      return res.status(422).json({
+        success: false,
+        message: 'No active teachers are available in that department',
+      });
+    }
+
+    const cleanDepartment = cleanOptionalText(
+      departmentTeachers[0].department
+    );
 
     const cleanPriority = cleanOptionalText(priority)
       .toLowerCase() || 'medium';
@@ -513,6 +561,7 @@ const createIssue = async (req, res) => {
       title: cleanTitle,
       description: cleanDescription,
       category: cleanCategory,
+      department: cleanDepartment,
       location: cleanLocation,
 
       // New structured location fields.
@@ -548,6 +597,60 @@ const createIssue = async (req, res) => {
       );
 
     console.log(`Complaint created: ${complaintId}`);
+
+    const departmentNotification = {
+      title: `New complaint for ${cleanDepartment}`,
+      body: `${complaintId}: ${cleanTitle} · ${cleanBuilding}`,
+      type: 'new_complaint',
+      issueId: issue._id,
+      complaintId,
+    };
+
+    await Promise.all(
+      departmentTeachers.map(async (teacher) => {
+        const notification = await createInAppNotification({
+          recipientId: teacher._id,
+          ...departmentNotification,
+        });
+
+        if (!notification) {
+          console.error(
+            `Department notification could not be created for teacher ${teacher._id} (${complaintId})`
+          );
+        }
+
+        if (teacher.pushToken) {
+          sendPushNotification({
+            pushToken: teacher.pushToken,
+            title: departmentNotification.title,
+            body: departmentNotification.body,
+            data: {
+              type: 'new_complaint',
+              issueId: issue._id.toString(),
+              complaintId,
+              department: cleanDepartment,
+            },
+          })
+            .then((result) => {
+              if (!result.success) {
+                console.error(
+                  `Department push notification failed for teacher ${teacher._id} (${complaintId}): ${result.message}`
+                );
+              }
+            })
+            .catch((error) => {
+              console.error(
+                `Department push notification error for teacher ${teacher._id} (${complaintId}):`,
+                error.message
+              );
+            });
+        } else {
+          console.warn(
+            `No push token available for department teacher ${teacher._id} (${complaintId})`
+          );
+        }
+      })
+    );
 
     /*
      * ==========================================
@@ -705,11 +808,25 @@ const getIssueById = async (req, res) => {
       req.user.role === 'teacher' &&
       assignedTeacherId === currentUserId;
 
+    const isDepartmentTeacher =
+      req.user.role === 'teacher' &&
+      Boolean(
+        cleanOptionalText(req.user.department) &&
+          cleanOptionalText(issue.department)
+      ) &&
+      normalizeText(req.user.department) ===
+        normalizeText(issue.department);
+
     const isAuthorizedAdmin = ['college_admin', 'cluster_head', 'principal'].includes(
       req.user.role
     );
 
-    if (!isOwner && !isAssignedTeacher && !isAuthorizedAdmin) {
+    if (
+      !isOwner &&
+      !isAssignedTeacher &&
+      !isDepartmentTeacher &&
+      !isAuthorizedAdmin
+    ) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to view this complaint',
@@ -927,6 +1044,163 @@ const getTeacherAssignedIssues = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch assigned complaints',
+    });
+  }
+};
+
+const getTeacherWorkspaceIssues = async (req, res) => {
+  try {
+    const department = cleanOptionalText(req.user.department);
+    const departmentTeachers = await getActiveTeachersInDepartment(
+      department
+    );
+    const departmentNames = [
+      ...new Set(
+        departmentTeachers.map((teacher) =>
+          cleanOptionalText(teacher.department)
+        )
+      ),
+    ];
+    const issues = await Issue.find({
+      $or: [
+        { assignedTo: req.user._id },
+        ...(departmentNames.length > 0
+          ? [
+              {
+                department: { $in: departmentNames },
+              },
+            ]
+          : []),
+      ],
+    })
+      .populate('reportedBy', 'name email usn department')
+      .populate('assignedTo', 'name email role department')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: issues.length,
+      issues,
+    });
+  } catch (error) {
+    console.error('Get teacher workspace issues error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch department complaints',
+    });
+  }
+};
+
+const getIssueDepartments = async (_req, res) => {
+  try {
+    const departments = await User.distinct('department', {
+      role: 'teacher',
+      isActive: true,
+      department: { $type: 'string', $ne: '' },
+    });
+
+    const normalizedDepartments = new Map();
+    departments.forEach((department) => {
+      const cleanDepartment = cleanOptionalText(department);
+      const key = normalizeText(cleanDepartment);
+      if (key && !normalizedDepartments.has(key)) {
+        normalizedDepartments.set(key, cleanDepartment);
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      departments: [...normalizedDepartments.values()].sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    });
+  } catch (error) {
+    console.error('Get issue departments error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch available departments',
+    });
+  }
+};
+
+const claimIssue = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const department = cleanOptionalText(req.user.department);
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid complaint ID',
+      });
+    }
+    if (!department) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your teacher profile has no assigned department',
+      });
+    }
+
+    const departmentTeachers =
+      await getActiveTeachersInDepartment(department);
+    if (
+      !departmentTeachers.some(
+        (teacher) => String(teacher._id) === String(req.user._id)
+      )
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only active teachers may claim department complaints',
+      });
+    }
+
+    const departmentNames = [
+      ...new Set(
+        departmentTeachers.map((teacher) =>
+          cleanOptionalText(teacher.department)
+        )
+      ),
+    ];
+    const issue = await Issue.findOneAndUpdate(
+      {
+        _id: id,
+        assignedTo: null,
+        status: 'pending',
+        department: { $in: departmentNames },
+      },
+      {
+        $set: { assignedTo: req.user._id, status: 'assigned' },
+        $push: {
+          history: {
+            status: 'assigned',
+            note: 'Complaint claimed by department teacher',
+            changedBy: req.user._id,
+            changedAt: new Date(),
+          },
+        },
+      },
+      { new: true, runValidators: true }
+    )
+      .populate('reportedBy', 'name email role department usn')
+      .populate('assignedTo', 'name email role department');
+
+    if (!issue) {
+      return res.status(409).json({
+        success: false,
+        message:
+          'This complaint is already assigned, no longer pending, or outside your department',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Complaint assigned to you',
+      issue,
+    });
+  } catch (error) {
+    console.error('Claim issue error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to claim complaint',
     });
   }
 };
@@ -1271,9 +1545,9 @@ const updateIssueStatus = async (req, res) => {
     }
 
     /*
-     * ==========================================
+     * =========================================
      * UPLOAD RESOLUTION PROOF PHOTO
-     * ==========================================
+     * =========================================
      */
     let resolutionPhotoUrl = '';
 
@@ -1369,7 +1643,6 @@ const updateIssueStatus = async (req, res) => {
         const notifBody = updateNote
           ? `Your complaint ${issue.complaintId || ''} status changed to ${status.replace('_', ' ')}. Note: ${updateNote}`
           : `Your complaint ${issue.complaintId || ''} status is now ${status.replace('_', ' ')}.`;
-
         await createInAppNotification({
           recipientId: studentUser._id,
           title: notifTitle,
@@ -1378,7 +1651,6 @@ const updateIssueStatus = async (req, res) => {
           issueId: issue._id,
           complaintId: issue.complaintId || '',
         });
-
         if (studentUser.pushToken) {
           sendPushNotification({
             pushToken: studentUser.pushToken,
@@ -1390,7 +1662,18 @@ const updateIssueStatus = async (req, res) => {
               complaintId: issue.complaintId || '',
               status,
             },
-          }).catch((err) => console.log('Push error:', err.message));
+          }).then((result) => {
+            if (!result.success) {
+              console.error(
+                `Status push was not accepted for ${issue.complaintId || issue._id}:`,
+                result.message
+              );
+            }
+          });
+        } else {
+          console.warn(
+            `No push token saved for the reporting user on ${issue.complaintId || issue._id}.`
+          );
         }
       }
     }
@@ -1841,11 +2124,14 @@ const getAuditLogs = async (req, res) => {
 
 module.exports = {
   createIssue,
+  getIssueDepartments,
   getMyIssues,
   getIssueById,
   deleteIssue,
   trackIssueByComplaintId,
   getTeacherAssignedIssues,
+  getTeacherWorkspaceIssues,
+  claimIssue,
   getAllIssues,
   assignIssueToTeacher,
   updateIssueStatus,

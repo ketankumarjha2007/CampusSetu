@@ -9,12 +9,12 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import {
-  getAuth,
-  signOut,
-} from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 
 import { apiRequest } from '../services/api';
+import {
+  logoutAndClearPushToken,
+} from '../services/notificationService';
 import styles from './ProfileScreen.styles';
 
 export default function ProfileScreen({ navigation }) {
@@ -94,7 +94,7 @@ export default function ProfileScreen({ navigation }) {
             try {
               const auth = getAuth();
 
-              await signOut(auth);
+              await logoutAndClearPushToken(auth);
 
               navigation.reset({
                 index: 0,
@@ -146,7 +146,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         <Text style={styles.errorTitle}>
-          Couldn't load profile
+          Could not load profile
         </Text>
 
         <Text style={styles.errorText}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -20,12 +20,12 @@ export default function WelcomeScreen({ navigation }) {
   const isLargePhone = width >= 430;
   const isShortScreen = height < 700;
 
-  const logoAnim = useRef(new Animated.Value(0)).current;
-  const heroAnim = useRef(new Animated.Value(0)).current;
-  const visualAnim = useRef(new Animated.Value(0)).current;
-  const ctaAnim = useRef(new Animated.Value(0)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [logoAnim] = useState(() => new Animated.Value(0));
+  const [heroAnim] = useState(() => new Animated.Value(0));
+  const [visualAnim] = useState(() => new Animated.Value(0));
+  const [ctaAnim] = useState(() => new Animated.Value(0));
+  const [floatAnim] = useState(() => new Animated.Value(0));
+  const [pulseAnim] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     const entrance = Animated.stagger(120, [
@@ -41,15 +41,17 @@ export default function WelcomeScreen({ navigation }) {
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.timing(visualAnim, {
-        toValue: 1,
-        duration: 750,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
+
       Animated.timing(ctaAnim, {
         toValue: 1,
         duration: 550,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+
+      Animated.timing(visualAnim, {
+        toValue: 1,
+        duration: 750,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -250,6 +252,42 @@ export default function WelcomeScreen({ navigation }) {
           </View>
         </Animated.View>
 
+        {/* PRIMARY ACTION */}
+        <Animated.View
+          style={[
+            styles.ctaSection,
+            {
+              opacity: ctaAnim,
+              transform: [{ translateY: ctaTranslate }],
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.primaryButton}
+            activeOpacity={0.85}
+            onPress={openLogin}
+            accessibilityRole="button"
+            accessibilityLabel="Get started with CampusSetu"
+          >
+            <View style={styles.buttonCopy}>
+              <Text style={styles.buttonEyebrow}>YOUR CAMPUS JOURNEY</Text>
+              <Text style={styles.buttonTitle}>Let us get started</Text>
+            </View>
+
+            <View style={styles.buttonArrowCircle}>
+              <Text style={styles.buttonArrowText}>→</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.bottomMeta}>
+            <View style={styles.bottomMetaLine} />
+            <Text style={styles.bottomMetaText}>
+              BUILT AROUND YOUR CAMPUS
+            </Text>
+            <View style={styles.bottomMetaLine} />
+          </View>
+        </Animated.View>
+
         {/* PRODUCT SHOWCASE */}
         <Animated.View
           style={[
@@ -292,7 +330,7 @@ export default function WelcomeScreen({ navigation }) {
                     YOUR CAMPUS SPACE
                   </Text>
                   <Text style={styles.dashboardHeading}>
-                    Let's make things better.
+                    Let us make things better.
                   </Text>
                 </View>
               </View>
@@ -318,7 +356,7 @@ export default function WelcomeScreen({ navigation }) {
                   attention?
                 </Text>
                 <Text style={styles.featuredDescription}>
-                  Speak up. We'll help you get it moving.
+                  Speak up. We will help you get it moving.
                 </Text>
               </View>
 
@@ -440,41 +478,6 @@ export default function WelcomeScreen({ navigation }) {
           </Animated.View>
         </Animated.View>
 
-        {/* CTA */}
-        <Animated.View
-          style={[
-            styles.ctaSection,
-            {
-              opacity: ctaAnim,
-              transform: [{ translateY: ctaTranslate }],
-            },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.primaryButton}
-            activeOpacity={0.85}
-            onPress={openLogin}
-            accessibilityRole="button"
-            accessibilityLabel="Get started with CampusSetu"
-          >
-            <View style={styles.buttonCopy}>
-              <Text style={styles.buttonEyebrow}>YOUR CAMPUS JOURNEY</Text>
-              <Text style={styles.buttonTitle}>Let's get started</Text>
-            </View>
-
-            <View style={styles.buttonArrowCircle}>
-              <Text style={styles.buttonArrowText}>→</Text>
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.bottomMeta}>
-            <View style={styles.bottomMetaLine} />
-            <Text style={styles.bottomMetaText}>
-              BUILT AROUND YOUR CAMPUS
-            </Text>
-            <View style={styles.bottomMetaLine} />
-          </View>
-        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );

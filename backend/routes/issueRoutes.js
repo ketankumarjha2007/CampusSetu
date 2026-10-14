@@ -6,11 +6,14 @@ const requireRole = require('../middleware/requireRole');
 
 const {
   createIssue,
+  getIssueDepartments,
   getMyIssues,
   getIssueById,
   deleteIssue,
   trackIssueByComplaintId,
   getTeacherAssignedIssues,
+  getTeacherWorkspaceIssues,
+  claimIssue,
   getAllIssues,
   getActiveTeachers,
   assignIssueToTeacher,
@@ -52,6 +55,14 @@ router.post(
   createIssue
 );
 
+// Departments accepting student complaints
+router.get(
+  '/departments',
+  authenticateUser,
+  requireRole('student'),
+  getIssueDepartments
+);
+
 // Get complaints submitted by the logged-in student
 router.get(
   '/my',
@@ -65,6 +76,20 @@ router.get(
   authenticateUser,
   requireRole('teacher'),
   getTeacherAssignedIssues
+);
+
+router.get(
+  '/teacher/workspace',
+  authenticateUser,
+  requireRole('teacher'),
+  getTeacherWorkspaceIssues
+);
+
+router.post(
+  '/:id/claim',
+  authenticateUser,
+  requireRole('teacher'),
+  claimIssue
 );
 
 // Track complaint by complaint ID
