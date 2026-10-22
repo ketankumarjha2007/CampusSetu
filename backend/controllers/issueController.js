@@ -7,6 +7,7 @@ const {
   sendPushNotification,
 } = require('../services/notificationService');
 const brevoService = require('../services/brevoService');
+const whatsappService = require('../services/whatsappService');
 
 const ALLOWED_BUILDINGS = ['SJB', 'CV Raman', 'BSN Block'];
 
@@ -130,7 +131,7 @@ const getActiveStaffInDepartment = async (department) => {
     role: { $in: ['staff', 'teacher'] },
     isActive: { $ne: false },
     department: { $type: 'string', $ne: '' },
-  }).select('_id name email department pushToken');
+  }).select('_id name email phone department pushToken');
 
   return staff.filter((member) => {
     const memberNorm = normalizeText(member.department);
@@ -724,6 +725,25 @@ const createIssue = async (req, res) => {
         console.error('Brevo department staff email error on create:', err.message)
       );
 
+    // Automated WhatsApp notifications
+    whatsappService
+      .sendComplaintCreatedReporterWhatsApp({
+        recipient: req.user,
+        issue: populatedIssue,
+      })
+      .catch((err) =>
+        console.error('WhatsApp reporter error on create:', err.message)
+      );
+
+    whatsappService
+      .sendComplaintCreatedDepartmentStaffWhatsApp({
+        staffMembers: departmentTeachers,
+        issue: populatedIssue,
+      })
+      .catch((err) =>
+        console.error('WhatsApp department staff error on create:', err.message)
+      );
+
     return res.status(201).json({
       success: true,
       message: 'Issue reported successfully',
@@ -810,8 +830,8 @@ const getIssueById = async (req, res) => {
     }
 
     let issue = await Issue.findById(id)
-      .populate('reportedBy', 'name email role department usn')
-      .populate('assignedTo', 'name email role department')
+      .populate('reportedBy', 'name email role department usn phone')
+      .populate('assignedTo', 'name email role department phone')
       .populate('history.changedBy', 'name email role');
 
     if (!issue) {
@@ -864,8 +884,8 @@ const getIssueById = async (req, res) => {
       issue = await ensureComplaintId(issue);
 
       issue = await Issue.findById(id)
-        .populate('reportedBy', 'name email role department usn')
-        .populate('assignedTo', 'name email role department')
+        .populate('reportedBy', 'name email role department usn phone')
+        .populate('assignedTo', 'name email role department phone')
         .populate('history.changedBy', 'name email role');
     }
 
@@ -1100,8 +1120,8 @@ const getTeacherWorkspaceIssues = async (req, res) => {
           : []),
       ],
     })
-      .populate('reportedBy', 'name email usn department')
-      .populate('assignedTo', 'name email role department')
+      .populate('reportedBy', 'name email usn department phone')
+      .populate('assignedTo', 'name email role department phone')
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -1207,8 +1227,8 @@ const claimIssue = async (req, res) => {
       },
       { new: true, runValidators: true }
     )
-      .populate('reportedBy', 'name email role department usn')
-      .populate('assignedTo', 'name email role department');
+      .populate('reportedBy', 'name email role department usn phone')
+      .populate('assignedTo', 'name email role department phone');
 
     if (!issue) {
       return res.status(409).json({
@@ -1228,6 +1248,16 @@ const claimIssue = async (req, res) => {
         })
         .catch((err) =>
           console.error('Brevo reporter email error on claim:', err.message)
+        );
+
+      whatsappService
+        .sendComplaintAssignedReporterWhatsApp({
+          recipient: issue.reportedBy,
+          staffMember: issue.assignedTo || req.user,
+          issue,
+        })
+        .catch((err) =>
+          console.error('WhatsApp reporter error on claim:', err.message)
         );
     }
 
@@ -1255,8 +1285,8 @@ const claimIssue = async (req, res) => {
 const getAllIssues = async (req, res) => {
   try {
     const issues = await Issue.find({})
-      .populate('reportedBy', 'name email usn department')
-      .populate('assignedTo', 'name email role department')
+      .populate('reportedBy', 'name email usn department phone')
+      .populate('assignedTo', 'name email role department phone')
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -1332,8 +1362,8 @@ const assignIssueToTeacher = async (req, res) => {
     await issue.save();
 
     const updatedIssue = await Issue.findById(issue._id)
-      .populate('reportedBy', 'name email usn department')
-      .populate('assignedTo', 'name email role department')
+      .populate('reportedBy', 'name email usn department phone')
+      .populate('assignedTo', 'name email role department phone')
       .populate('history.changedBy', 'name email role');
 
     const assignmentEmail = await brevoService.sendTaskAssignedEmail({
@@ -1426,6 +1456,16 @@ const assignIssueToTeacher = async (req, res) => {
         })
         .catch((err) =>
           console.error('Brevo reporter email error on assign:', err.message)
+        );
+
+      whatsappService
+        .sendComplaintAssignedReporterWhatsApp({
+          recipient: updatedIssue.reportedBy,
+          staffMember: teacher,
+          issue: updatedIssue,
+        })
+        .catch((err) =>
+          console.error('WhatsApp reporter error on assign:', err.message)
         );
     }
 
@@ -1750,8 +1790,8 @@ const updateIssueStatus = async (req, res) => {
     }
 
     const updatedIssue = await Issue.findById(issue._id)
-      .populate('reportedBy', 'name email role department usn')
-      .populate('assignedTo', 'name email role department')
+      .populate('reportedBy', 'name email role department usn phone')
+      .populate('assignedTo', 'name email role department phone')
       .populate('history.changedBy', 'name email role');
 
     // Dispatch automated status update email to the reporter
@@ -1767,6 +1807,17 @@ const updateIssueStatus = async (req, res) => {
         })
         .catch((err) =>
           console.error('Brevo status update email error:', err.message)
+        );
+
+      whatsappService
+        .sendComplaintStatusUpdateReporterWhatsApp({
+          recipient: updatedIssue.reportedBy,
+          issue: updatedIssue,
+          status,
+          note: updateNote,
+        })
+        .catch((err) =>
+          console.error('WhatsApp status update error:', err.message)
         );
     }
 
@@ -1894,10 +1945,10 @@ const reopenIssue = async (req, res) => {
     let issue = null;
     const mongoose = require('mongoose');
     if (mongoose.Types.ObjectId.isValid(id)) {
-      issue = await Issue.findById(id).populate('reportedBy', 'name email role');
+      issue = await Issue.findById(id).populate('reportedBy', 'name email role phone');
     }
     if (!issue) {
-      issue = await Issue.findOne({ complaintId: id }).populate('reportedBy', 'name email role');
+      issue = await Issue.findOne({ complaintId: id }).populate('reportedBy', 'name email role phone');
     }
 
     if (!issue) {
@@ -1979,8 +2030,8 @@ const reopenIssue = async (req, res) => {
     }
 
     const updatedIssue = await Issue.findById(issue._id)
-      .populate('reportedBy', 'name email role department usn')
-      .populate('assignedTo', 'name email role department')
+      .populate('reportedBy', 'name email role department usn phone')
+      .populate('assignedTo', 'name email role department phone')
       .populate('history.changedBy', 'name email role');
 
     // Dispatch email notifications for reopened issue
@@ -1994,6 +2045,18 @@ const reopenIssue = async (req, res) => {
       .catch((err) =>
         console.error('Brevo reopen email error:', err.message)
       );
+
+    if (updatedIssue.assignedTo) {
+      whatsappService
+        .sendComplaintReopenedStaffWhatsApp({
+          staffMember: updatedIssue.assignedTo,
+          issue: updatedIssue,
+          reason: finalReason,
+        })
+        .catch((err) =>
+          console.error('WhatsApp reopen error:', err.message)
+        );
+    }
 
     return res.status(200).json({
       success: true,
@@ -2044,8 +2107,8 @@ const escalateIssue = async (req, res) => {
     });
 
     const updatedIssue = await Issue.findById(issue._id)
-      .populate('reportedBy', 'name email role department usn')
-      .populate('assignedTo', 'name email role department')
+      .populate('reportedBy', 'name email role department usn phone')
+      .populate('assignedTo', 'name email role department phone')
       .populate('history.changedBy', 'name email role');
 
     // Dispatch escalation email to reporter
@@ -2059,6 +2122,18 @@ const escalateIssue = async (req, res) => {
       .catch((err) =>
         console.error('Brevo escalate email error:', err.message)
       );
+
+    if (updatedIssue.reportedBy) {
+      whatsappService
+        .sendComplaintEscalatedWhatsApp({
+          recipient: updatedIssue.reportedBy,
+          issue: updatedIssue,
+          priority: 'high',
+        })
+        .catch((err) =>
+          console.error('WhatsApp escalate error:', err.message)
+        );
+    }
 
     return res.status(200).json({
       success: true,
@@ -2145,6 +2220,16 @@ const requestAdditionalInfo = async (req, res) => {
         })
         .catch((err) =>
           console.error('Brevo info requested email error:', err.message)
+        );
+
+      whatsappService
+        .sendInfoRequestedWhatsApp({
+          recipient: studentUser,
+          issue,
+          prompt: prompt.trim(),
+        })
+        .catch((err) =>
+          console.error('WhatsApp info requested error:', err.message)
         );
     }
 
