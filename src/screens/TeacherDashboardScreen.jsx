@@ -847,7 +847,19 @@ export default function TeacherDashboardScreen({ navigation }) {
               accessibilityRole="button"
               accessibilityLabel="View my reported complaints"
             >
-              <Text style={{ fontSize: 16, marginRight: 8 }}>📋</Text>
+              <View
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 7,
+                  backgroundColor: '#F1F5F9',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 9,
+                }}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#334155' }}>DOC</Text>
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: '#15233B', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
                   My Reports
@@ -873,7 +885,19 @@ export default function TeacherDashboardScreen({ navigation }) {
               accessibilityRole="button"
               accessibilityLabel="Download executive PDF reports"
             >
-              <Text style={{ fontSize: 16, marginRight: 8 }}>📊</Text>
+              <View
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 7,
+                  backgroundColor: '#E6FFFA',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 9,
+                }}
+              >
+                <Text style={{ fontSize: 10, fontWeight: '900', color: '#0D806A' }}>PDF</Text>
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: '#15233B', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
                   PDF Reports

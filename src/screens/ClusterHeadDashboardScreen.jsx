@@ -34,12 +34,12 @@ import styles from './ClusterHeadDashboardScreen.styles';
 /* ----------------------------- CONSTANTS ----------------------------- */
 
 const FILTERS = [
-  { label: 'All', value: 'all', icon: '📚' },
-  { label: 'Escalated', value: 'escalated', icon: '🚨' },
-  { label: 'Pending', value: 'pending', icon: '⏳' },
-  { label: 'Assigned', value: 'assigned', icon: '👤' },
-  { label: 'In Progress', value: 'in_progress', icon: '⚙️' },
-  { label: 'Resolved', value: 'resolved', icon: '✅' },
+  { label: 'All', value: 'all' },
+  { label: 'Escalated', value: 'escalated' },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Assigned', value: 'assigned' },
+  { label: 'In Progress', value: 'in_progress' },
+  { label: 'Resolved', value: 'resolved' },
 ];
 
 const SORTS = [
@@ -181,7 +181,7 @@ const ComplaintCard = memo(function ComplaintCard({
         <View style={styles.cardBadgesRight}>
           {critical ? (
             <View style={styles.criticalBadge}>
-              <Text style={styles.criticalBadgeText}>🚨 ESCALATED</Text>
+              <Text style={styles.criticalBadgeText}>ESCALATED</Text>
             </View>
           ) : (
             <View style={[styles.priorityBadge, { backgroundColor: priority.bg }]}>
@@ -210,7 +210,6 @@ const ComplaintCard = memo(function ComplaintCard({
         {issue.building || issue.roomNumber ? (
           <View style={styles.metaChip}>
             <Text style={styles.metaChipText} numberOfLines={1}>
-              📍{' '}
               {[issue.building, issue.roomNumber && `Room ${issue.roomNumber}`]
                 .filter(Boolean)
                 .join(' • ')}
@@ -219,25 +218,25 @@ const ComplaintCard = memo(function ComplaintCard({
         ) : null}
         {issue.category ? (
           <View style={styles.metaChip}>
-            <Text style={styles.metaChipText}>🏷️ {issue.category}</Text>
+            <Text style={styles.metaChipText}>{issue.category}</Text>
           </View>
         ) : null}
         {issue.department ? (
           <View style={styles.metaChip}>
-            <Text style={styles.metaChipText}>📨 To: {issue.department}</Text>
+            <Text style={styles.metaChipText}>Dept: {issue.department}</Text>
           </View>
         ) : null}
         {issue.reportedBy?.name ? (
           <View style={styles.metaChip}>
             <Text style={styles.metaChipText} numberOfLines={1}>
-              👤 {issue.reportedBy.name}
+              By: {issue.reportedBy.name}
               {issue.reportedBy.department ? ` (${issue.reportedBy.department})` : ''}
             </Text>
           </View>
         ) : null}
         <View style={[styles.metaChip, overdue && styles.metaChipOverdue]}>
           <Text style={[styles.metaChipText, overdue && styles.metaChipOverdueText]}>
-            {overdue ? '⚠️ Overdue • ' : '🕒 '}
+            {overdue ? 'OVERDUE • ' : ''}
             {timeAgo(issue.createdAt, now)}
           </Text>
         </View>
@@ -294,7 +293,7 @@ const ComplaintCard = memo(function ComplaintCard({
                 resizeMode="cover"
               />
               <View style={[styles.photoBadge, styles.photoBadgeProof]}>
-                <Text style={styles.photoBadgeText}>✓ Proof</Text>
+                <Text style={styles.photoBadgeText}>Verified Proof</Text>
               </View>
             </TouchableOpacity>
           ) : null}
@@ -304,7 +303,7 @@ const ComplaintCard = memo(function ComplaintCard({
       <View style={styles.cardActions}>
         <TouchableOpacity style={styles.btnReassign} onPress={() => onAssign(issue)} activeOpacity={0.82}>
           <Text style={styles.btnReassignText}>
-            {issue.assignedTo ? '↻ Reassign' : '＋ Assign Faculty'}
+            {issue.assignedTo ? 'Reassign Staff' : 'Assign Staff'}
           </Text>
         </TouchableOpacity>
 
@@ -318,13 +317,13 @@ const ComplaintCard = memo(function ComplaintCard({
             {busy ? (
               <ActivityIndicator size="small" color="#DC2626" />
             ) : (
-              <Text style={styles.btnEscalateText}>🚨 Escalate</Text>
+              <Text style={styles.btnEscalateText}>Escalate Priority</Text>
             )}
           </TouchableOpacity>
         ) : null}
 
         <TouchableOpacity style={styles.btnReview} onPress={() => onReview(issue)} activeOpacity={0.82}>
-          <Text style={styles.btnReviewText}>Case Review →</Text>
+          <Text style={styles.btnReviewText}>Review Case →</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -678,10 +677,10 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
   };
 
   const kpiTiles = [
-    { key: 'escalated', icon: '🚨', label: 'Escalated / Critical', value: stats.escalated, color: '#DC2626', bg: '#FEE2E2', tag: stats.escalated > 0 ? 'URGENT' : null },
-    { key: 'pending', icon: '⏳', label: 'Pending Triage', value: stats.pending, color: '#D97706', bg: '#FEF3C7', tag: stats.unassigned > 0 ? `${stats.unassigned} UNASSIGNED` : null },
-    { key: 'in_progress', icon: '⚙️', label: 'In Active Progress', value: stats.inProgress, color: '#2563EB', bg: '#DBEAFE', tag: null },
-    { key: 'resolved', icon: '✅', label: 'Closed / Resolved', value: stats.resolved, color: '#059669', bg: '#DCFCE7', tag: null },
+    { key: 'escalated', label: 'Escalated / Critical', value: stats.escalated, color: '#DC2626', bg: '#FEE2E2', tag: stats.escalated > 0 ? 'URGENT' : null },
+    { key: 'pending', label: 'Pending Triage', value: stats.pending, color: '#D97706', bg: '#FEF3C7', tag: stats.unassigned > 0 ? `${stats.unassigned} UNASSIGNED` : null },
+    { key: 'in_progress', label: 'In Active Progress', value: stats.inProgress, color: '#2563EB', bg: '#DBEAFE', tag: null },
+    { key: 'resolved', label: 'Closed / Resolved', value: stats.resolved, color: '#059669', bg: '#DCFCE7', tag: null },
   ];
 
   const sheetStyle = [
@@ -765,8 +764,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
 
             <View style={styles.heroActionRow}>
               <View style={styles.roleBadge}>
-                <Text style={styles.roleIcon}>✦</Text>
-                <Text style={styles.roleBadgeText}>Cluster Leadership</Text>
+                <Text style={styles.roleBadgeText}>Cluster Operations Leadership</Text>
               </View>
 
               <View style={styles.avatarGroup}>
@@ -780,7 +778,6 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                   accessibilityRole="button"
                 >
                   <Text style={styles.signOutBtnText}>Sign Out</Text>
-                  <Text style={styles.signOutArrow}>↗</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -849,7 +846,19 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                 accessibilityRole="button"
                 accessibilityLabel="View my reported complaints"
               >
-                <Text style={{ fontSize: 16, marginRight: 8 }}>📋</Text>
+                <View
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    backgroundColor: '#F1F5F9',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 9,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#334155' }}>DOC</Text>
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#15233B', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
                     My Reports
@@ -875,7 +884,19 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                 accessibilityRole="button"
                 accessibilityLabel="Open leadership PDF reports"
               >
-                <Text style={{ fontSize: 16, marginRight: 8 }}>📊</Text>
+                <View
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    backgroundColor: 'rgba(15, 118, 110, 0.15)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 9,
+                  }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: '900', color: '#0F766E' }}>PDF</Text>
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#0F766E', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
                     PDF Reports
@@ -930,7 +951,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                   stats.escalated === 0 && styles.progressNormal,
                 ]}
               >
-                {stats.escalated > 0 ? `🚨 ${stats.escalated} Escalated` : '✓ All Normal'}
+                {stats.escalated > 0 ? `${stats.escalated} Escalated (High Priority)` : 'All Backlog Normal'}
               </Text>
             </View>
           </View>
@@ -957,7 +978,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
               >
                 <View style={styles.kpiTileTop}>
                   <View style={[styles.kpiIconBox, { backgroundColor: tile.bg }]}>
-                    <Text style={styles.kpiIconText}>{tile.icon}</Text>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tile.color }} />
                   </View>
                   {tile.tag ? (
                     <View style={[styles.kpiTag, { backgroundColor: tile.bg }]}>
@@ -1026,7 +1047,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                       <View style={styles.workloadFoot}>
                         <View style={[styles.workloadBadge, busy && styles.workloadBadgeBusy]}>
                           <Text style={[styles.workloadBadgeText, busy && styles.workloadBadgeTextBusy]}>
-                            {count === 0 ? '✓ Available' : `${count} active`}
+                            {count === 0 ? 'Available' : `${count} Active`}
                           </Text>
                         </View>
                         <Text style={styles.workloadCap}>{count}/{WORKLOAD_CAPACITY}</Text>
@@ -1040,7 +1061,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
 
           {/* ======================= SEARCH ======================= */}
           <View style={styles.searchBox}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <Text style={styles.searchIcon}>⌕</Text>
             <TextInput
               style={styles.searchInput}
               placeholder="Search ID, title, student..."
@@ -1082,7 +1103,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                   accessibilityState={{ selected: active }}
                 >
                   <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
-                    {item.icon} {item.label}
+                    {item.label}
                   </Text>
                   <View style={[styles.filterCountBadge, active && styles.filterCountBadgeActive]}>
                     <Text style={[styles.filterCountText, active && styles.filterCountTextActive]}>
@@ -1134,7 +1155,19 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
             </View>
           ) : error && issues.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>⚠️</Text>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: '#FEF2F2',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 10,
+                }}
+              >
+                <Text style={{ color: '#DC2626', fontWeight: '900', fontSize: 18 }}>!</Text>
+              </View>
               <Text style={styles.emptyTitle}>Unable to load records</Text>
               <Text style={styles.emptyDesc}>{error}</Text>
               <TouchableOpacity style={styles.retryButton} onPress={() => loadData(true)}>
@@ -1143,7 +1176,19 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
             </View>
           ) : filteredIssues.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>📋</Text>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: '#F1F5F9',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 10,
+                }}
+              >
+                <Text style={{ color: '#64748B', fontWeight: '900', fontSize: 16 }}>—</Text>
+              </View>
               <Text style={styles.emptyTitle}>No Records Found</Text>
               <Text style={styles.emptyDesc}>No complaints match your current search or filter.</Text>
               {hasActiveFilters ? (
@@ -1272,7 +1317,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                           <Text
                             style={[styles.facultyWorkload, count > 3 && styles.facultyWorkloadBusy]}
                           >
-                            {count === 0 ? '✓ Available' : `${count} active tickets`}
+                            {count === 0 ? 'Available' : `${count} active tickets`}
                           </Text>
                         </View>
 

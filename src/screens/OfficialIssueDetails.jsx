@@ -21,6 +21,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { apiRequest, getCurrentUser } from '../services/api';
 import styles from './OfficialIssueDetails.styles';
 
+const REJECTION_REASONS = [
+  'Duplicate complaint submission',
+  'Outside college jurisdiction / private premises',
+  'Incorrect / non-existent room or location',
+  'Spam or invalid submission',
+  'Maintenance scheduled under separate project',
+];
+
 const STATUS = {
   pending: { label: 'Pending', color: '#9A6700', bg: '#FFF4D6' },
   assigned: { label: 'Assigned', color: '#2859B8', bg: '#E8F0FF' },
@@ -81,6 +89,9 @@ export default function OfficialIssueDetails({ navigation, route }) {
 
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [infoPrompt, setInfoPrompt] = useState('');
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [submittingReject, setSubmittingReject] = useState(false);
   const [requestingInfo, setRequestingInfo] = useState(false);
 
   // Reassignment for Principal / Cluster Head
@@ -374,6 +385,48 @@ export default function OfficialIssueDetails({ navigation, route }) {
     }
   };
 
+    const handleRejectSubmit = async () => {
+    const trimmedReason = rejectReason.trim();
+    if (!trimmedReason) {
+      Alert.alert(
+        'Rejection Reason Required',
+        'Please provide an official explanation for rejecting this complaint.'
+      );
+      return;
+    }
+
+    try {
+      setSubmittingReject(true);
+      const res = await apiRequest(`/issues/${issue._id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: 'rejected',
+          resolutionNote: trimmedReason,
+        }),
+      });
+
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to reject complaint');
+      }
+
+      setRejectModalOpen(false);
+      setRejectReason('');
+      Alert.alert(
+        'Complaint Rejected',
+        'The complaint has been marked as rejected and an official email notification has been dispatched to the student.'
+      );
+      fetchIssue(false);
+    } catch (err) {
+      console.error('Error rejecting complaint:', err);
+      Alert.alert(
+        'Action Failed',
+        err.message || 'Could not reject this complaint. Please try again.'
+      );
+    } finally {
+      setSubmittingReject(false);
+    }
+  };
+
   const handleRequestInfo = async () => {
     if (!issue || requestingInfo) return;
 
@@ -452,7 +505,109 @@ export default function OfficialIssueDetails({ navigation, route }) {
             Fetching the latest information…
           </Text>
         </View>
-      </SafeAreaView>
+  
+      {/* Official Complaint Rejection Modal */}
+      <Modal
+        visible={rejectModalOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => {
+          if (!submittingReject) setRejectModalOpen(false);
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalCard}>
+            <View style={styles.modalHandle} />
+
+            <Text style={{
+              fontSize: 10,
+              fontWeight: '900',
+              letterSpacing: 1.2,
+              color: '#DC2626',
+              marginBottom: 4,
+            }}>
+              OFFICIAL DECISION
+            </Text>
+
+            <Text style={styles.modalTitle}>
+              Reject Complaint
+            </Text>
+
+            <Text style={styles.modalDescription}>
+              Please select or enter the official rationale for rejection. This will be recorded in the audit trail and emailed to the student.
+            </Text>
+
+            <View style={styles.rejectChipsWrap}>
+              {REJECTION_REASONS.map((r) => {
+                const isSelected = rejectReason === r;
+                return (
+                  <TouchableOpacity
+                    key={r}
+                    style={[styles.rejectChip, isSelected && styles.rejectChipActive]}
+                    onPress={() => setRejectReason(r)}
+                  >
+                    <Text style={[styles.rejectChipText, isSelected && styles.rejectChipTextActive]}>
+                      {r}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter official reason for rejection…"
+              placeholderTextColor="#94A3A0"
+              value={rejectReason}
+              onChangeText={setRejectReason}
+              multiline
+              maxLength={600}
+              editable={!submittingReject}
+            />
+
+            <Text style={styles.characterCount}>
+              {rejectReason.length}/600
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => {
+                  setRejectModalOpen(false);
+                  setRejectReason('');
+                }}
+                disabled={submittingReject}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalRejectButton,
+                  (!rejectReason.trim() || submittingReject) && styles.disabledButton,
+                ]}
+                onPress={handleRejectSubmit}
+                disabled={!rejectReason.trim() || submittingReject}
+              >
+                {submittingReject ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>
+                    Confirm Rejection
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+    </SafeAreaView>
     );
   }
 
@@ -534,6 +689,16 @@ export default function OfficialIssueDetails({ navigation, route }) {
   const issueDepartment = String(issue.department || '')
     .trim()
     .toLocaleLowerCase();
+  const canRejectIssue = Boolean(
+    !isResolved &&
+    !isRejected &&
+    (
+      isAuthorizedAdministrator ||
+      isAssignedToCurrentUser ||
+      (isTeacher && currentDepartment && issueDepartment && currentDepartment === issueDepartment)
+    )
+  );
+
   const canClaimIssue = Boolean(
     isTeacher &&
       currentDepartment &&
@@ -778,7 +943,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
                 activeOpacity={0.8}
               >
                 <Text style={{ fontSize: 12, fontWeight: '800', color: '#1E293B' }}>
-                  {issue.assignedTo ? '🔄 Reassign' : '👤 Assign'}
+                  {issue.assignedTo ? 'Reassign' : 'Assign'}
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -1028,7 +1193,24 @@ export default function OfficialIssueDetails({ navigation, route }) {
               activeOpacity={0.85}
             >
               <Text style={styles.secondaryButtonText}>
-                ⓘ  Request more details from student
+                Request more details from student
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : canRejectIssue && !nextStatus && !canClaimIssue ? (
+          <View style={styles.actionCard}>
+            <Text style={styles.sectionKicker}>ADMINISTRATIVE ACTION</Text>
+            <Text style={styles.sectionTitle}>Official Review & Action</Text>
+            <Text style={styles.actionDescription}>
+              As an authorized official, you can dismiss or reject this complaint if it is duplicate, outside college scope, or invalid.
+            </Text>
+            <TouchableOpacity
+              style={styles.dangerOutlineButton}
+              onPress={() => setRejectModalOpen(true)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.dangerOutlineButtonText}>
+                Reject Complaint
               </Text>
             </TouchableOpacity>
           </View>

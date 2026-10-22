@@ -698,6 +698,25 @@ const createIssue = async (req, res) => {
       );
     }
 
+    // Automated email notifications to reporter and department staff
+    brevoService
+      .sendComplaintCreatedReporterEmail({
+        recipient: req.user,
+        issue: populatedIssue,
+      })
+      .catch((err) =>
+        console.error('Brevo reporter email error on create:', err.message)
+      );
+
+    brevoService
+      .sendComplaintCreatedDepartmentStaffEmail({
+        staffMembers: departmentTeachers,
+        issue: populatedIssue,
+      })
+      .catch((err) =>
+        console.error('Brevo department staff email error on create:', err.message)
+      );
+
     return res.status(201).json({
       success: true,
       message: 'Issue reported successfully',
@@ -1192,6 +1211,19 @@ const claimIssue = async (req, res) => {
       });
     }
 
+    // Notify reporter via email that complaint has been claimed by staff
+    if (issue.reportedBy) {
+      brevoService
+        .sendComplaintAssignedReporterEmail({
+          reporter: issue.reportedBy,
+          staff: issue.assignedTo || req.user,
+          issue,
+        })
+        .catch((err) =>
+          console.error('Brevo reporter email error on claim:', err.message)
+        );
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Complaint assigned to you',
@@ -1377,6 +1409,19 @@ const assignIssueToTeacher = async (req, res) => {
       }).catch((err) => console.log('Push error:', err.message));
     }
 
+    // Dispatch assignment email to reporter
+    if (updatedIssue.reportedBy) {
+      brevoService
+        .sendComplaintAssignedReporterEmail({
+          reporter: updatedIssue.reportedBy,
+          staff: teacher,
+          issue: updatedIssue,
+        })
+        .catch((err) =>
+          console.error('Brevo reporter email error on assign:', err.message)
+        );
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Complaint assigned successfully',
@@ -1484,27 +1529,36 @@ const updateIssueStatus = async (req, res) => {
 
     const isTeacher = ['staff', 'teacher'].includes(req.user.role);
 
-    // Staff can modify only their own assigned complaints.
+    // Staff can modify their assigned complaints, or reject invalid complaints in their department queue.
     if (isTeacher) {
-      if (String(issue.assignedTo || '') !== String(req.user._id)) {
+      const isAssigned = String(issue.assignedTo || '') === String(req.user._id);
+      const isDeptStaff = issue.department && req.user.department &&
+        String(issue.department).toLowerCase().trim() === String(req.user.department).toLowerCase().trim();
+
+      if (!isAssigned && !(status === 'rejected' && isDeptStaff)) {
         return res.status(403).json({
           success: false,
-          message: 'You can update only complaints assigned to you',
+          message: 'You can update only complaints assigned to you or in your department queue',
         });
       }
 
-      // Staff workflow: assigned -> in_progress -> resolved.
       const allowedTeacherTransition =
-        (issue.status === 'assigned' && status === 'in_progress') ||
-        (issue.status === 'in_progress' && status === 'resolved');
+        (status === 'rejected' && (isAssigned || isDeptStaff)) ||
+        (issue.status === 'assigned' && (status === 'in_progress' || status === 'rejected')) ||
+        (issue.status === 'in_progress' && (status === 'resolved' || status === 'rejected'));
 
       if (!allowedTeacherTransition) {
         return res.status(400).json({
           success: false,
           message:
-            'Staff can move assigned complaints to In Progress, ' +
-            'and In Progress complaints to Resolved.',
+            'Staff can move assigned complaints to In Progress or Resolved, ' +
+            'or reject invalid complaints with a mandatory note.',
         });
+      }
+
+      // If not yet assigned and being rejected by department staff, record who handled the rejection
+      if (!issue.assignedTo && status === 'rejected') {
+        issue.assignedTo = req.user._id;
       }
     }
 
@@ -1512,6 +1566,13 @@ const updateIssueStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Complaint already has this status',
+      });
+    }
+
+    if (status === 'rejected' && !updateNote) {
+      return res.status(400).json({
+        success: false,
+        message: 'A rejection reason is required to reject this complaint.',
       });
     }
 
@@ -1685,6 +1746,22 @@ const updateIssueStatus = async (req, res) => {
       .populate('reportedBy', 'name email role department usn')
       .populate('assignedTo', 'name email role department')
       .populate('history.changedBy', 'name email role');
+
+    // Dispatch automated status update email to the reporter
+    if (updatedIssue.reportedBy) {
+      brevoService
+        .sendComplaintStatusUpdateReporterEmail({
+          reporter: updatedIssue.reportedBy,
+          staff: updatedIssue.assignedTo || req.user,
+          issue: updatedIssue,
+          oldStatus: previousStatus,
+          newStatus: status,
+          resolutionNote: updateNote,
+        })
+        .catch((err) =>
+          console.error('Brevo status update email error:', err.message)
+        );
+    }
 
     return res.status(200).json({
       success: true,
@@ -1899,6 +1976,18 @@ const reopenIssue = async (req, res) => {
       .populate('assignedTo', 'name email role department')
       .populate('history.changedBy', 'name email role');
 
+    // Dispatch email notifications for reopened issue
+    brevoService
+      .sendComplaintReopenedEmail({
+        recipientStaff: updatedIssue.assignedTo,
+        reporter: updatedIssue.reportedBy,
+        issue: updatedIssue,
+        reason: finalReason,
+      })
+      .catch((err) =>
+        console.error('Brevo reopen email error:', err.message)
+      );
+
     return res.status(200).json({
       success: true,
       message: 'Complaint reopened successfully',
@@ -1951,6 +2040,18 @@ const escalateIssue = async (req, res) => {
       .populate('reportedBy', 'name email role department usn')
       .populate('assignedTo', 'name email role department')
       .populate('history.changedBy', 'name email role');
+
+    // Dispatch escalation email to reporter
+    brevoService
+      .sendComplaintEscalatedEmail({
+        reporter: updatedIssue.reportedBy,
+        issue: updatedIssue,
+        escalationLevel: issue.escalationLevel,
+        note,
+      })
+      .catch((err) =>
+        console.error('Brevo escalate email error:', err.message)
+      );
 
     return res.status(200).json({
       success: true,
@@ -2026,6 +2127,18 @@ const requestAdditionalInfo = async (req, res) => {
           },
         }).catch((err) => console.log('Push error:', err.message));
       }
+
+      // Dispatch automated email for requested information
+      brevoService
+        .sendInfoRequestedEmail({
+          reporter: studentUser,
+          staff: req.user,
+          issue,
+          prompt: prompt.trim(),
+        })
+        .catch((err) =>
+          console.error('Brevo info requested email error:', err.message)
+        );
     }
 
     return res.status(200).json({

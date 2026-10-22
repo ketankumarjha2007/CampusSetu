@@ -13,7 +13,7 @@ export default function HomeScreen() {
         <Text style={styles.badge}>CampusSetu</Text>
 
         <Text style={styles.title}>
-          Welcome to CampusSetu 👋
+          Welcome to CampusSetu
         </Text>
 
         <Text style={styles.subtitle}>

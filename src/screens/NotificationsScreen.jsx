@@ -29,7 +29,7 @@ const getNotificationData = (
   switch (status) {
     case 'pending':
       return {
-        icon: '📝',
+        icon: 'DOC',
         title: 'Complaint Submitted',
         message:
           `Your complaint ${issue.complaintId} was successfully submitted.`,
@@ -37,7 +37,7 @@ const getNotificationData = (
 
     case 'assigned':
       return {
-        icon: '👤',
+        icon: 'STAFF',
         title: 'Complaint Assigned',
         message:
           `Your complaint ${issue.complaintId} has been assigned to a campus official.`,
@@ -45,7 +45,7 @@ const getNotificationData = (
 
     case 'in_progress':
       return {
-        icon: '🔧',
+        icon: 'WIP',
         title: 'Complaint In Progress',
         message:
           `Work has started on your complaint ${issue.complaintId}.`,
@@ -53,7 +53,7 @@ const getNotificationData = (
 
     case 'resolved':
       return {
-        icon: '✅',
+        icon: 'DONE',
         title: 'Complaint Resolved',
         message:
           `Your complaint ${issue.complaintId} has been marked as resolved.`,
@@ -61,7 +61,7 @@ const getNotificationData = (
 
     case 'rejected':
       return {
-        icon: '❌',
+        icon: 'REJ',
         title: 'Complaint Rejected',
         message:
           `Your complaint ${issue.complaintId} has been rejected.`,
@@ -69,7 +69,7 @@ const getNotificationData = (
 
     default:
       return {
-        icon: '🔔',
+        icon: 'ALERT',
         title: 'Complaint Updated',
         message:
           `Your complaint ${issue.complaintId} has been updated.`,
@@ -126,14 +126,8 @@ export default function NotificationsScreen({
               issueId: n.issueId,
               complaintId: n.complaintId,
               issueTitle: n.title,
-              icon: n.title.includes('✅') || n.title.includes('Resolved')
-                ? '✅'
-                : n.title.includes('❌') || n.title.includes('Rejected')
-                  ? '❌'
-                  : n.title.includes('👨‍🏫') || n.title.includes('Assigned')
-                    ? '👤'
-                    : '🔔',
-              title: n.title,
+              icon: (n.title.includes('Resolved') ? 'DONE' : n.title.includes('Rejected') ? 'REJ' : n.title.includes('Assigned') ? 'STAFF' : n.title.includes('In Progress') ? 'WIP' : 'ALERT'),
+              title: n.title.replace(/[✅❌👨‍🏫🔔📝🔧]/g, '').trim(),
               message: n.body,
               date: n.createdAt,
               status: n.type,

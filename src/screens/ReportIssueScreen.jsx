@@ -276,7 +276,7 @@ export default function ReportIssueScreen({ navigation }) {
       'Pending';
 
     Alert.alert(
-      '⚠️ Similar Complaint Already Exists',
+      'Similar Complaint Detected',
       `You already reported a similar issue for this location.\n\nComplaint ID\n${complaintId}\n\nStatus\n${formattedStatus}`,
       [
         {

@@ -893,6 +893,51 @@ export default function IssueDetailsScreen({ navigation, route }) {
             </View>
           ) : null}
 
+          {/* Official Rejection Card */}
+          {issue.status === 'rejected' ? (
+            <View style={styles.section}>
+              <SectionHeading
+                eyebrow="OFFICIAL DECISION"
+                title="Rejection details"
+              />
+
+              <View style={{
+                backgroundColor: '#FEF2F2',
+                borderRadius: 20,
+                padding: 18,
+                borderWidth: 1.5,
+                borderColor: '#FECACA',
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 }}>
+                  <View style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    backgroundColor: '#FEE2E2',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Text style={{ fontSize: 13, fontWeight: '900', color: '#DC2626' }}>✕</Text>
+                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: '900', color: '#991B1B' }}>
+                    Complaint Rejected
+                  </Text>
+                </View>
+
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#B91C1C', letterSpacing: 0.8, marginBottom: 4 }}>
+                  OFFICIAL RATIONALE
+                </Text>
+                <Text style={{ fontSize: 13, color: '#7F1D1D', lineHeight: 20, fontWeight: '500' }}>
+                  {issue.rejectionReason || issue.resolutionNote || 'No specific rationale was provided by administration.'}
+                </Text>
+
+                <Text style={{ fontSize: 11, color: '#991B1B', marginTop: 12, lineHeight: 16 }}>
+                  If you feel this decision was made in error or have further information, you can reopen this complaint using the button below.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
           {/* Resolution (with the teacher's proof photo) */}
           {showResolution ? (
             <View style={styles.section}>

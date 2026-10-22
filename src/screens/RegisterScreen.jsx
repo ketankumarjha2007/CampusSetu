@@ -235,7 +235,7 @@ export default function RegisterScreen({ navigation }) {
       );
 
       Alert.alert(
-        'Account created 🎉',
+        'Account Created Successfully',
         'Your CampusSetu account has been created. Please verify your email before signing in.',
         [
           {

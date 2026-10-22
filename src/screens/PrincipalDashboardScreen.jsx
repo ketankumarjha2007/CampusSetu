@@ -33,12 +33,12 @@ import styles from './PrincipalDashboardScreen.styles';
 /* ----------------------------- CONSTANTS ----------------------------- */
 
 const FILTERS = [
-  { label: 'All', value: 'all', icon: '📚' },
-  { label: 'Critical', value: 'critical', icon: '🚨' },
-  { label: 'Pending', value: 'pending', icon: '⏳' },
-  { label: 'Assigned', value: 'assigned', icon: '👤' },
-  { label: 'In Progress', value: 'in_progress', icon: '⚙️' },
-  { label: 'Resolved', value: 'resolved', icon: '✅' },
+  { label: 'All', value: 'all' },
+  { label: 'Critical', value: 'critical' },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Assigned', value: 'assigned' },
+  { label: 'In Progress', value: 'in_progress' },
+  { label: 'Resolved', value: 'resolved' },
 ];
 
 const SORTS = [
@@ -192,7 +192,7 @@ const ComplaintCard = memo(function ComplaintCard({
         <View style={styles.cardBadgesRight}>
           {critical ? (
             <View style={[styles.priorityBadge, { backgroundColor: '#FEE2E2' }]}>
-              <Text style={[styles.priorityText, { color: '#DC2626' }]}>🚨 Critical</Text>
+              <Text style={[styles.priorityText, { color: '#DC2626' }]}>CRITICAL</Text>
             </View>
           ) : null}
           <View
@@ -222,7 +222,7 @@ const ComplaintCard = memo(function ComplaintCard({
         {issue.building || issue.roomNumber ? (
           <View style={styles.metaChip}>
             <Text style={styles.metaChipText} numberOfLines={1}>
-              📍 {[issue.building, issue.roomNumber && `Room ${issue.roomNumber}`]
+              {[issue.building, issue.roomNumber && `Room ${issue.roomNumber}`]
                 .filter(Boolean)
                 .join(' • ')}
             </Text>
@@ -230,25 +230,25 @@ const ComplaintCard = memo(function ComplaintCard({
         ) : null}
         {issue.category ? (
           <View style={styles.metaChip}>
-            <Text style={styles.metaChipText}>🏷️ {issue.category}</Text>
+            <Text style={styles.metaChipText}>{issue.category}</Text>
           </View>
         ) : null}
         {issue.department ? (
           <View style={styles.metaChip}>
-            <Text style={styles.metaChipText}>📨 To: {issue.department}</Text>
+            <Text style={styles.metaChipText}>Dept: {issue.department}</Text>
           </View>
         ) : null}
         {issue.reportedBy?.name ? (
           <View style={styles.metaChip}>
             <Text style={styles.metaChipText} numberOfLines={1}>
-              👤 {issue.reportedBy.name}
+              By: {issue.reportedBy.name}
               {issue.reportedBy.department ? ` (${issue.reportedBy.department})` : ''}
             </Text>
           </View>
         ) : null}
         <View style={[styles.metaChip, overdue && styles.metaChipOverdue]}>
           <Text style={[styles.metaChipText, overdue && styles.metaChipOverdueText]}>
-            {overdue ? '⚠️ Overdue • ' : '🕒 '}
+            {overdue ? 'OVERDUE • ' : ''}
             {timeAgo(issue.createdAt, now)}
           </Text>
         </View>
@@ -302,7 +302,7 @@ const ComplaintCard = memo(function ComplaintCard({
                 resizeMode="cover"
               />
               <View style={[styles.photoBadge, { backgroundColor: 'rgba(5,150,105,0.9)' }]}>
-                <Text style={styles.photoBadgeText}>✓ Proof</Text>
+                <Text style={styles.photoBadgeText}>Verified Proof</Text>
               </View>
             </TouchableOpacity>
           ) : null}
@@ -316,7 +316,7 @@ const ComplaintCard = memo(function ComplaintCard({
           activeOpacity={0.8}
         >
           <Text style={styles.btnReassignText}>
-            {issue.assignedTo ? '🔄 Reassign' : '👤 Assign'}
+            {issue.assignedTo ? 'Reassign Staff' : 'Assign Staff'}
           </Text>
         </TouchableOpacity>
 
@@ -330,7 +330,7 @@ const ComplaintCard = memo(function ComplaintCard({
             {busy ? (
               <ActivityIndicator size="small" color="#DC2626" />
             ) : (
-              <Text style={styles.btnEscalateText}>🚨 Escalate</Text>
+              <Text style={styles.btnEscalateText}>Escalate Priority</Text>
             )}
           </TouchableOpacity>
         ) : null}
@@ -340,7 +340,7 @@ const ComplaintCard = memo(function ComplaintCard({
           onPress={() => onReview(issue)}
           activeOpacity={0.8}
         >
-          <Text style={styles.btnReviewText}>Full Review →</Text>
+          <Text style={styles.btnReviewText}>Review Case →</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -576,7 +576,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
       if (!res?.success && res?.error) throw new Error(res?.message || 'Failed to send invitation');
 
       Alert.alert(
-        'Invitation Sent! ✉️',
+        'Invitation Sent',
         `An onboarding invitation email has been sent to ${inviteEmail
           .trim()
           .toLowerCase()}. They can configure their password and sign in.`
@@ -746,10 +746,10 @@ export default function PrincipalDashboardScreen({ navigation }) {
   };
 
   const kpiTiles = [
-    { key: 'critical', icon: '🚨', label: 'Critical / Escalated', value: stats.critical, color: '#DC2626', bg: '#FEE2E2', tag: stats.critical > 0 ? 'ACTION REQ' : null },
-    { key: 'pending', icon: '⏳', label: 'Pending Allocation', value: stats.pending, color: '#D97706', bg: '#FEF3C7', tag: stats.unassigned > 0 ? `${stats.unassigned} UNASSIGNED` : null },
-    { key: 'in_progress', icon: '⚙️', label: 'In Active Progress', value: stats.inProgress, color: '#2563EB', bg: '#DBEAFE', tag: null },
-    { key: 'resolved', icon: '✅', label: 'Successfully Closed', value: stats.resolved, color: '#059669', bg: '#DCFCE7', tag: null },
+    { key: 'critical', label: 'Critical / Escalated', value: stats.critical, color: '#DC2626', bg: '#FEE2E2', tag: stats.critical > 0 ? 'ACTION REQ' : null },
+    { key: 'pending', label: 'Pending Allocation', value: stats.pending, color: '#D97706', bg: '#FEF3C7', tag: stats.unassigned > 0 ? `${stats.unassigned} UNASSIGNED` : null },
+    { key: 'in_progress', label: 'In Active Progress', value: stats.inProgress, color: '#2563EB', bg: '#DBEAFE', tag: null },
+    { key: 'resolved', label: 'Successfully Closed', value: stats.resolved, color: '#059669', bg: '#DCFCE7', tag: null },
   ];
 
   /* ------------------------------ RENDER ------------------------------ */
@@ -900,7 +900,19 @@ export default function PrincipalDashboardScreen({ navigation }) {
                 accessibilityRole="button"
                 accessibilityLabel="View my reported complaints"
               >
-                <Text style={{ fontSize: 16, marginRight: 8 }}>📋</Text>
+                <View
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    backgroundColor: '#F1F5F9',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 9,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#334155' }}>DOC</Text>
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#15233B', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
                     My Reports
@@ -926,7 +938,19 @@ export default function PrincipalDashboardScreen({ navigation }) {
                 accessibilityRole="button"
                 accessibilityLabel="Open leadership PDF reports"
               >
-                <Text style={{ fontSize: 16, marginRight: 8 }}>📊</Text>
+                <View
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    backgroundColor: '#DCEFE0',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 9,
+                  }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: '900', color: '#176B4D' }}>PDF</Text>
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#176B4D', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
                     PDF Reports
@@ -979,7 +1003,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
                     { color: stats.agingCount > 0 ? '#B45309' : '#059669' },
                   ]}
                 >
-                  {stats.agingCount > 0 ? `⚠️ ${stats.agingCount} Overdue (>72h)` : '✓ SLA On Track'}
+                  {stats.agingCount > 0 ? `${stats.agingCount} Overdue (>72h)` : 'SLA Target Met'}
                 </Text>
               </View>
             </View>
@@ -1031,7 +1055,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
               >
                 <View style={styles.kpiTileTop}>
                   <View style={[styles.kpiIconBox, { backgroundColor: tile.bg }]}>
-                    <Text style={styles.kpiIconText}>{tile.icon}</Text>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tile.color }} />
                   </View>
                   {tile.tag ? (
                     <View style={[styles.priorityBadge, { backgroundColor: tile.bg }]}>
@@ -1103,7 +1127,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
 
           {/* ======================= SEARCH ======================= */}
           <View style={styles.searchBox}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <Text style={styles.searchIcon}>⌕</Text>
             <TextInput
               style={styles.searchInput}
               placeholder="Search by ID, title, student..."
@@ -1137,7 +1161,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
                   activeOpacity={0.85}
                 >
                   <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
-                    {item.icon} {item.label}
+                    {item.label}
                   </Text>
                   <View style={[styles.filterCountBadge, active && styles.filterCountBadgeActive]}>
                     <Text style={[styles.filterCountText, active && styles.filterCountTextActive]}>
@@ -1186,7 +1210,19 @@ export default function PrincipalDashboardScreen({ navigation }) {
             </View>
           ) : filteredIssues.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>📋</Text>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: '#F1F5F9',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 10,
+                }}
+              >
+                <Text style={{ color: '#64748B', fontWeight: '900', fontSize: 16 }}>—</Text>
+              </View>
               <Text style={styles.emptyTitle}>No Complaints Match</Text>
               <Text style={styles.emptyDesc}>
                 No grievances found for the selected filter or search keyword.
@@ -1394,8 +1430,8 @@ export default function PrincipalDashboardScreen({ navigation }) {
                   <Text style={styles.formLabel}>Select Role *</Text>
                   <View style={styles.rolePickerRow}>
                     {[
-                      { value: 'staff', label: '🛠️ Staff' },
-                      { value: 'cluster_head', label: '🏛️ Cluster Head' },
+                      { value: 'staff', label: 'Staff / Department Handler' },
+                      { value: 'cluster_head', label: 'Cluster Operations Lead' },
                     ].map((r) => {
                       const active = inviteRole === r.value;
                       return (

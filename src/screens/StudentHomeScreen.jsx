@@ -370,7 +370,7 @@ export default function StudentHomeScreen({ navigation }) {
         {/* WELCOME */}
         <View style={styles.welcomeSection}>
           <Text style={styles.greeting}>{getGreeting()}</Text>
-          <Text style={styles.welcomeTitle}>Welcome back! 👋</Text>
+          <Text style={styles.welcomeTitle}>Welcome back,</Text>
           <Text style={styles.welcomeSubtitle}>
             Your campus concerns, all in one place.
           </Text>
