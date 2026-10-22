@@ -128,14 +128,18 @@ const getActiveStaffInDepartment = async (department) => {
 
   const staff = await User.find({
     role: { $in: ['staff', 'teacher'] },
-    isActive: true,
+    isActive: { $ne: false },
     department: { $type: 'string', $ne: '' },
-  }).select('_id department pushToken');
+  }).select('_id name email department pushToken');
 
-  return staff.filter(
-    (member) =>
-      normalizeText(member.department) === normalizedDepartment
-  );
+  return staff.filter((member) => {
+    const memberNorm = normalizeText(member.department);
+    return (
+      memberNorm === normalizedDepartment ||
+      memberNorm.includes(normalizedDepartment) ||
+      normalizedDepartment.includes(memberNorm)
+    );
+  });
 };
 const getActiveTeachersInDepartment = getActiveStaffInDepartment;
 
@@ -712,6 +716,9 @@ const createIssue = async (req, res) => {
       .sendComplaintCreatedDepartmentStaffEmail({
         staffMembers: departmentTeachers,
         issue: populatedIssue,
+      })
+      .then((res) => {
+        console.log('Brevo department staff email dispatched result:', res);
       })
       .catch((err) =>
         console.error('Brevo department staff email error on create:', err.message)

@@ -1,4 +1,5 @@
 const { BrevoClient } = require('@getbrevo/brevo');
+const mongoose = require('mongoose');
 
 const ROLE_DISPLAY_NAMES = {
   staff: 'Staff / Department Handler',
@@ -232,8 +233,35 @@ class BrevoService {
    * 2. Send email to active staff members in the selected department when a new complaint arrives
    */
   async sendComplaintCreatedDepartmentStaffEmail({ staffMembers = [], issue }) {
-    if (!Array.isArray(staffMembers) || staffMembers.length === 0) {
-      return { success: false, message: 'No staff recipients' };
+    let recipients = [...(Array.isArray(staffMembers) ? staffMembers : [])];
+
+    // Safety fallback: if recipients are empty or any recipient is missing an email,
+    // look up from User collection by department or IDs
+    if (recipients.length === 0 || recipients.some((s) => !s?.email)) {
+      try {
+        const User = mongoose.model('User');
+        const dept = issue?.department;
+        if (dept) {
+          const freshStaff = await User.find({
+            role: { $in: ['staff', 'teacher'] },
+            isActive: { $ne: false },
+            department: new RegExp(dept.trim(), 'i'),
+          }).select('_id name email department');
+
+          if (freshStaff && freshStaff.length > 0) {
+            recipients = freshStaff;
+          }
+        }
+      } catch (e) {
+        console.warn('Fallback staff lookup warning in brevoService:', e.message);
+      }
+    }
+
+    recipients = recipients.filter((s) => s && s.email);
+
+    if (recipients.length === 0) {
+      console.log(`[BrevoService] No staff recipients with valid emails found for department: ${issue?.department}`);
+      return { success: false, message: 'No staff recipients with valid emails' };
     }
 
     const complaintId = issue.complaintId || String(issue._id).slice(-6);
@@ -261,9 +289,11 @@ class BrevoService {
       footerNote: 'Immediate action ensures high resolution SLA metrics across campus.',
     });
 
+    console.log(`[BrevoService] Dispatching new complaint notification to ${recipients.length} staff member(s): ${recipients.map(s => s.email).join(', ')}`);
+
     // Send to all department staff in parallel
     const results = await Promise.all(
-      staffMembers.map((staff) =>
+      recipients.map((staff) =>
         this.sendEmail({
           toEmail: staff.email,
           toName: staff.name,
@@ -273,7 +303,9 @@ class BrevoService {
       )
     );
 
-    return { success: true, count: results.filter((r) => r.success).length };
+    const successful = results.filter((r) => r.success).length;
+    console.log(`[BrevoService] Dispatched to staff. Successful: ${successful}/${results.length}`);
+    return { success: successful > 0, count: successful };
   }
 
   /**
