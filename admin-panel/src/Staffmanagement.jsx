@@ -11,20 +11,32 @@ import {
 /* Role configuration                                                  */
 /* ------------------------------------------------------------------ */
 
-const ROLE_ORDER = ['teacher', 'cluster_head', 'principal'];
+const ROLE_ORDER = ['staff', 'cluster_head', 'principal'];
 
 const ROLES = {
-  teacher: {
-    label: 'Teacher',
-    plural: 'Teachers',
-    icon: 'book',
+  staff: {
+    label: 'Staff',
+    plural: 'Staff',
+    icon: 'wrench',
     tone: 'var(--blue)',
-    tagline: 'Fixes what students report',
+    tagline: 'Resolves campus complaints',
     blurb:
-      'Receives assigned complaints on the mobile app, posts progress updates and closes work with a proof photo.',
+      'Receives assigned complaints on the mobile app, posts progress updates and resolves work with a proof photo.',
     perks: ['Assigned complaints', 'Progress updates', 'Proof-photo resolution'],
-    deptLabel: 'Department',
-    deptPlaceholder: 'e.g. Computer Science',
+    deptLabel: 'Department / Unit',
+    deptPlaceholder: 'e.g. Electrical, Plumbing, IT Support, Housekeeping',
+  },
+  teacher: {
+    label: 'Staff',
+    plural: 'Staff',
+    icon: 'wrench',
+    tone: 'var(--blue)',
+    tagline: 'Resolves campus complaints',
+    blurb:
+      'Receives assigned complaints on the mobile app, posts progress updates and resolves work with a proof photo.',
+    perks: ['Assigned complaints', 'Progress updates', 'Proof-photo resolution'],
+    deptLabel: 'Department / Unit',
+    deptPlaceholder: 'e.g. Electrical, Plumbing, IT Support, Housekeeping',
   },
   cluster_head: {
     label: 'Cluster Head',
@@ -33,7 +45,7 @@ const ROLES = {
     tone: 'var(--violet)',
     tagline: 'Oversees a group of departments',
     blurb:
-      'Monitors every complaint across their cluster, assigns work to teachers and escalates anything that is overdue.',
+      'Monitors every complaint across their cluster, assigns work to staff and escalates anything that is overdue.',
     perks: ['Campus-wide queue', 'Assign & reassign', 'Escalate overdue issues'],
     deptLabel: 'Cluster / region',
     deptPlaceholder: 'e.g. Engineering Cluster',
@@ -83,8 +95,8 @@ const validate = (form, role) => {
   const errors = {};
   if (form.name.trim().length < 2) errors.name = 'Enter the full name.';
   if (!EMAIL_RE.test(form.email.trim())) errors.email = 'Enter a valid email address.';
-  if (role === 'teacher' && !form.department.trim()) {
-    errors.department = 'Choose or enter a teacher department.';
+  if ((role === 'staff' || role === 'teacher') && !form.department.trim()) {
+    errors.department = 'Choose or enter a department.';
   }
   if (form.phone.trim() && form.phone.replace(/\D/g, '').length < 10) {
     errors.phone = 'Phone number looks too short.';
@@ -243,7 +255,7 @@ function EmailPreview({ role, name, email }) {
 
 function InviteWizard({ initialRole, existingPrincipal, departments, theme = 'light', onClose, onDone }) {
   const isPrincipalTaken = Boolean(existingPrincipal);
-  const defaultRole = initialRole === 'principal' && isPrincipalTaken ? 'teacher' : (initialRole || 'teacher');
+  const defaultRole = initialRole === 'principal' && isPrincipalTaken ? 'staff' : (initialRole || 'staff');
   const [step, setStep] = useState(initialRole && !(initialRole === 'principal' && isPrincipalTaken) ? 1 : 0);
   const [role, setRole] = useState(defaultRole);
   const [form, setForm] = useState({ name: '', email: '', department: '', phone: '' });
@@ -306,7 +318,7 @@ function InviteWizard({ initialRole, existingPrincipal, departments, theme = 'li
         message: response.message,
         email: form.email.trim().toLowerCase(),
         name: form.name.trim(),
-        department: role === 'teacher' ? form.department.trim() : '',
+        department: (role === 'staff' || role === 'teacher') ? form.department.trim() : '',
       });
 
       setStep(2);
@@ -493,10 +505,10 @@ function InviteWizard({ initialRole, existingPrincipal, departments, theme = 'li
                   input: { type: 'email', placeholder: 'name@college.edu', autoComplete: 'off', inputMode: 'email' },
                 })}
 
-                <div className={`pp-row ${role === 'teacher' ? 'pp-row-department' : ''}`}>
-                  {role === 'teacher' ? (
+                <div className={`pp-row ${(role === 'staff' || role === 'teacher') ? 'pp-row-department' : ''}`}>
+                  {(role === 'staff' || role === 'teacher') ? (
                     <label className={`pp-field ${touched.department && errors.department ? 'bad' : ''}`}>
-                      <span>Department<em>*</em></span>
+                      <span>Department / Unit<em>*</em></span>
                       <div className="pp-input">
                         <Ico name="pin" size={16} />
                         <select
@@ -512,7 +524,7 @@ function InviteWizard({ initialRole, existingPrincipal, departments, theme = 'li
                           }}
                           onBlur={blur('department')}
                           disabled={sending}
-                          aria-label="Teacher department"
+                          aria-label="Staff department"
                         >
                           <option value="">Select a department</option>
                           {departments.map((department) => (
@@ -608,7 +620,7 @@ function InviteWizard({ initialRole, existingPrincipal, departments, theme = 'li
                     We emailed a secure set-password link to <b>{result.email}</b>.
                     Once they set a password they can sign in on the CampusSetu
                     mobile app as a <b>{ROLES[role].label}</b>.
-                    {role === 'teacher' && result.department && (
+                    {(role === 'staff' || role === 'teacher') && result.department && (
                       <> Their department is <b>{result.department}</b>.</>
                     )}
                   </>
@@ -674,7 +686,7 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
     staff.forEach((person) => {
       const department = String(person.department || '').trim();
       if (
-        person.role === 'teacher' &&
+        (person.role === 'staff' || person.role === 'teacher') &&
         person.isActive !== false &&
         department
       ) {
@@ -751,7 +763,7 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
   );
 
   const counts = useMemo(() => {
-    const base = { all: staff.length, pending: 0, teacher: 0, cluster_head: 0, principal: 0 };
+    const base = { all: staff.length, pending: 0, staff: 0, teacher: 0, cluster_head: 0, principal: 0 };
 
     staff.forEach((person) => {
       if (base[person.role] !== undefined) base[person.role] += 1;
@@ -826,7 +838,7 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
   const openWizard = (role = null) => setWizard({ open: true, role });
 
   const tiles = [
-    { key: 'teacher', label: 'Teachers', value: counts.teacher, icon: 'book', tone: 'var(--blue)', foot: 'Resolve complaints' },
+    { key: 'staff', label: 'Staff', value: (counts.staff || 0) + (counts.teacher || 0), icon: 'users', tone: 'var(--blue)', foot: 'Resolve complaints' },
     { key: 'cluster_head', label: 'Cluster Heads', value: counts.cluster_head, icon: 'layers', tone: 'var(--violet)', foot: 'Oversee clusters' },
     { key: 'principal', label: 'Principals', value: counts.principal, icon: 'crown', tone: 'var(--amber)', foot: 'Institution leaders' },
     { key: 'pending', label: 'Invites pending', value: counts.pending, icon: 'clock', tone: 'var(--rose)', foot: 'Awaiting first sign-in' },
@@ -847,13 +859,13 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
             Team directory <span className="count-pill">{staff.length}</span>
           </h2>
           <p>
-            Invite teachers into a selected department, or invite cluster heads
+            Invite staff into a selected department, or invite cluster heads
             and principals. Each person gets an
             email, sets their own password and signs in on the mobile app.
           </p>
         </div>
 
-        <button className="btn-primary pp-add" onClick={() => openWizard('teacher')}>
+        <button className="btn-primary pp-add" onClick={() => openWizard('staff')}>
           <Ico name="plus" size={16} /> Invite Members
         </button>
       </header>
@@ -922,14 +934,14 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
           </strong>
           <span>
             {staff.length === 0
-              ? 'Invite your first teacher, cluster head or principal to get started.'
+              ? 'Invite your first staff member, cluster head or principal to get started.'
               : 'Try a different search or role filter.'}
           </span>
           <button
             className="btn-primary"
-            onClick={() => (staff.length === 0 ? openWizard('teacher') : (setQuery(''), setRoleFilter('all')))}
+            onClick={() => (staff.length === 0 ? openWizard('staff') : (setQuery(''), setRoleFilter('all')))}
           >
-            {staff.length === 0 ? 'Invite teacher by department' : 'Reset filters'}
+            {staff.length === 0 ? 'Invite staff by department' : 'Reset filters'}
           </button>
         </div>
       ) : (
@@ -981,7 +993,7 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
                   <div><dt><Ico name="clock" size={13} /></dt><dd>Added {fmtDate(person.createdAt)}</dd></div>
                 </dl>
 
-                {person.role === 'teacher' && !invited && (
+                {(person.role === 'staff' || person.role === 'teacher') && !invited && (
                   <div className="pp-load">
                     <div className="pp-load-nums">
                       <div><b>{load_.active}</b><span>Active</span></div>
@@ -1050,7 +1062,7 @@ export default function StaffManagement({ complaints = [], showToast, onChanged,
             <p>
               They will lose access to CampusSetu immediately and can no longer
               sign in on the mobile app.
-              {removeTarget.role === 'teacher' &&
+              {(removeTarget.role === 'staff' || removeTarget.role === 'teacher') &&
                 ' Any complaints currently assigned to them return to the pending queue.'}
             </p>
 

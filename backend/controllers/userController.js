@@ -99,118 +99,99 @@ const createOrUpdateProfile = async (req, res) => {
           department?.trim() || '',
         role: 'student',
       });
-    } else {
-      user.name = trimmedName;
 
-      user.usn =
-        normalizedUsn;
-
-      user.phone =
-        phone?.trim() || '';
-
-      user.department =
-        department?.trim() || '';
-
-      if (req.firebaseUser.email) {
-        user.email =
-          req.firebaseUser.email;
-      }
-
-      await user.save();
-    }
-
-    return res.status(200).json({
-      success: true,
-      message:
-        'Profile saved successfully',
-      user: user.toObject(),
-    });
-  } catch (error) {
-    console.error(
-      'Create/update profile error:',
-      error.message
-    );
-
-    if (error.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message:
-          'This USN is already registered.',
+      return res.status(201).json({
+        success: true,
+        message: 'Student profile created',
+        user,
       });
     }
 
+    user.name = trimmedName;
+    user.usn = normalizedUsn;
+
+    if (phone !== undefined) {
+      user.phone = phone.trim();
+    }
+
+    if (department !== undefined) {
+      user.department = department.trim();
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      user,
+    });
+  } catch (error) {
+    console.error(
+      'Create or update profile error:',
+      error.message
+    );
+
     return res.status(500).json({
       success: false,
-      message:
-        'Failed to save profile',
+      message: 'Failed to save profile',
     });
   }
 };
 
-// ==========================================
-// SAVE / UPDATE PUSH TOKEN
-// ==========================================
-
-const savePushToken = async (
-  req,
-  res
-) => {
+const savePushToken = async (req, res) => {
   try {
-    const firebaseUid =
-      req.firebaseUser.uid;
+    const firebaseUid = req.firebaseUser.uid;
 
-    const { pushToken } =
-      req.body;
+    const { pushToken } = req.body;
 
-    // ----------------------------------------
-    // VALIDATION
-    // ----------------------------------------
-
-    if (
-      !pushToken ||
-      typeof pushToken !== 'string' ||
-      !pushToken.trim()
-    ) {
+    if (!pushToken || typeof pushToken !== 'string') {
       return res.status(400).json({
         success: false,
-        message:
-          'Push token is required',
+        message: 'A valid push token is required',
       });
     }
 
-    const normalizedToken =
-      pushToken.trim();
+    const cleanToken = pushToken.trim();
 
-    // ----------------------------------------
-    // FIND AUTHENTICATED USER
-    // ----------------------------------------
-
-    const user =
-      await User.findOne({
-        firebaseUid,
+    if (!cleanToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Push token cannot be empty',
       });
+    }
+
+    // Invalidate any other accounts using this device token
+    await User.updateMany(
+      {
+        firebaseUid: { $ne: firebaseUid },
+        pushToken: cleanToken,
+      },
+      {
+        $set: { pushToken: '' },
+      }
+    );
+
+    const user = await User.findOneAndUpdate(
+      { firebaseUid },
+      { $set: { pushToken: cleanToken } },
+      { new: true }
+    );
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message:
-          'User profile not found',
+        message: 'User not found',
       });
     }
 
-    user.pushToken =
-      normalizedToken;
-
-    await user.save();
-
     console.log(
-      `Push token saved for user: ${firebaseUid}`
+      `Push token updated for ${user.email} (${user.role})`
     );
 
     return res.status(200).json({
       success: true,
-      message:
-        'Push token saved successfully',
+      message: 'Push token saved successfully',
+      pushToken: user.pushToken,
     });
   } catch (error) {
     console.error(
@@ -220,34 +201,39 @@ const savePushToken = async (
 
     return res.status(500).json({
       success: false,
-      message:
-        'Failed to save push token',
+      message: 'Failed to save push token',
     });
   }
 };
 
 const clearPushToken = async (req, res) => {
   try {
-    const user = await User.findOne({
-      firebaseUid: req.firebaseUser.uid,
-    });
+    const firebaseUid = req.firebaseUser.uid;
+
+    const user = await User.findOneAndUpdate(
+      { firebaseUid },
+      { $set: { pushToken: '' } },
+      { new: true }
+    );
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User profile not found',
+        message: 'User not found',
       });
     }
 
-    user.pushToken = '';
-    await user.save();
+    console.log(`Push token cleared for ${user.email}`);
 
     return res.status(200).json({
       success: true,
       message: 'Push token cleared successfully',
     });
   } catch (error) {
-    console.error('Clear push token error:', error.message);
+    console.error(
+      'Clear push token error:',
+      error.message
+    );
 
     return res.status(500).json({
       success: false,
@@ -260,43 +246,48 @@ const sendTestPush = async (req, res) => {
   try {
     const { userId, title, body } = req.body;
 
-    if (!userId || !/^[0-9a-fA-F]{24}$/.test(userId)) {
+    if (!userId) {
       return res.status(400).json({
         success: false,
-        message: 'A valid user ID is required',
+        message: 'userId is required',
       });
     }
 
-    const targetUser = await User.findById(userId);
+    const user = await User.findById(userId);
 
-    if (!targetUser) {
+    if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found',
       });
     }
 
-    if (!targetUser.pushToken) {
+    if (!user.pushToken) {
       return res.status(400).json({
         success: false,
-        message: 'Target user has no saved push token',
+        message:
+          'This user has not registered a push token yet. They must log in on a real device.',
       });
     }
 
     const result = await sendPushNotification({
-      pushToken: targetUser.pushToken,
+      pushToken: user.pushToken,
       title: title || 'CampusSetu Test Notification',
-      body: body || 'This is a test notification from the admin dashboard.',
+      body:
+        body ||
+        `Hello ${user.name}, this is a test push notification from CampusSetu.`,
       data: {
-        type: 'admin_test_push',
-        sentBy: req.user._id.toString(),
+        type: 'test',
+        timestamp: new Date().toISOString(),
       },
     });
 
     if (!result.success) {
-      return res.status(400).json({
+      return res.status(500).json({
         success: false,
-        message: result.message || 'Test notification could not be sent',
+        message: result.message || 'Push notification failed to send',
+        error: result.error,
+        expoResponse: result.response,
       });
     }
 
@@ -316,14 +307,15 @@ const sendTestPush = async (req, res) => {
 };
 
 // ==========================================
-// ONBOARD / ADD TEACHER (ADMIN ACTION)
+// ONBOARD / ADD STAFF (ADMIN ACTION)
 // ==========================================
 const addTeacher = async (req, res) => {
   let createdFirebaseUid = null;
   let createdMongoUserId = null;
 
   try {
-    const { name, email, department, phone } = req.body;
+    const { name, email, department, phone, role: requestedRole } = req.body;
+    const targetRole = requestedRole === 'teacher' ? 'teacher' : 'staff';
     const firebaseAuth = require('../config/firebaseAdmin');
     const AuditLog = require('../models/AuditLog');
     const brevoService = require('../services/brevoService');
@@ -331,14 +323,14 @@ const addTeacher = async (req, res) => {
     if (!name || !name.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Teacher name is required',
+        message: 'Staff name is required',
       });
     }
 
     if (!email || !email.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Teacher email is required',
+        message: 'Staff email is required',
       });
     }
 
@@ -351,17 +343,17 @@ const addTeacher = async (req, res) => {
     if (!cleanDept) {
       return res.status(400).json({
         success: false,
-        message: 'A department is required when inviting a teacher.',
+        message: 'A department is required when inviting staff.',
       });
     }
 
     // Check if user already exists in MongoDB
     const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
-      if (existingUser.role === 'teacher') {
+      if (existingUser.role === 'staff' || existingUser.role === 'teacher') {
         return res.status(409).json({
           success: false,
-          message: 'A teacher with this email already exists.',
+          message: 'A staff member with this email already exists.',
         });
       }
       return res.status(409).json({
@@ -376,7 +368,6 @@ const addTeacher = async (req, res) => {
 
     try {
       firebaseUserRecord = await firebaseAuth.getUserByEmail(cleanEmail);
-      // If user exists in Firebase but NOT in MongoDB, verify they are not an active legitimate student/other user
       const existingFirebaseInMongo = await User.findOne({ firebaseUid: firebaseUserRecord.uid });
       if (existingFirebaseInMongo) {
         return res.status(409).json({
@@ -386,7 +377,6 @@ const addTeacher = async (req, res) => {
       }
     } catch (fbErr) {
       if (fbErr.code === 'auth/user-not-found') {
-        // Create user in Firebase Auth without email verified (they will set password via secure link)
         firebaseUserRecord = await firebaseAuth.createUser({
           email: cleanEmail,
           emailVerified: false,
@@ -399,26 +389,25 @@ const addTeacher = async (req, res) => {
       }
     }
 
-    // Set custom user claims for teacher role
+    // Set custom user claims for staff role
     await firebaseAuth.setCustomUserClaims(firebaseUserRecord.uid, {
-      role: 'teacher',
+      role: targetRole,
     });
 
-    // Create teacher profile in MongoDB
-    let newTeacher;
+    // Create staff profile in MongoDB
+    let newStaff;
     try {
-      newTeacher = await User.create({
+      newStaff = await User.create({
         firebaseUid: firebaseUserRecord.uid,
         email: cleanEmail,
         name: cleanName,
-        role: 'teacher',
+        role: targetRole,
         department: cleanDept,
         phone: cleanPhone,
         isActive: true,
       });
-      createdMongoUserId = newTeacher._id;
+      createdMongoUserId = newStaff._id;
     } catch (mongoErr) {
-      // Rollback: if we just created the Firebase user, delete it so state remains consistent
       if (isNewFirebaseUser && createdFirebaseUid) {
         try {
           await firebaseAuth.deleteUser(createdFirebaseUid);
@@ -440,9 +429,10 @@ const addTeacher = async (req, res) => {
     // Dispatch onboarding email via Brevo
     let emailStatus = { success: false, message: 'Brevo email not sent' };
     if (passwordSetupLink) {
-      emailStatus = await brevoService.sendTeacherOnboardingEmail({
+      emailStatus = await brevoService.sendStaffOnboardingEmail({
         toEmail: cleanEmail,
         toName: cleanName,
+        role: targetRole,
         department: cleanDept,
         setupPasswordLink: passwordSetupLink,
       });
@@ -450,12 +440,13 @@ const addTeacher = async (req, res) => {
 
     // Record audit trail
     await AuditLog.create({
-      action: 'ADD_TEACHER',
+      action: 'ADD_STAFF',
       performedBy: req.user._id,
       targetType: 'user',
-      targetId: newTeacher._id,
+      targetId: newStaff._id,
       details: {
-        teacherEmail: cleanEmail,
+        staffEmail: cleanEmail,
+        role: targetRole,
         department: cleanDept,
         emailDispatched: emailStatus.success,
         emailMessageId: emailStatus.messageId || null,
@@ -466,23 +457,33 @@ const addTeacher = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: emailStatus.success
-        ? 'Teacher onboarded successfully and onboarding email sent.'
-        : 'Teacher onboarded successfully. (Note: Email delivery pending or not configured)',
+        ? 'Staff onboarded successfully and onboarding email sent.'
+        : 'Staff onboarded successfully. (Note: Email delivery pending or not configured)',
       emailDispatched: emailStatus.success,
+      staff: {
+        _id: newStaff._id,
+        name: newStaff.name,
+        email: newStaff.email,
+        role: newStaff.role,
+        department: newStaff.department,
+        phone: newStaff.phone,
+        isActive: newStaff.isActive,
+      },
       teacher: {
-        _id: newTeacher._id,
-        name: newTeacher.name,
-        email: newTeacher.email,
-        department: newTeacher.department,
-        phone: newTeacher.phone,
-        isActive: newTeacher.isActive,
+        _id: newStaff._id,
+        name: newStaff.name,
+        email: newStaff.email,
+        role: newStaff.role,
+        department: newStaff.department,
+        phone: newStaff.phone,
+        isActive: newStaff.isActive,
       },
     });
   } catch (error) {
-    console.error('Add teacher error:', error.message);
+    console.error('Add staff error:', error.message);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Failed to onboard teacher',
+      message: error.message || 'Failed to onboard staff',
     });
   }
 };
@@ -502,7 +503,6 @@ const bootstrapAdmin = async (req, res) => {
       });
     }
 
-    // Upgrade authenticated caller to college_admin
     req.user.role = 'college_admin';
     await req.user.save();
 
@@ -537,7 +537,7 @@ const bootstrapAdmin = async (req, res) => {
 };
 
 // ==========================================
-// DELETE TEACHER (ADMIN ACTION)
+// DELETE STAFF (ADMIN ACTION)
 // ==========================================
 const deleteTeacher = async (req, res) => {
   try {
@@ -549,27 +549,27 @@ const deleteTeacher = async (req, res) => {
     if (!/^[0-9a-fA-F]{24}$/.test(id)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid teacher ID format',
+        message: 'Invalid staff ID format',
       });
     }
 
-    const teacher = await User.findOne({ _id: id, role: 'teacher' });
-    if (!teacher) {
+    const staff = await User.findOne({ _id: id, role: { $in: ['staff', 'teacher'] } });
+    if (!staff) {
       return res.status(404).json({
         success: false,
-        message: 'Teacher record not found',
+        message: 'Staff record not found',
       });
     }
 
-    // Unassign pending/assigned/in_progress complaints from this teacher
+    // Unassign pending/assigned/in_progress complaints from this staff member
     await Issue.updateMany(
-      { assignedTo: teacher._id, status: { $in: ['assigned', 'in_progress'] } },
+      { assignedTo: staff._id, status: { $in: ['assigned', 'in_progress'] } },
       {
         $set: { assignedTo: null, status: 'pending' },
         $push: {
           history: {
             status: 'pending',
-            note: `Automatically unassigned: teacher account (${teacher.name}) was removed by administration.`,
+            note: `Automatically unassigned: staff account (${staff.name}) was removed by administration.`,
             changedBy: req.user._id,
             changedAt: new Date(),
           },
@@ -577,41 +577,39 @@ const deleteTeacher = async (req, res) => {
       }
     );
 
-    // Delete or disable in Firebase Auth
-    if (teacher.firebaseUid) {
+    if (staff.firebaseUid) {
       try {
-        await firebaseAuth.deleteUser(teacher.firebaseUid);
+        await firebaseAuth.deleteUser(staff.firebaseUid);
       } catch (fbErr) {
-        console.warn(`Could not delete Firebase user (${teacher.firebaseUid}):`, fbErr.message);
+        console.warn(`Could not delete Firebase user (${staff.firebaseUid}):`, fbErr.message);
       }
     }
 
-    // Delete teacher from MongoDB
-    await User.findByIdAndDelete(teacher._id);
+    await User.findByIdAndDelete(staff._id);
 
-    // Record audit trail
     await AuditLog.create({
-      action: 'DELETE_TEACHER',
+      action: 'DELETE_STAFF',
       performedBy: req.user._id,
       targetType: 'user',
-      targetId: teacher._id,
+      targetId: staff._id,
       details: {
-        teacherName: teacher.name,
-        teacherEmail: teacher.email,
-        department: teacher.department,
+        staffName: staff.name,
+        staffEmail: staff.email,
+        department: staff.department,
       },
     });
 
     return res.status(200).json({
       success: true,
-      message: `Teacher ${teacher.name} has been removed successfully.`,
-      deletedTeacherId: teacher._id,
+      message: `Staff member ${staff.name} has been removed successfully.`,
+      deletedStaffId: staff._id,
+      deletedTeacherId: staff._id,
     });
   } catch (error) {
-    console.error('Delete teacher error:', error.message);
+    console.error('Delete staff error:', error.message);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Failed to delete teacher',
+      message: error.message || 'Failed to delete staff member',
     });
   }
 };
@@ -623,6 +621,8 @@ module.exports = {
   clearPushToken,
   sendTestPush,
   addTeacher,
+  addStaff: addTeacher,
   deleteTeacher,
+  deleteStaff: deleteTeacher,
   bootstrapAdmin,
 };

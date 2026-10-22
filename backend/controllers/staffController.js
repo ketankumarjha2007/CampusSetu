@@ -4,16 +4,25 @@ const Issue = require('../models/Issue');
 const firebaseAuth = require('../config/firebaseAdmin');
 const brevoService = require('../services/brevoService');
 
-const ALLOWED_STAFF_ROLES = ['teacher', 'cluster_head', 'principal'];
+const ALLOWED_STAFF_ROLES = ['staff', 'teacher', 'cluster_head', 'principal'];
 
 /**
- * List all staff members (teachers, cluster heads, principals)
+ * List all staff members (staff, teachers, cluster heads, principals)
  */
 const listStaff = async (req, res) => {
   try {
     const { role } = req.query;
+    let roleFilter;
+    if (role === 'staff' || role === 'teacher') {
+      roleFilter = { $in: ['staff', 'teacher'] };
+    } else if (role && ALLOWED_STAFF_ROLES.includes(role)) {
+      roleFilter = role;
+    } else {
+      roleFilter = { $in: ALLOWED_STAFF_ROLES };
+    }
+
     const filter = {
-      role: role && ALLOWED_STAFF_ROLES.includes(role) ? role : { $in: ALLOWED_STAFF_ROLES },
+      role: roleFilter,
     };
 
     const staff = await User.find(filter)
@@ -58,14 +67,15 @@ const listStaff = async (req, res) => {
 };
 
 /**
- * Invite/register a new staff member (teacher, cluster_head, principal)
+ * Invite/register a new staff member (staff, teacher, cluster_head, principal)
  * Creates account in Firebase Auth + MongoDB + sends Brevo email invite
  */
 const inviteStaff = async (req, res) => {
   let createdFirebaseUid = null;
 
   try {
-    const { name, email, role = 'teacher', department, phone } = req.body;
+    const { name, email, role: rawRole, department, phone } = req.body;
+    const role = rawRole || 'staff';
 
     if (!name || !name.trim()) {
       return res.status(400).json({
@@ -90,10 +100,10 @@ const inviteStaff = async (req, res) => {
 
     const requestedDepartment =
       typeof department === 'string' ? department.trim() : '';
-    if (role === 'teacher' && !requestedDepartment) {
+    if ((role === 'staff' || role === 'teacher') && !requestedDepartment) {
       return res.status(400).json({
         success: false,
-        message: 'A department is required when inviting a teacher.',
+        message: 'A department is required when inviting staff.',
       });
     }
 
@@ -113,16 +123,17 @@ const inviteStaff = async (req, res) => {
     let cleanDept = requestedDepartment;
     const cleanPhone = (phone || '').trim();
 
-    if (role === 'teacher') {
-      const activeTeachers = await User.find({
-        role: 'teacher',
+    if (role === 'staff' || role === 'teacher') {
+      const activeStaff = await User.find({
+        role: { $in: ['staff', 'teacher'] },
         isActive: true,
         department: { $type: 'string', $ne: '' },
       }).select('department');
       const normalizedDepartment = cleanDept.toLocaleLowerCase();
-      const existingDepartment = activeTeachers.find(
-        (teacher) =>
-          teacher.department.trim().toLocaleLowerCase() ===
+      const existingDepartment = activeStaff.find(
+        (member) =>
+          member.department &&
+          member.department.trim().toLocaleLowerCase() ===
           normalizedDepartment
       );
       if (existingDepartment) {
@@ -332,8 +343,8 @@ const removeStaff = async (req, res) => {
       });
     }
 
-    // If teacher, unassign any open issues
-    if (staff.role === 'teacher') {
+    // If staff/teacher, unassign any open issues
+    if (staff.role === 'staff' || staff.role === 'teacher') {
       await Issue.updateMany(
         { assignedTo: staff._id, status: { $in: ['assigned', 'in_progress'] } },
         {

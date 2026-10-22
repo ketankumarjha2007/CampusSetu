@@ -1,4 +1,10 @@
 const requireRole = (...allowedRoles) => {
+  const normalizedAllowed = new Set(allowedRoles);
+  if (normalizedAllowed.has('staff') || normalizedAllowed.has('teacher')) {
+    normalizedAllowed.add('staff');
+    normalizedAllowed.add('teacher');
+  }
+
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
@@ -14,7 +20,7 @@ const requireRole = (...allowedRoles) => {
       });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!normalizedAllowed.has(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'You are not authorized to perform this action',

@@ -6,22 +6,25 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-const MARGIN = 40;
-const ROW_H = 18;
+const MARGIN = 36;
+const ROW_H = 20;
 
 const columns = [
-  { key: 'complaintId', label: 'Complaint ID', width: 80 },
-  { key: 'title', label: 'Title', width: 105 },
-  { key: 'category', label: 'Category', width: 60 },
-  { key: 'status', label: 'Status', width: 60 },
-  { key: 'priority', label: 'Priority', width: 45 },
-  { key: 'assignedTo', label: 'Assigned To', width: 70 },
-  { key: 'created', label: 'Raised', width: 60 },
-  { key: 'feedback', label: 'Rating', width: 35 },
+  { key: 'complaintId', label: 'Complaint ID', width: 78 },
+  { key: 'title', label: 'Title', width: 116 },
+  { key: 'category', label: 'Category / Dept', width: 96 },
+  { key: 'location', label: 'Location', width: 80 },
+  { key: 'reportedBy', label: 'Reported By', width: 86 },
+  { key: 'created', label: 'Report Date', width: 62 },
+  { key: 'assignedTo', label: 'Assigned Staff', width: 80 },
+  { key: 'status', label: 'Status', width: 58 },
+  { key: 'completed', label: 'Completed Date', width: 64 },
+  { key: 'rating', label: 'Rating', width: 50 },
 ];
-const TABLE_W = columns.reduce((sum, c) => sum + c.width, 0);
 
-// Built-in PDF fonts only support Latin characters, so strip the rest (emoji etc.).
+const TABLE_W = columns.reduce((sum, c) => sum + c.width, 0); // 770 pt
+
+// Built-in PDF fonts only support Latin characters, so strip unsupported emoji
 const clean = (v) => String(v ?? '').replace(/[^\x20-\xFF]/g, '').trim();
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -29,13 +32,20 @@ const pad = (n) => String(n).padStart(2, '0');
 const fmtDate = (d) => {
   if (!d) return '-';
   const x = new Date(d);
+  if (Number.isNaN(x.getTime())) return '-';
   return `${pad(x.getDate())}/${pad(x.getMonth() + 1)}/${x.getFullYear()}`;
 };
 
 const label = (s) => clean(String(s || '-').replace(/_/g, ' '));
 
 const buildStats = (issues) => {
-  const byStatus = {};
+  const byStatus = {
+    pending: 0,
+    assigned: 0,
+    in_progress: 0,
+    resolved: 0,
+    rejected: 0,
+  };
   const byPriority = {};
   const byCategory = {};
   let resolvedMs = 0;
@@ -49,17 +59,21 @@ const buildStats = (issues) => {
     byPriority[i.priority] = (byPriority[i.priority] || 0) + 1;
     byCategory[i.category] = (byCategory[i.category] || 0) + 1;
 
-    if (i.status === 'resolved' && i.resolvedAt) {
-      resolvedMs += new Date(i.resolvedAt) - new Date(i.createdAt);
-      resolvedCount += 1;
+    if (i.status === 'resolved' && (i.resolvedAt || i.updatedAt)) {
+      const completionTime = new Date(i.resolvedAt || i.updatedAt).getTime();
+      const creationTime = new Date(i.createdAt).getTime();
+      if (completionTime >= creationTime) {
+        resolvedMs += completionTime - creationTime;
+        resolvedCount += 1;
+      }
     }
 
     if (i.feedback?.rating) {
-      ratingSum += i.feedback.rating;
+      ratingSum += Number(i.feedback.rating);
       ratingCount += 1;
     }
 
-    if (i.escalationLevel > 0) escalated += 1;
+    if (Number(i.escalationLevel || 0) > 0) escalated += 1;
   }
 
   let avgResolution = '-';
@@ -69,6 +83,10 @@ const buildStats = (issues) => {
       hours < 48 ? `${hours.toFixed(1)} hrs` : `${(hours / 24).toFixed(1)} days`;
   }
 
+  const resolutionRate = issues.length
+    ? `${Math.round(((byStatus.resolved || 0) / issues.length) * 100)}%`
+    : '0%';
+
   return {
     total: issues.length,
     byStatus,
@@ -76,6 +94,7 @@ const buildStats = (issues) => {
     byCategory,
     escalated,
     avgResolution,
+    resolutionRate,
     avgRating: ratingCount ? (ratingSum / ratingCount).toFixed(2) : '-',
     ratingCount,
   };
@@ -90,13 +109,13 @@ const joinCounts = (obj) =>
     : 'None';
 
 const drawTableHeader = (doc, y) => {
-  doc.save().roundedRect(MARGIN, y, TABLE_W, ROW_H, 5).fill('#153C31').restore();
+  doc.save().roundedRect(MARGIN, y, TABLE_W, ROW_H, 4).fill('#104B38').restore();
 
   let x = MARGIN;
-  doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF');
+  doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF');
 
   columns.forEach((c) => {
-    doc.text(c.label, x + 4, y + 5, {
+    doc.text(c.label, x + 4, y + 6, {
       width: c.width - 8,
       height: ROW_H - 6,
       ellipsis: true,
@@ -108,21 +127,25 @@ const drawTableHeader = (doc, y) => {
   return y + ROW_H;
 };
 
-const drawMetricCard = (doc, { x, y, width, label: title, value, accent }) => {
+const drawMetricCard = (doc, { x, y, width, label: title, value, subtext, accent }) => {
   doc.save()
-    .roundedRect(x, y, width, 58, 8)
+    .roundedRect(x, y, width, 52, 6)
     .fillAndStroke('#F5F8F4', '#E4EBE3')
     .restore();
-  doc.save().roundedRect(x, y, 4, 58, 2).fill(accent).restore();
-  doc.font('Helvetica-Bold').fontSize(7).fillColor('#718078')
-    .text(title.toUpperCase(), x + 12, y + 11, { width: width - 20, ellipsis: true });
-  doc.font('Helvetica-Bold').fontSize(17).fillColor('#15342A')
-    .text(clean(value), x + 12, y + 26, { width: width - 20, ellipsis: true });
+  doc.save().roundedRect(x, y, 4, 52, 2).fill(accent).restore();
+  doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#64746B')
+    .text(title.toUpperCase(), x + 10, y + 9, { width: width - 16, ellipsis: true });
+  doc.font('Helvetica-Bold').fontSize(15).fillColor('#15342A')
+    .text(clean(value), x + 10, y + 21, { width: width - 16, ellipsis: true });
+  if (subtext) {
+    doc.font('Helvetica').fontSize(6.5).fillColor('#718078')
+      .text(clean(subtext), x + 10, y + 38, { width: width - 16, ellipsis: true });
+  }
 };
 
 /*
  * GET /api/issues/reports/download?type=monthly|yearly|all&month=1-12&year=YYYY
- * Access: principal, cluster_head
+ * Access: principal, cluster_head, college_admin, staff, teacher
  */
 const downloadReport = async (req, res) => {
   try {
@@ -158,7 +181,7 @@ const downloadReport = async (req, res) => {
     }
 
     const filter = {};
-    let periodLabel = 'All Time';
+    let periodLabel = 'All Time Record';
 
     if (type === 'monthly') {
       filter.createdAt = {
@@ -171,11 +194,12 @@ const downloadReport = async (req, res) => {
         $gte: new Date(year, 0, 1),
         $lt: new Date(year + 1, 0, 1),
       };
-      periodLabel = `Year ${year}`;
+      periodLabel = `Calendar Year ${year}`;
     }
 
     const issues = await Issue.find(filter)
-      .populate('assignedTo', 'name')
+      .populate('assignedTo', 'name email role department')
+      .populate('reportedBy', 'name email role department usn')
       .sort({ createdAt: 1 })
       .lean();
 
@@ -189,8 +213,10 @@ const downloadReport = async (req, res) => {
       `attachment; filename="${fileName}"`
     );
 
+    // Landscape A4 for wide table presentation
     const doc = new PDFDocument({
       size: 'A4',
+      layout: 'landscape',
       margins: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
       bufferPages: true,
     });
@@ -198,23 +224,24 @@ const downloadReport = async (req, res) => {
     doc.pipe(res);
 
     const pageWidth = doc.page.width;
-    const cardGap = 9;
-    const metricWidth = (TABLE_W - cardGap * 3) / 4;
+    const cardGap = 8;
+    const metricWidth = (TABLE_W - cardGap * 4) / 5;
 
     // ---------- Branded report masthead ----------
-    doc.save().rect(0, 0, pageWidth, 128).fill('#0B3027').restore();
-    doc.save().rect(0, 124, pageWidth, 4).fill('#C8F36A').restore();
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#C8F36A')
-      .text('CAMPUSSETU  /  LEADERSHIP INTELLIGENCE', MARGIN, 25);
-    doc.font('Helvetica-Bold').fontSize(22).fillColor('#FFFFFF')
-      .text('Campus grievance report', MARGIN, 45);
-    doc.font('Helvetica').fontSize(11).fillColor('#D2E1D8')
-      .text(periodLabel, MARGIN, 78);
-    doc.fontSize(8).fillColor('#AFC7B9')
+    doc.save().rect(0, 0, pageWidth, 92).fill('#0B3027').restore();
+    doc.save().rect(0, 89, pageWidth, 3).fill('#C8F36A').restore();
+
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#C8F36A')
+      .text('CAMPUSSETU  /  INSTITUTIONAL RESOLUTION REPORT', MARGIN, 18);
+    doc.font('Helvetica-Bold').fontSize(19).fillColor('#FFFFFF')
+      .text('Campus Grievance & Accountability Register', MARGIN, 32);
+    doc.font('Helvetica').fontSize(10).fillColor('#D2E1D8')
+      .text(`Reporting Period: ${periodLabel}`, MARGIN, 56);
+    doc.fontSize(7.5).fillColor('#AFC7B9')
       .text(
-        `Prepared ${fmtDate(new Date())}  |  ${clean(req.user.name)}  |  ${label(req.user.role)}`,
+        `Generated: ${fmtDate(new Date())}  |  Prepared By: ${clean(req.user.name)} (${clean(label(req.user.role))})  |  Total Complaints: ${stats.total}`,
         MARGIN,
-        99
+        73
       );
 
     // ---------- At-a-glance metrics ----------
@@ -222,15 +249,38 @@ const downloadReport = async (req, res) => {
       (stats.byStatus.pending || 0) +
       (stats.byStatus.assigned || 0) +
       (stats.byStatus.in_progress || 0);
-    const metricY = 148;
+    const metricY = 104;
+
     [
-      { label: 'Total complaints', value: stats.total, accent: '#176B4D' },
-      { label: 'Resolved', value: stats.byStatus.resolved || 0, accent: '#31A675' },
-      { label: 'Still active', value: activeCount, accent: '#E6AB3E' },
       {
-        label: 'Avg. student rating',
+        label: 'Total Complaints',
+        value: stats.total,
+        subtext: 'Filed in period',
+        accent: '#176B4D',
+      },
+      {
+        label: 'Resolved',
+        value: stats.byStatus.resolved || 0,
+        subtext: `${stats.resolutionRate} resolution rate`,
+        accent: '#2EA671',
+      },
+      {
+        label: 'Currently Active',
+        value: activeCount,
+        subtext: `${stats.byStatus.pending || 0} pending review`,
+        accent: '#E6A534',
+      },
+      {
+        label: 'Avg. Resolution Time',
+        value: stats.avgResolution,
+        subtext: 'From filing to resolution',
+        accent: '#3B82F6',
+      },
+      {
+        label: 'User Feedback',
         value: stats.ratingCount ? `${stats.avgRating} / 5` : 'No ratings',
-        accent: '#7886D9',
+        subtext: `${stats.ratingCount} rating(s) submitted`,
+        accent: '#8B5CF6',
       },
     ].forEach((metric, index) => {
       drawMetricCard(doc, {
@@ -241,11 +291,10 @@ const downloadReport = async (req, res) => {
       });
     });
 
-    // ---------- Visual status distribution ----------
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#15342A')
-      .text('Portfolio snapshot', MARGIN, 225);
-    doc.font('Helvetica-Bold').fontSize(7).fillColor('#718078')
-      .text('STATUS DISTRIBUTION', MARGIN, 245);
+    // ---------- Summary Distribution Row ----------
+    const summaryY = 168;
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#15342A')
+      .text('Status & Priority Distribution', MARGIN, summaryY);
 
     const statusColors = {
       pending: '#E8A83B',
@@ -255,98 +304,121 @@ const downloadReport = async (req, res) => {
       rejected: '#D56C68',
     };
     const statusOrder = ['pending', 'assigned', 'in_progress', 'resolved', 'rejected'];
+
     let statusX = MARGIN;
-    for (const status of statusOrder) {
-      const count = stats.byStatus[status] || 0;
-      doc.save().circle(statusX + 3, 269, 3).fill(statusColors[status]).restore();
+    for (const st of statusOrder) {
+      const count = stats.byStatus[st] || 0;
+      doc.save().circle(statusX + 3, summaryY + 18, 3).fill(statusColors[st]).restore();
       doc.font('Helvetica-Bold').fontSize(7).fillColor('#57665D')
-        .text(label(status), statusX + 10, 265, { width: 82, ellipsis: true });
-      doc.font('Helvetica-Bold').fontSize(9).fillColor('#15342A')
-        .text(String(count), statusX + 10, 278);
-      statusX += 103;
+        .text(`${label(st)}: ${count}`, statusX + 9, summaryY + 14, { width: 90, ellipsis: true });
+      statusX += 95;
     }
 
-    const barY = 299;
-    const barHeight = 8;
+    doc.font('Helvetica').fontSize(7).fillColor('#64746B')
+      .text(
+        `Priority: ${joinCounts(stats.byPriority)}    |    Escalations: ${stats.escalated}`,
+        statusX + 10,
+        summaryY + 14,
+        { width: TABLE_W - (statusX - MARGIN) - 10, align: 'right', ellipsis: true }
+      );
+
+    // Distribution bar
+    const barY = summaryY + 28;
+    const barHeight = 5;
     let barX = MARGIN;
     if (stats.total === 0) {
-      doc.save().roundedRect(MARGIN, barY, TABLE_W, barHeight, 4).fill('#E4EBE3').restore();
+      doc.save().roundedRect(MARGIN, barY, TABLE_W, barHeight, 2.5).fill('#E4EBE3').restore();
     } else {
-      for (const status of statusOrder) {
-        const count = stats.byStatus[status] || 0;
+      for (const st of statusOrder) {
+        const count = stats.byStatus[st] || 0;
         if (!count) continue;
         const segmentWidth = TABLE_W * (count / stats.total);
-        doc.save().rect(barX, barY, segmentWidth, barHeight).fill(statusColors[status]).restore();
+        doc.save().rect(barX, barY, segmentWidth, barHeight).fill(statusColors[st]).restore();
         barX += segmentWidth;
       }
     }
 
-    // ---------- Additional context ----------
-    doc.font('Helvetica-Bold').fontSize(7).fillColor('#718078')
-      .text('PRIORITY MIX', MARGIN, 320);
-    doc.font('Helvetica').fontSize(8).fillColor('#35483D')
-      .text(joinCounts(stats.byPriority), MARGIN, 332, {
-        width: TABLE_W,
-        height: 12,
-        ellipsis: true,
-      });
-    doc.font('Helvetica-Bold').fontSize(7).fillColor('#718078')
-      .text('CATEGORY MIX', MARGIN, 349);
-    doc.font('Helvetica').fontSize(8).fillColor('#35483D')
-      .text(joinCounts(stats.byCategory), MARGIN, 361, {
-        width: TABLE_W,
-        height: 12,
-        ellipsis: true,
-      });
-    doc.font('Helvetica').fontSize(8).fillColor('#57665D')
-      .text(
-        `Escalated: ${stats.escalated}    |    Average resolution: ${stats.avgResolution}    |    Feedback responses: ${stats.ratingCount}`,
-        MARGIN,
-        381,
-        { width: TABLE_W, ellipsis: true }
-      );
+    // ---------- Complaint register table ----------
+    const registerTitleY = barY + 14;
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#15342A')
+      .text('Detailed Complaint Register', MARGIN, registerTitleY);
+    doc.font('Helvetica').fontSize(7).fillColor('#718078')
+      .text('Ordered from earliest to latest submission date.', MARGIN, registerTitleY + 12);
 
-    // ---------- Complaint register ----------
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#15342A')
-      .text('Complaint register', MARGIN, 407);
-    doc.font('Helvetica').fontSize(8).fillColor('#718078')
-      .text('One row per complaint, ordered from oldest to newest.', MARGIN, 423);
-
-    let y = drawTableHeader(doc, 441);
+    let y = drawTableHeader(doc, registerTitleY + 24);
 
     if (!issues.length) {
-      doc.font('Helvetica').fontSize(10).fillColor('#666666')
-        .text('No complaints found for this period.', MARGIN, y + 8);
+      doc.font('Helvetica').fontSize(9).fillColor('#666666')
+        .text('No complaints found for this reporting period.', MARGIN, y + 10);
     }
 
     issues.forEach((issue, index) => {
-      if (y + ROW_H > doc.page.height - 60) {
+      // Check page overflow
+      if (y + ROW_H > doc.page.height - 38) {
         doc.addPage();
         y = drawTableHeader(doc, MARGIN);
       }
 
       if (index % 2 === 0) {
-        doc.save().rect(MARGIN, y, TABLE_W, ROW_H).fill('#F3F7F3').restore();
+        doc.save().rect(MARGIN, y, TABLE_W, ROW_H).fill('#F6F9F6').restore();
       }
 
+      const reporterName = issue.reportedBy?.name || 'Unknown';
+      const reporterRole = issue.reportedBy?.role ? ` (${clean(label(issue.reportedBy.role))})` : '';
+      const reporterText = `${reporterName}${reporterRole}`;
+
+      const locParts = [
+        issue.building,
+        issue.floor ? `Fl ${issue.floor}` : '',
+        issue.roomNumber ? `Rm ${issue.roomNumber}` : '',
+      ].filter(Boolean);
+      const locText = locParts.join(', ') || issue.location || '-';
+
+      const completedText =
+        issue.status === 'resolved'
+          ? fmtDate(issue.resolvedAt || issue.updatedAt)
+          : issue.status === 'rejected'
+            ? 'Rejected'
+            : '-';
+
+      const ratingText = issue.feedback?.rating
+        ? `${issue.feedback.rating}/5`
+        : issue.resolutionNote
+          ? clean(issue.resolutionNote).slice(0, 16)
+          : '-';
+
       const row = {
-        complaintId: issue.complaintId || String(issue._id).slice(-6),
-        title: issue.title,
-        category: issue.category,
-        status: label(issue.status),
-        priority: label(issue.priority),
-        assignedTo: issue.assignedTo?.name || '-',
+        complaintId: issue.complaintId || String(issue._id).slice(-8).toUpperCase(),
+        title: issue.title || '-',
+        category: issue.department
+          ? `${issue.category || 'General'} · ${issue.department}`
+          : issue.category || '-',
+        location: locText,
+        reportedBy: reporterText,
         created: fmtDate(issue.createdAt),
-        feedback: issue.feedback?.rating
-          ? `${issue.feedback.rating}/5`
-          : '-',
+        assignedTo: issue.assignedTo?.name || 'Unassigned',
+        status: label(issue.status),
+        completed: completedText,
+        rating: ratingText,
       };
 
       let x = MARGIN;
-      doc.font('Helvetica').fontSize(8).fillColor('#000000');
+      doc.font('Helvetica').fontSize(7.5).fillColor('#1F2923');
 
       columns.forEach((c) => {
-        doc.text(clean(row[c.key]), x + 4, y + 5, {
+        // Color-code status and priority
+        if (c.key === 'status') {
+          const stColor = statusColors[issue.status] || '#1F2923';
+          doc.font('Helvetica-Bold').fontSize(7).fillColor(stColor);
+        } else if (c.key === 'completed' && issue.status === 'resolved') {
+          doc.font('Helvetica-Bold').fontSize(7).fillColor('#15803D');
+        } else if (c.key === 'complaintId') {
+          doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#104B38');
+        } else {
+          doc.font('Helvetica').fontSize(7.5).fillColor('#1F2923');
+        }
+
+        doc.text(clean(row[c.key]), x + 4, y + 6, {
           width: c.width - 8,
           height: ROW_H - 6,
           ellipsis: true,
@@ -355,19 +427,19 @@ const downloadReport = async (req, res) => {
       });
 
       doc.save().moveTo(MARGIN, y + ROW_H).lineTo(MARGIN + TABLE_W, y + ROW_H)
-        .lineWidth(0.35).strokeColor('#E8EDE8').stroke().restore();
+        .lineWidth(0.35).strokeColor('#E5EBE5').stroke().restore();
       y += ROW_H;
     });
 
-    // ---------- Footer with page numbers ----------
+    // ---------- Footer with page numbers on all pages ----------
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i += 1) {
       doc.switchToPage(range.start + i);
-      doc.page.margins.bottom = 0; // allow writing in the footer area
-      doc.font('Helvetica').fontSize(8).fillColor('#888888').text(
-        `CampusSetu - Confidential  |  Page ${i + 1} of ${range.count}`,
+      doc.page.margins.bottom = 0;
+      doc.font('Helvetica').fontSize(7).fillColor('#88948D').text(
+        `CampusSetu Institutional Portal  •  Confidential Grievance Record  •  Page ${i + 1} of ${range.count}`,
         MARGIN,
-        doc.page.height - 30,
+        doc.page.height - 22,
         { width: TABLE_W, align: 'center' }
       );
     }

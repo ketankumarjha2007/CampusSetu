@@ -723,7 +723,7 @@ export default function ReportIssueScreen({ navigation }) {
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>SEND TO DEPARTMENT</Text>
             <Text style={styles.selectionHint}>
-              Active teachers in this department will be notified.
+              Active staff in this department will be notified.
             </Text>
             {departmentsLoading ? (
               <View style={styles.departmentLoading}>
@@ -750,7 +750,7 @@ export default function ReportIssueScreen({ navigation }) {
               </View>
             ) : departments.length === 0 ? (
               <Text style={styles.departmentErrorText}>
-                No departments currently have active teachers. Please try again later.
+                No departments currently have active staff. Please try again later.
               </Text>
             ) : (
               <View style={styles.selectionGrid}>

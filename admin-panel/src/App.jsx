@@ -739,7 +739,7 @@ function App() {
     const teacherId = selectedTeachers[id] || complaint.assignedTo?._id;
 
     if (!teacherId) {
-      showToast('Select a teacher before assigning.', 'warn');
+      showToast('Select a staff member before assigning.', 'warn');
       return;
     }
 
@@ -766,7 +766,7 @@ function App() {
     setAddingTeacher(true);
     try {
       const res = await addTeacher(teacherForm);
-      showToast(res.message || 'Teacher onboarded successfully!');
+      showToast(res.message || 'Staff member onboarded successfully!');
       setTeacherModalOpen(false);
       setTeacherForm({
         name: '',
@@ -777,7 +777,7 @@ function App() {
       });
       await loadData(false);
     } catch (err) {
-      showToast(err.message || 'Failed to onboard teacher.', 'error');
+      showToast(err.message || 'Failed to onboard staff member.', 'error');
     } finally {
       setAddingTeacher(false);
     }
@@ -844,30 +844,42 @@ function App() {
       'ID',
       'Title',
       'Category',
+      'Department',
       'Priority',
       'Status',
       'Reported by',
-      'Email',
-      'Assigned to',
+      'Reporter Role',
+      'Reporter Email',
+      'Assigned Staff',
       'Building',
       'Location',
       'Room',
-      'Created',
+      'Report Date',
+      'Completed Date',
+      'Resolution Note',
+      'Feedback Rating',
     ];
 
     const rows = filteredComplaints.map((item) => [
       item.complaintId || item._id,
       item.title,
       item.category,
+      item.department || '-',
       item.priority,
       item.status,
       item.reportedBy?.name,
+      item.reportedBy?.role || 'user',
       item.reportedBy?.email,
-      item.assignedTo?.name,
+      item.assignedTo?.name || 'Unassigned',
       item.building,
       item.location,
       item.roomNumber,
-      item.createdAt,
+      item.createdAt ? new Date(item.createdAt).toISOString() : '-',
+      item.status === 'resolved' && (item.resolvedAt || item.updatedAt)
+        ? new Date(item.resolvedAt || item.updatedAt).toISOString()
+        : '-',
+      item.resolutionNote || item.rejectionReason || '-',
+      item.feedback?.rating ? `${item.feedback.rating}/5` : '-',
     ]);
 
     const csv = [header, ...rows]
@@ -1156,10 +1168,10 @@ function App() {
               [complaint._id]: event.target.value,
             }))
           }
-          aria-label={`Choose teacher for ${complaint.complaintId || complaint.title}`}
+          aria-label={`Choose staff member for ${complaint.complaintId || complaint.title}`}
           disabled={!teachers.length}
         >
-          <option value="">Select teacher</option>
+          <option value="">Select staff</option>
 
           {teachers.map((teacher) => (
             <option key={teacher._id} value={teacher._id}>
@@ -1316,7 +1328,7 @@ function App() {
             </div>
           </div>
           <div className="float-chip fc1"><b>{stats.pending}</b><small>Need attention</small></div>
-          <div className="float-chip fc2"><b>{teachers.length}</b><small>Teachers online</small></div>
+          <div className="float-chip fc2"><b>{teachers.length}</b><small>Staff online</small></div>
         </div>
       </section>
 
@@ -1324,7 +1336,7 @@ function App() {
         {[
           { label: 'Total complaints', value: stats.total, icon: 'file', tone: 'violet', foot: 'All reports received', pct: 100 },
           { label: 'Awaiting action', value: stats.pending, icon: 'clock', tone: 'amber', foot: 'Pending assignment', pct: stats.total ? (stats.pending / stats.total) * 100 : 0, go: 'pending' },
-          { label: 'In progress', value: stats.progress, icon: 'chart', tone: 'blue', foot: 'Assigned to teachers', pct: stats.total ? (stats.progress / stats.total) * 100 : 0, go: 'in_progress' },
+          { label: 'In progress', value: stats.progress, icon: 'chart', tone: 'blue', foot: 'Assigned to staff', pct: stats.total ? (stats.progress / stats.total) * 100 : 0, go: 'in_progress' },
           { label: 'Resolved', value: stats.resolved, icon: 'check', tone: 'green', foot: 'Closed successfully', pct: stats.total ? (stats.resolved / stats.total) * 100 : 0, go: 'resolved' },
         ].map((card) => (
           <article
@@ -1765,7 +1777,7 @@ function App() {
           { label: 'Resolution rate', value: stats.resolutionRate, suffix: '%', tone: 'green' },
           { label: 'Avg. pending age', value: stats.avgPendingAge, suffix: 'd', tone: 'amber' },
           { label: 'Open critical', value: stats.critical, suffix: '', tone: 'rose' },
-          { label: 'Active teachers', value: teachers.length, suffix: '', tone: 'violet' },
+          { label: 'Active staff', value: teachers.length, suffix: '', tone: 'violet' },
         ].map((item) => (
           <div className={`insight glow tone-${item.tone}`} key={item.label}>
             <span>{item.label}</span>
@@ -2134,7 +2146,7 @@ function App() {
 
               {isOpen(selectedComplaint) && (
                 <div className="drawer-section assign-section">
-                  <h4>Assign to a teacher</h4>
+                  <h4>Assign to department staff</h4>
                   {renderAssign(selectedComplaint, true)}
                 </div>
               )}
@@ -2314,14 +2326,14 @@ function App() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'var(--green)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '11px', fontWeight: 'bold' }}>✓</span>
-                      <h4 style={{ margin: 0, color: 'var(--green)' }}>Teacher Resolution Proof</h4>
+                      <h4 style={{ margin: 0, color: 'var(--green)' }}>Staff Resolution Proof</h4>
                     </div>
                     <span className="badge" style={{ background: 'rgba(21, 128, 61, 0.15)', color: 'var(--green)', fontSize: '10px' }}>Verified Work</span>
                   </div>
                   <div className="photo-preview-card" style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(21, 128, 61, 0.3)', background: 'var(--surface)' }}>
                     <img
                       src={selectedComplaint.resolutionPhotoUrl}
-                      alt="Teacher resolution proof"
+                      alt="Staff resolution proof"
                       style={{ width: '100%', maxHeight: '240px', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }}
                       onClick={() => window.open(selectedComplaint.resolutionPhotoUrl, '_blank')}
                       onError={(e) => { e.target.style.display = 'none'; }}
@@ -2363,7 +2375,7 @@ function App() {
                     ],
                     ['Location', selectedComplaint.location || 'Not specified'],
                     [
-                      'Assigned teacher',
+                      'Assigned staff',
                       selectedComplaint.assignedTo?.name || 'Not assigned',
                     ],
                   ].map(([label, value]) => (
@@ -2468,13 +2480,13 @@ function App() {
             className="palette glow teacher-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Add Teacher"
+            aria-label="Add Staff"
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
               <div>
                 <span className="kicker">ONBOARDING</span>
-                <h3 style={{ margin: '4px 0 0', font: '700 20px var(--display)' }}>Add Teacher</h3>
+                <h3 style={{ margin: '4px 0 0', font: '700 20px var(--display)' }}>Add Staff</h3>
               </div>
               <button
                 className="icon-btn bordered"
@@ -2581,7 +2593,7 @@ function App() {
                   disabled={addingTeacher}
                   style={{ minWidth: '130px' }}
                 >
-                  {addingTeacher ? 'Creating...' : 'Onboard Teacher'}
+                  {addingTeacher ? 'Creating...' : 'Onboard Staff'}
                 </button>
               </div>
             </form>

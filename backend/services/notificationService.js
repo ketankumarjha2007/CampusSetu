@@ -96,24 +96,24 @@ const sendPushNotification = async ({
     // SEND TO EXPO PUSH SERVICE
     // ==========================================
 
-    const response =
-      await fetch(
-        'https://exp.host/--/api/v2/push/send',
-        {
-          method: 'POST',
-          headers: {
-            Accept:
-              'application/json',
-            'Accept-encoding':
-              'gzip, deflate',
-            'Content-Type':
-              'application/json',
-          },
-          body: JSON.stringify(
-            message
-          ),
-        }
-      );
+    const headers = {
+      Accept: 'application/json',
+      'Accept-encoding': 'gzip, deflate',
+      'Content-Type': 'application/json',
+    };
+
+    if (process.env.EXPO_ACCESS_TOKEN) {
+      headers.Authorization = `Bearer ${process.env.EXPO_ACCESS_TOKEN.trim()}`;
+    }
+
+    const response = await fetch(
+      'https://exp.host/--/api/v2/push/send',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(message),
+      }
+    );
 
     const responseData =
       await response.json();

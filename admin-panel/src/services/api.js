@@ -51,21 +51,23 @@ export const getAllComplaints = async () => {
   return apiRequest('/issues/admin/all');
 };
 
-// Fetch active teachers
+// Fetch active staff
 export const getActiveTeachers = async () => {
-  return apiRequest('/issues/admin/teachers');
+  return apiRequest('/issues/admin/staff');
 };
+export const getActiveStaff = getActiveTeachers;
 
-// Assign a complaint to a teacher
+// Assign a complaint to a staff member
 export const assignComplaint = async (complaintId, teacherId) => {
   return apiRequest(
     `/issues/${encodeURIComponent(complaintId)}/assign`,
     {
       method: 'PATCH',
-      body: JSON.stringify({ teacherId }),
+      body: JSON.stringify({ staffId: teacherId, teacherId }),
     }
   );
 };
+export const assignComplaintToStaff = assignComplaint;
 export const updateComplaintStatus = async (
   complaintId,
   status,
@@ -82,20 +84,22 @@ export const updateComplaintStatus = async (
     }
   );
 
-// Add / Onboard a teacher
+// Add / Onboard a staff member
 export const addTeacher = async (teacherData) => {
-  return apiRequest('/users/teachers', {
+  return apiRequest('/users/staff', {
     method: 'POST',
     body: JSON.stringify(teacherData),
   });
 };
+export const addStaff = addTeacher;
 
-// Delete a teacher
+// Delete a staff member
 export const deleteTeacher = async (teacherId) => {
-  return apiRequest(`/users/teachers/${encodeURIComponent(teacherId)}`, {
+  return apiRequest(`/users/staff/${encodeURIComponent(teacherId)}`, {
     method: 'DELETE',
   });
 };
+export const deleteStaff = deleteTeacher;
 
 // Escalate a complaint
 export const escalateComplaint = async (complaintId, note = '') => {

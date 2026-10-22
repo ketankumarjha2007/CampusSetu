@@ -27,6 +27,7 @@ import {
 } from '../services/api';
 import {
   logoutAndClearPushToken,
+  registerForPushNotificationsAsync,
 } from '../services/notificationService';
 
 import styles from './TeacherDashboardScreen.styles';
@@ -302,6 +303,7 @@ export default function TeacherDashboardScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       fetchDashboard({ showLoader: true });
+      registerForPushNotificationsAsync().catch(() => {});
     }, [fetchDashboard])
   );
 
@@ -428,7 +430,7 @@ export default function TeacherDashboardScreen({ navigation }) {
     teacher?.name?.trim() ||
     auth.currentUser?.displayName?.trim() ||
     auth.currentUser?.email?.split('@')[0] ||
-    'Teacher';
+    'Staff';
 
   const teacherInitials = getInitials(teacherName);
 
@@ -694,7 +696,7 @@ export default function TeacherDashboardScreen({ navigation }) {
             <View style={{ flexShrink: 1 }}>
               <Text style={styles.brandName}>CampusSetu</Text>
               <Text style={styles.brandSubtitle}>
-                FACULTY WORKSPACE
+                STAFF WORKSPACE
               </Text>
             </View>
           </View>
@@ -779,6 +781,106 @@ export default function TeacherDashboardScreen({ navigation }) {
             <View style={styles.heroDecorationCircle}>
               <Text style={styles.heroDecorationIcon}>✓</Text>
             </View>
+          </View>
+        </View>
+
+        {/* QUICK ACTIONS: REPORT ISSUE & MY REPORTS */}
+        <View style={{ marginTop: 14, marginBottom: 8, gap: 10 }}>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#0D806A',
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              borderRadius: 16,
+              shadowColor: '#0D806A',
+              shadowOpacity: 0.15,
+              shadowOffset: { width: 0, height: 4 },
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+            onPress={() => navigation.navigate('ReportIssue')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Report a campus issue or grievance"
+          >
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12,
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>＋</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
+                Report an Issue / Grievance
+              </Text>
+              <Text style={{ color: '#D4F5EC', fontSize: 11, marginTop: 2 }}>
+                Notice an issue on campus? Submit a complaint
+              </Text>
+            </View>
+            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>→</Text>
+          </TouchableOpacity>
+
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#FFFFFF',
+                paddingVertical: 12,
+                paddingHorizontal: 14,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+              }}
+              onPress={() => navigation.navigate('MyReports')}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="View my reported complaints"
+            >
+              <Text style={{ fontSize: 16, marginRight: 8 }}>📋</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#15233B', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
+                  My Reports
+                </Text>
+                <Text style={{ color: '#64748B', fontSize: 10 }}>Track your reports</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#FFFFFF',
+                paddingVertical: 12,
+                paddingHorizontal: 14,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+              }}
+              onPress={() => navigation.navigate('Reports')}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Download executive PDF reports"
+            >
+              <Text style={{ fontSize: 16, marginRight: 8 }}>📊</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#15233B', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
+                  PDF Reports
+                </Text>
+                <Text style={{ color: '#64748B', fontSize: 10 }}>Download summary</Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
 

@@ -23,6 +23,7 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import HelpScreen from '../screens/HelpScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import TeacherDashboardScreen from '../screens/TeacherDashboardScreen';
+import StaffDashboardScreen from '../screens/StaffDashboardScreen';
 import OfficialIssueDetails from '../screens/OfficialIssueDetails';
 import ClusterHeadDashboardScreen from '../screens/ClusterHeadDashboardScreen';
 import PrincipalDashboardScreen from '../screens/PrincipalDashboardScreen';
@@ -101,6 +102,10 @@ export default function AppNavigator() {
           options={{
             headerShown: false,
           }}
+        />
+        <Stack.Screen
+          name="StaffDashboard"
+          component={StaffDashboardScreen}
         />
         <Stack.Screen
           name="TeacherDashboard"

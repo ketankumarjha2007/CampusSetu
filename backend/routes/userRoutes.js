@@ -1,7 +1,7 @@
 const express = require('express');
 
-const authenticateUser =
-  require('../middleware/authMiddleware');
+const authenticateUser = require('../middleware/authMiddleware');
+const requireRole = require('../middleware/requireRole');
 
 const {
   getCurrentUser,
@@ -14,23 +14,9 @@ const {
   bootstrapAdmin,
 } = require('../controllers/userController');
 
-const requireRole = require('../middleware/requireRole');
-
 const router = express.Router();
 
-// ==========================================
-// GET CURRENT USER
-// ==========================================
-
-router.get(
-  '/me',
-  authenticateUser,
-  getCurrentUser
-);
-
-// ==========================================
-// CREATE / UPDATE STUDENT PROFILE
-// ==========================================
+router.get('/me', authenticateUser, getCurrentUser);
 
 router.post(
   '/profile',
@@ -38,10 +24,13 @@ router.post(
   createOrUpdateProfile
 );
 
-// ==========================================
-// SAVE / UPDATE PUSH TOKEN
-// ==========================================
+router.put(
+  '/profile',
+  authenticateUser,
+  createOrUpdateProfile
+);
 
+// Push token management
 router.post(
   '/push-token',
   authenticateUser,
@@ -62,8 +51,15 @@ router.post(
 );
 
 // ==========================================
-// ONBOARD TEACHER (ADMIN ACTION)
+// ONBOARD STAFF (ADMIN ACTION)
 // ==========================================
+
+router.post(
+  '/staff',
+  authenticateUser,
+  requireRole('college_admin', 'principal'),
+  addTeacher
+);
 
 router.post(
   '/teachers',
@@ -73,8 +69,15 @@ router.post(
 );
 
 // ==========================================
-// DELETE TEACHER (ADMIN ACTION)
+// DELETE STAFF (ADMIN ACTION)
 // ==========================================
+
+router.delete(
+  '/staff/:id',
+  authenticateUser,
+  requireRole('college_admin', 'principal'),
+  deleteTeacher
+);
 
 router.delete(
   '/teachers/:id',
@@ -93,4 +96,4 @@ router.post(
   bootstrapAdmin
 );
 
-module.exports = router;
+module.exports = router;

@@ -82,8 +82,8 @@ const friendlyError = (err) => {
 };
 
 const FEATURES = [
-  { icon: 'bolt', title: 'Assign in one click', text: 'Route any complaint to the right teacher instantly.' },
-  { icon: 'users', title: 'Balanced workloads', text: 'See who is free so no teacher gets overloaded.' },
+  { icon: 'bolt', title: 'Assign in one click', text: 'Route any complaint to the right staff instantly.' },
+  { icon: 'users', title: 'Balanced workloads', text: 'See who is free so no staff gets overloaded.' },
   { icon: 'chart', title: 'Live insights', text: 'Track resolution, urgency and hotspots as they happen.' },
 ];
 
@@ -201,7 +201,7 @@ export default function AdminLogin({ onLogin }) {
               <span className="al-grad">move forward.</span>
             </h1>
             <p>
-              One command center to track complaints, coordinate your teachers
+              One command center to track complaints, coordinate your staff
               and turn campus problems into progress.
             </p>
 
@@ -258,7 +258,7 @@ export default function AdminLogin({ onLogin }) {
 
             <div className="al-badge"><Icon name="shield" size={14} /> College Administration Portal</div>
             <h2>Welcome back</h2>
-            <p className="al-sub">Sign in to manage complaints, teachers and campus operations.</p>
+            <p className="al-sub">Sign in to manage complaints, staff and campus operations.</p>
 
             <form onSubmit={handleLogin} noValidate={false}>
               <div className="al-field">

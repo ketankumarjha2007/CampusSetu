@@ -13,6 +13,30 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiDownload } from '../services/api';
 
+const uint8ArrayToBase64 = (bytes) => {
+  if (typeof btoa === 'function') {
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let base64 = '';
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const b0 = bytes[i];
+    const b1 = i + 1 < len ? bytes[i + 1] : 0;
+    const b2 = i + 2 < len ? bytes[i + 2] : 0;
+    base64 += chars[b0 >> 2];
+    base64 += chars[((b0 & 3) << 4) | (b1 >> 4)];
+    base64 += i + 1 < len ? chars[((b1 & 15) << 2) | (b2 >> 6)] : '=';
+    base64 += i + 2 < len ? chars[b2 & 63] : '=';
+  }
+  return base64;
+};
+
 const MONTHS = [
   'January',
   'February',
@@ -75,8 +99,33 @@ export default function ReportsScreen({ navigation }) {
       if (reportType !== 'all') query.push(`year=${year}`);
       if (reportType === 'monthly') query.push(`month=${month}`);
 
-      await apiDownload(`/issues/reports/download?${query.join('&')}`);
-      Alert.alert('Report ready', `The ${periodLabel} report has been generated.`);
+      const pdfBytes = await apiDownload(
+        `/issues/reports/download?${query.join('&')}`
+      );
+
+      const [FileSystemModule, Sharing] = await Promise.all([
+        import('expo-file-system/legacy').catch(() => import('expo-file-system')),
+        import('expo-sharing'),
+      ]);
+
+      const FileSystem = FileSystemModule.default || FileSystemModule;
+      const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+      const fileUri = `${cacheDir}CampusSetu-Report-${Date.now()}.pdf`;
+      const base64Data = uint8ArrayToBase64(pdfBytes);
+
+      await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+        encoding: FileSystem.EncodingType?.Base64 || 'base64',
+      });
+
+      if (!(await Sharing.isAvailableAsync())) {
+        throw new Error('File sharing is not available on this device.');
+      }
+
+      await Sharing.shareAsync(fileUri, {
+        dialogTitle: `Share ${periodLabel} report`,
+        mimeType: 'application/pdf',
+        UTI: 'com.adobe.pdf',
+      });
     } catch (error) {
       console.error('Report download failed:', error);
       Alert.alert(
@@ -270,7 +319,7 @@ export default function ReportsScreen({ navigation }) {
             <View style={styles.previewIncludes}>
               <Text style={styles.previewIncludesTitle}>INSIDE THE REPORT</Text>
               <View style={styles.previewTagRow}>
-                {['Executive summary', 'Status & priority mix', 'Complaint register', 'Resolution feedback'].map((item) => (
+                {['Executive summary', 'Report & completion dates', 'Assigned staff tracking', 'Status & priority mix', 'Resolution feedback'].map((item) => (
                   <View key={item} style={styles.previewTag}>
                     <Text style={styles.previewTagCheck}>✓</Text>
                     <Text style={styles.previewTagText}>{item}</Text>

@@ -257,15 +257,15 @@ const ComplaintCard = memo(function ComplaintCard({
       <View style={[styles.assignedBox, !teacher && styles.assignedBoxEmpty]}>
         <View style={[styles.assignedAvatar, !teacher && styles.assignedAvatarEmpty]}>
           <Text style={styles.assignedAvatarText}>
-            {teacher ? (teacher.name || 'T').charAt(0).toUpperCase() : '?'}
+            {teacher ? (teacher.name || 'S').charAt(0).toUpperCase() : '?'}
           </Text>
         </View>
         <View style={styles.assignedInfo}>
           <Text style={[styles.assignedLabel, !teacher && { color: '#B45309' }]}>
-            {teacher ? 'ASSIGNED FACULTY' : 'FACULTY UNASSIGNED'}
+            {teacher ? 'ASSIGNED STAFF' : 'STAFF UNASSIGNED'}
           </Text>
           <Text style={styles.assignedName} numberOfLines={1}>
-            {teacher?.name || 'No faculty assigned yet'}
+            {teacher?.name || 'No staff assigned yet'}
           </Text>
           {teacher?.department ? (
             <Text style={styles.assignedDept} numberOfLines={1}>
@@ -376,7 +376,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
 
   // Invite modal
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [inviteRole, setInviteRole] = useState('teacher');
+  const [inviteRole, setInviteRole] = useState('staff');
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteDept, setInviteDept] = useState('');
@@ -527,7 +527,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
       Alert.alert(
         'Assignment Successful',
         `Complaint ${selectedIssue.complaintId || ''} is now assigned to ${
-          assigned?.name || 'Selected Faculty'
+          assigned?.name || 'Selected Staff Member'
         }.`
       );
 
@@ -548,10 +548,10 @@ export default function PrincipalDashboardScreen({ navigation }) {
       Alert.alert('Missing Details', 'Please provide full name and college email.');
       return;
     }
-    if (inviteRole === 'teacher' && !inviteDept.trim()) {
+    if ((inviteRole === 'teacher' || inviteRole === 'staff') && !inviteDept.trim()) {
       Alert.alert(
         'Department required',
-        'Choose or enter the department this teacher will serve.'
+        'Choose or enter the department this staff member will serve.'
       );
       return;
     }
@@ -837,48 +837,105 @@ export default function PrincipalDashboardScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginTop: 12,
-              padding: 15,
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: '#D5E7D9',
-              backgroundColor: '#F0F8F1',
-            }}
-            onPress={() => navigation.navigate('Reports')}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Open leadership PDF reports"
-          >
-            <View
+          {/* QUICK ACTIONS: REPORT ISSUE & MY REPORTS & REPORTS */}
+          <View style={{ marginTop: 12, gap: 10 }}>
+            <TouchableOpacity
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 13,
+                flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#DCEFE0',
+                backgroundColor: '#176B4D',
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderRadius: 16,
+                shadowColor: '#176B4D',
+                shadowOpacity: 0.15,
+                shadowOffset: { width: 0, height: 4 },
+                shadowRadius: 8,
+                elevation: 3,
               }}
+              onPress={() => navigation.navigate('ReportIssue')}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Report a campus issue or grievance"
             >
-              <Text style={{ color: '#176B4D', fontSize: 15, fontWeight: '900' }}>
-                PDF
-              </Text>
+              <View
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>＋</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
+                  Report an Issue / Grievance
+                </Text>
+                <Text style={{ color: '#D4F5EC', fontSize: 11, marginTop: 2 }}>
+                  Submit a complaint or campus facility request
+                </Text>
+              </View>
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>→</Text>
+            </TouchableOpacity>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#FFFFFF',
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                }}
+                onPress={() => navigation.navigate('MyReports')}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="View my reported complaints"
+              >
+                <Text style={{ fontSize: 16, marginRight: 8 }}>📋</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#15233B', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
+                    My Reports
+                  </Text>
+                  <Text style={{ color: '#64748B', fontSize: 10 }}>Track your reports</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#F0F8F1',
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: '#D5E7D9',
+                }}
+                onPress={() => navigation.navigate('Reports')}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Open leadership PDF reports"
+              >
+                <Text style={{ fontSize: 16, marginRight: 8 }}>📊</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#176B4D', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
+                    PDF Reports
+                  </Text>
+                  <Text style={{ color: '#718078', fontSize: 10 }}>Export metrics</Text>
+                </View>
+              </TouchableOpacity>
             </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={{ color: '#15342A', fontSize: 13, fontWeight: '900' }}>
-                Leadership reports
-              </Text>
-              <Text style={{ color: '#718078', fontSize: 10, marginTop: 4 }}>
-                Monthly, yearly & all-time campus insights
-              </Text>
-            </View>
-            <Text style={{ color: '#176B4D', fontSize: 19, fontWeight: '900' }}>
-              ↗
-            </Text>
-          </TouchableOpacity>
+          </View>
 
           {/* ======================= ERROR BANNER ======================= */}
           {error ? (
@@ -1185,9 +1242,9 @@ export default function PrincipalDashboardScreen({ navigation }) {
 
               <View style={styles.modalHead}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.modalEyebrow}>FACULTY WORKLOAD ALLOCATION</Text>
+                  <Text style={styles.modalEyebrow}>STAFF WORKLOAD ALLOCATION</Text>
                   <Text style={styles.modalTitle}>
-                    {selectedIssue?.assignedTo ? 'Reassign Complaint' : 'Assign Faculty'}
+                    {selectedIssue?.assignedTo ? 'Reassign Complaint' : 'Assign Staff'}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -1217,7 +1274,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
 
               <TextInput
                 style={styles.facultySearchInput}
-                placeholder="Search faculty by name, department or email…"
+                placeholder="Search staff by name, department or email…"
                 placeholderTextColor="#94A3B8"
                 value={facultySearch}
                 onChangeText={setFacultySearch}
@@ -1231,7 +1288,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
               >
                 {filteredFaculty.length === 0 ? (
                   <View style={styles.facultyEmpty}>
-                    <Text style={styles.facultyEmptyText}>No faculty found matching search.</Text>
+                    <Text style={styles.facultyEmptyText}>No staff found matching search.</Text>
                   </View>
                 ) : (
                   filteredFaculty.map((teacher) => {
@@ -1245,7 +1302,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
                       >
                         <View style={[styles.facultyAvatar, selected && styles.facultyAvatarSelected]}>
                           <Text style={[styles.facultyAvatarText, selected && styles.facultyAvatarTextSelected]}>
-                            {(teacher.name || 'T').charAt(0).toUpperCase()}
+                            {(teacher.name || 'S').charAt(0).toUpperCase()}
                           </Text>
                         </View>
                         <View style={styles.facultyMetaCol}>
@@ -1253,7 +1310,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
                             {teacher.name}
                           </Text>
                           <Text style={styles.facultyDept} numberOfLines={1}>
-                            {teacher.department || 'Faculty'} • {teacher.email}
+                            {teacher.department || 'Staff'} • {teacher.email}
                           </Text>
                         </View>
                         <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
@@ -1337,7 +1394,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
                   <Text style={styles.formLabel}>Select Role *</Text>
                   <View style={styles.rolePickerRow}>
                     {[
-                      { value: 'teacher', label: '👨‍🏫 Teacher' },
+                      { value: 'staff', label: '🛠️ Staff' },
                       { value: 'cluster_head', label: '🏛️ Cluster Head' },
                     ].map((r) => {
                       const active = inviteRole === r.value;
@@ -1384,7 +1441,7 @@ export default function PrincipalDashboardScreen({ navigation }) {
 
                 <View style={styles.formGroup}>
                   <Text style={styles.formLabel}>
-                    Department / Academic Division{inviteRole === 'teacher' ? ' *' : ''}
+                    Department / Work Division{inviteRole === 'staff' || inviteRole === 'teacher' ? ' *' : ''}
                   </Text>
                   <TextInput
                     style={styles.formInput}

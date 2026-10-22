@@ -1,13 +1,15 @@
 const { BrevoClient } = require('@getbrevo/brevo');
 
 const ROLE_DISPLAY_NAMES = {
-  teacher: 'Teacher / Faculty Handler',
+  staff: 'Staff / Department Handler',
+  teacher: 'Staff / Department Handler',
   cluster_head: 'Cluster Head / Operations Lead',
   principal: 'College Principal / Executive Authority',
 };
 
 const ROLE_SUBJECT_LINES = {
-  teacher: 'Welcome to CampusSetu — Set Up Your Faculty Account',
+  staff: 'Welcome to CampusSetu — Set Up Your Staff Account',
+  teacher: 'Welcome to CampusSetu — Set Up Your Staff Account',
   cluster_head: 'Welcome to CampusSetu — Set Up Your Cluster Head Account',
   principal: 'Welcome to CampusSetu — Set Up Your Principal Executive Account',
 };

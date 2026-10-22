@@ -3,20 +3,37 @@ const { getAuth } = require('firebase-admin/auth');
 const fs = require('fs');
 const path = require('path');
 
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
-  ? path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
-  : path.join(__dirname, 'serviceAccountKey.json');
+let serviceAccount = null;
 
-if (!fs.existsSync(serviceAccountPath)) {
-  throw new Error(
-    `Firebase service account file not found at "${serviceAccountPath}". ` +
-      'Set FIREBASE_SERVICE_ACCOUNT_PATH to the credentials file location.'
-  );
+if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } catch (parseError) {
+    throw new Error(
+      'Invalid FIREBASE_SERVICE_ACCOUNT_JSON environment variable: ' +
+        parseError.message
+    );
+  }
+} else {
+  // Check custom path, Render default secret file path, or local folder
+  const candidatePaths = [
+    process.env.FIREBASE_SERVICE_ACCOUNT_PATH &&
+      path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH),
+    '/etc/secrets/serviceAccountKey.json',
+    path.join(__dirname, 'serviceAccountKey.json'),
+  ].filter(Boolean);
+
+  const foundPath = candidatePaths.find((p) => fs.existsSync(p));
+
+  if (!foundPath) {
+    throw new Error(
+      'Firebase service account credentials not found. ' +
+        'Set FIREBASE_SERVICE_ACCOUNT_JSON (raw JSON string) or FIREBASE_SERVICE_ACCOUNT_PATH (file path).'
+    );
+  }
+
+  serviceAccount = JSON.parse(fs.readFileSync(foundPath, 'utf8'));
 }
-
-const serviceAccount = JSON.parse(
-  fs.readFileSync(serviceAccountPath, 'utf8')
-);
 
 const firebaseApp =
   getApps().length === 0

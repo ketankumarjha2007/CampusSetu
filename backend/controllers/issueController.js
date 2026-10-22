@@ -122,21 +122,22 @@ const cleanOptionalText = (value) => {
   return String(value).trim();
 };
 
-const getActiveTeachersInDepartment = async (department) => {
+const getActiveStaffInDepartment = async (department) => {
   const normalizedDepartment = normalizeText(department);
   if (!normalizedDepartment) return [];
 
-  const teachers = await User.find({
-    role: 'teacher',
+  const staff = await User.find({
+    role: { $in: ['staff', 'teacher'] },
     isActive: true,
     department: { $type: 'string', $ne: '' },
   }).select('_id department pushToken');
 
-  return teachers.filter(
-    (teacher) =>
-      normalizeText(teacher.department) === normalizedDepartment
+  return staff.filter(
+    (member) =>
+      normalizeText(member.department) === normalizedDepartment
   );
 };
+const getActiveTeachersInDepartment = getActiveStaffInDepartment;
 
 /*
  * ==========================================
@@ -438,7 +439,7 @@ const createIssue = async (req, res) => {
     if (departmentTeachers.length === 0) {
       return res.status(422).json({
         success: false,
-        message: 'No active teachers are available in that department',
+        message: 'No active staff are available in that department',
       });
     }
 
@@ -577,7 +578,7 @@ const createIssue = async (req, res) => {
       history: [
         {
           status: 'pending',
-          note: 'Issue reported by student',
+          note: `Issue reported by ${req.user.role || 'user'}`,
           changedBy: req.user._id,
         },
       ],
@@ -805,11 +806,11 @@ const getIssueById = async (req, res) => {
     const isOwner = studentId === currentUserId;
 
     const isAssignedTeacher =
-      req.user.role === 'teacher' &&
+      ['staff', 'teacher'].includes(req.user.role) &&
       assignedTeacherId === currentUserId;
 
     const isDepartmentTeacher =
-      req.user.role === 'teacher' &&
+      ['staff', 'teacher'].includes(req.user.role) &&
       Boolean(
         cleanOptionalText(req.user.department) &&
           cleanOptionalText(issue.department)
@@ -1094,7 +1095,7 @@ const getTeacherWorkspaceIssues = async (req, res) => {
 const getIssueDepartments = async (_req, res) => {
   try {
     const departments = await User.distinct('department', {
-      role: 'teacher',
+      role: { $in: ['staff', 'teacher'] },
       isActive: true,
       department: { $type: 'string', $ne: '' },
     });
@@ -1136,7 +1137,7 @@ const claimIssue = async (req, res) => {
     if (!department) {
       return res.status(403).json({
         success: false,
-        message: 'Your teacher profile has no assigned department',
+        message: 'Your staff profile has no assigned department',
       });
     }
 
@@ -1149,7 +1150,7 @@ const claimIssue = async (req, res) => {
     ) {
       return res.status(403).json({
         success: false,
-        message: 'Only active teachers may claim department complaints',
+        message: 'Only active staff may claim department complaints',
       });
     }
 
@@ -1172,7 +1173,7 @@ const claimIssue = async (req, res) => {
         $push: {
           history: {
             status: 'assigned',
-            note: 'Complaint claimed by department teacher',
+            note: 'Complaint claimed by department staff',
             changedBy: req.user._id,
             changedAt: new Date(),
           },
@@ -1242,7 +1243,7 @@ const getAllIssues = async (req, res) => {
 const assignIssueToTeacher = async (req, res) => {
   try {
     const { id } = req.params;
-    const { teacherId } = req.body;
+    const assignedStaffId = req.body.staffId || req.body.teacherId;
 
     if (!/^[0-9a-fA-F]{24}$/.test(id)) {
       return res.status(400).json({
@@ -1251,23 +1252,23 @@ const assignIssueToTeacher = async (req, res) => {
       });
     }
 
-    if (!teacherId || !/^[0-9a-fA-F]{24}$/.test(teacherId)) {
+    if (!assignedStaffId || !/^[0-9a-fA-F]{24}$/.test(assignedStaffId)) {
       return res.status(400).json({
         success: false,
-        message: 'A valid teacher ID is required',
+        message: 'A valid staff ID is required',
       });
     }
 
     const teacher = await require('../models/User').findOne({
-      _id: teacherId,
-      role: 'teacher',
+      _id: assignedStaffId,
+      role: { $in: ['staff', 'teacher'] },
       isActive: true,
     });
 
     if (!teacher) {
       return res.status(404).json({
         success: false,
-        message: 'Active teacher not found',
+        message: 'Active staff member not found',
       });
     }
 
@@ -1396,31 +1397,33 @@ const assignIssueToTeacher = async (req, res) => {
 // ==========================================
 // GET /api/issues/admin/teachers
 
-const getActiveTeachers = async (req, res) => {
+const getActiveStaff = async (req, res) => {
   try {
     const User = require('../models/User');
 
-    const teachers = await User.find({
-      role: 'teacher',
+    const staff = await User.find({
+      role: { $in: ['staff', 'teacher'] },
       isActive: true,
     })
-      .select('_id name email department')
+      .select('_id name email department role')
       .sort({ name: 1 });
 
     return res.status(200).json({
       success: true,
-      count: teachers.length,
-      teachers,
+      count: staff.length,
+      staff,
+      teachers: staff,
     });
   } catch (error) {
-    console.error('Get active teachers error:', error.message);
+    console.error('Get active staff error:', error.message);
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch teachers',
+      message: 'Failed to fetch staff members',
     });
   }
 };
+const getActiveTeachers = getActiveStaff;
 
 /*
  * ==========================================
@@ -1479,9 +1482,9 @@ const updateIssueStatus = async (req, res) => {
       });
     }
 
-    const isTeacher = req.user.role === 'teacher';
+    const isTeacher = ['staff', 'teacher'].includes(req.user.role);
 
-    // Teachers can modify only their own assigned complaints.
+    // Staff can modify only their own assigned complaints.
     if (isTeacher) {
       if (String(issue.assignedTo || '') !== String(req.user._id)) {
         return res.status(403).json({
@@ -1490,7 +1493,7 @@ const updateIssueStatus = async (req, res) => {
         });
       }
 
-      // Teacher workflow: assigned -> in_progress -> resolved.
+      // Staff workflow: assigned -> in_progress -> resolved.
       const allowedTeacherTransition =
         (issue.status === 'assigned' && status === 'in_progress') ||
         (issue.status === 'in_progress' && status === 'resolved');
@@ -1499,7 +1502,7 @@ const updateIssueStatus = async (req, res) => {
         return res.status(400).json({
           success: false,
           message:
-            'Teachers can move assigned complaints to In Progress, ' +
+            'Staff can move assigned complaints to In Progress, ' +
             'and In Progress complaints to Resolved.',
         });
       }
@@ -2130,13 +2133,17 @@ module.exports = {
   deleteIssue,
   trackIssueByComplaintId,
   getTeacherAssignedIssues,
+  getStaffAssignedIssues: getTeacherAssignedIssues,
   getTeacherWorkspaceIssues,
+  getStaffWorkspaceIssues: getTeacherWorkspaceIssues,
   claimIssue,
   getAllIssues,
   assignIssueToTeacher,
+  assignIssueToStaff: assignIssueToTeacher,
   updateIssueStatus,
   submitIssueFeedback,
   getActiveTeachers,
+  getActiveStaff: getActiveTeachers,
   reopenIssue,
   escalateIssue,
   requestAdditionalInfo,

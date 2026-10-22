@@ -13,14 +13,23 @@
     "android": {
       "package": "com.campussetu.app",
       "googleServicesFile": "./google-services.json",
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/icon.png"
     },
     "plugins": [
       "expo-web-browser",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#176B4D"
+        }
+      ],
       [
         "expo-splash-screen",
         {

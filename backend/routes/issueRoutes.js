@@ -39,15 +39,15 @@ router.patch('/notifications/:id/read', authenticateUser, markNotificationRead);
 // Audit logs
 router.get('/admin/audit-logs', authenticateUser, requireRole('college_admin', 'principal', 'cluster_head'), getAuditLogs);
 
-// PDF exports are limited to official leadership roles.
+// PDF exports
 router.get(
   '/reports/download',
   authenticateUser,
-  requireRole('principal', 'cluster_head'),
+  requireRole('college_admin', 'principal', 'cluster_head', 'staff', 'teacher'),
   downloadReport
 );
 
-// Create a new complaint
+// Create a new complaint (Open to everyone: students, staff, cluster head, principal)
 router.post(
   '/',
   authenticateUser,
@@ -55,40 +55,53 @@ router.post(
   createIssue
 );
 
-// Departments accepting student complaints
+// Departments accepting complaints (Open to everyone so all roles can report)
 router.get(
   '/departments',
   authenticateUser,
-  requireRole('student'),
   getIssueDepartments
 );
 
-// Get complaints submitted by the logged-in student
+// Get complaints submitted by the logged-in user
 router.get(
   '/my',
   authenticateUser,
   getMyIssues
 );
 
-// Get complaints assigned to the logged-in teacher
+// Get complaints assigned to the logged-in staff member
+router.get(
+  '/staff/assigned',
+  authenticateUser,
+  requireRole('staff', 'teacher'),
+  getTeacherAssignedIssues
+);
+
 router.get(
   '/teacher/assigned',
   authenticateUser,
-  requireRole('teacher'),
+  requireRole('staff', 'teacher'),
   getTeacherAssignedIssues
+);
+
+router.get(
+  '/staff/workspace',
+  authenticateUser,
+  requireRole('staff', 'teacher'),
+  getTeacherWorkspaceIssues
 );
 
 router.get(
   '/teacher/workspace',
   authenticateUser,
-  requireRole('teacher'),
+  requireRole('staff', 'teacher'),
   getTeacherWorkspaceIssues
 );
 
 router.post(
   '/:id/claim',
   authenticateUser,
-  requireRole('teacher'),
+  requireRole('staff', 'teacher'),
   claimIssue
 );
 
@@ -107,7 +120,14 @@ router.get(
   getAllIssues
 );
 
-// Get active teachers for the admin dashboard
+// Get active staff for the admin dashboard
+router.get(
+  '/admin/staff',
+  authenticateUser,
+  requireRole('college_admin', 'principal', 'cluster_head'),
+  getActiveTeachers
+);
+
 router.get(
   '/admin/teachers',
   authenticateUser,
@@ -115,7 +135,7 @@ router.get(
   getActiveTeachers
 );
 
-// Assign a complaint to an active teacher
+// Assign a complaint to an active staff member
 router.patch(
   '/:id/assign',
   authenticateUser,
@@ -123,27 +143,19 @@ router.patch(
   assignIssueToTeacher
 );
 
-/*
- * Update complaint status.
- *
- * CHANGED: upload.single('photo') added so the teacher can send the
- * resolution proof photo as multipart/form-data. Plain JSON requests
- * (e.g. assigned -> in_progress) still work because multer skips
- * non-multipart requests.
- */
+// Update complaint status
 router.patch(
   '/:id/status',
   authenticateUser,
-  requireRole('college_admin', 'principal', 'cluster_head', 'teacher'),
+  requireRole('college_admin', 'principal', 'cluster_head', 'staff', 'teacher'),
   upload.single('photo'),
   updateIssueStatus
 );
 
-// Only the reporting student may rate a resolved complaint.
+// The reporting user may rate a resolved complaint
 router.post(
   '/:id/feedback',
   authenticateUser,
-  requireRole('student'),
   submitIssueFeedback
 );
 
@@ -162,11 +174,11 @@ router.post(
   escalateIssue
 );
 
-// Request additional info from student
+// Request additional info from reporting user
 router.post(
   '/:id/request-info',
   authenticateUser,
-  requireRole('teacher', 'college_admin', 'principal'),
+  requireRole('staff', 'teacher', 'college_admin', 'principal'),
   requestAdditionalInfo
 );
 

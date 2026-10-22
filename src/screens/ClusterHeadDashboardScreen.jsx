@@ -251,10 +251,10 @@ const ComplaintCard = memo(function ComplaintCard({
         </View>
         <View style={styles.assignedInfo}>
           <Text style={[styles.assignedLabel, !teacher && { color: '#B45309' }]}>
-            {teacher ? 'ASSIGNED FACULTY' : 'AWAITING DISPATCH'}
+            {teacher ? 'ASSIGNED STAFF' : 'AWAITING DISPATCH'}
           </Text>
           <Text style={styles.assignedName} numberOfLines={1}>
-            {teacher?.name || 'No faculty assigned yet'}
+            {teacher?.name || 'No staff assigned yet'}
           </Text>
           {teacher?.department || teacher?.email ? (
             <Text style={styles.assignedDept} numberOfLines={1}>
@@ -380,7 +380,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
         throw new Error(issuesRes.message || 'Could not load complaints.');
       }
       if (teachersRes?.success === false) {
-        throw new Error(teachersRes.message || 'Could not load faculty.');
+        throw new Error(teachersRes.message || 'Could not load staff.');
       }
 
       setIssues(Array.isArray(issuesRes?.issues) ? issuesRes.issues : []);
@@ -475,7 +475,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
 
       Alert.alert(
         'Assignment Saved',
-        `Complaint ${complaintLabel} assigned to ${teacher?.name || 'the selected faculty'}.`
+        `Complaint ${complaintLabel} assigned to ${teacher?.name || 'the selected staff member'}.`
       );
       await loadData(false);
     } catch (err) {
@@ -786,48 +786,105 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginTop: 12,
-              padding: 15,
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: 'rgba(8, 35, 52, 0.26)',
-              backgroundColor: 'rgba(17, 96, 83, 0.06)',
-            }}
-            onPress={() => navigation.navigate('Reports')}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Open leadership PDF reports"
-          >
-            <View
+          {/* QUICK ACTIONS: REPORT ISSUE & MY REPORTS & REPORTS */}
+          <View style={{ marginTop: 12, gap: 10 }}>
+            <TouchableOpacity
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 13,
+                flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(22, 32, 3, 0.14)',
+                backgroundColor: '#1E293B',
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderRadius: 16,
+                shadowColor: '#0F172A',
+                shadowOpacity: 0.15,
+                shadowOffset: { width: 0, height: 4 },
+                shadowRadius: 8,
+                elevation: 3,
               }}
+              onPress={() => navigation.navigate('ReportIssue')}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Report a campus issue or grievance"
             >
-              <Text style={{ color: '#374b0b', fontSize: 15, fontWeight: '900' }}>
-                PDF
-              </Text>
+              <View
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>＋</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
+                  Report an Issue / Grievance
+                </Text>
+                <Text style={{ color: '#CBD5E1', fontSize: 11, marginTop: 2 }}>
+                  Submit a complaint or campus facility request
+                </Text>
+              </View>
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>→</Text>
+            </TouchableOpacity>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#FFFFFF',
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                }}
+                onPress={() => navigation.navigate('MyReports')}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="View my reported complaints"
+              >
+                <Text style={{ fontSize: 16, marginRight: 8 }}>📋</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#15233B', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
+                    My Reports
+                  </Text>
+                  <Text style={{ color: '#64748B', fontSize: 10 }}>Track your reports</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(17, 96, 83, 0.08)',
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: 'rgba(17, 96, 83, 0.2)',
+                }}
+                onPress={() => navigation.navigate('Reports')}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Open leadership PDF reports"
+              >
+                <Text style={{ fontSize: 16, marginRight: 8 }}>📊</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#0F766E', fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
+                    PDF Reports
+                  </Text>
+                  <Text style={{ color: '#0F766E', fontSize: 10 }}>Export metrics</Text>
+                </View>
+              </TouchableOpacity>
             </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={{ color: '#439453', fontSize: 13, fontWeight: '900' }}>
-                Leadership reports
-              </Text>
-              <Text style={{ color: '#0f4f2e', fontSize: 10, marginTop: 4 }}>
-                Monthly, yearly & all-time campus insights
-              </Text>
-            </View>
-            <Text style={{ color: '#2f3f0c', fontSize: 19, fontWeight: '900' }}>
-              ↗
-            </Text>
-          </TouchableOpacity>
+          </View>
 
           {/* ======================= ERROR (with data) ======================= */}
           {error && !loading && issues.length > 0 ? (
@@ -916,13 +973,13 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
             ))}
           </View>
 
-          {/* ======================= FACULTY WORKLOAD ======================= */}
+          {/* ======================= STAFF WORKLOAD ======================= */}
           {teachers.length > 0 ? (
             <View style={styles.workloadSection}>
               <View style={styles.sectionHeading}>
-                <Text style={styles.sectionTitle}>Faculty Workload</Text>
+                <Text style={styles.sectionTitle}>Staff Workload</Text>
                 <Text style={styles.sectionSubtitle}>
-                  Active tickets per teacher • least busy first.
+                  Active tickets per staff member • least busy first.
                 </Text>
               </View>
 
@@ -941,15 +998,15 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                       <View style={styles.workloadTop}>
                         <View style={styles.workloadAvatar}>
                           <Text style={styles.workloadAvatarText}>
-                            {(teacher.name || 'T').charAt(0).toUpperCase()}
+                            {(teacher.name || 'S').charAt(0).toUpperCase()}
                           </Text>
                         </View>
                         <View style={styles.workloadNameContainer}>
                           <Text style={styles.workloadName} numberOfLines={1}>
-                            {teacher.name || 'Faculty'}
+                            {teacher.name || 'Staff'}
                           </Text>
                           <Text style={styles.workloadDepartment} numberOfLines={1}>
-                            {teacher.department || 'General Faculty'}
+                            {teacher.department || 'General Staff'}
                           </Text>
                         </View>
                       </View>
@@ -1135,7 +1192,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                 <View style={styles.modalHeadingCopy}>
                   <Text style={styles.modalEyebrow}>CAMPUSSETU • DISPATCH CONTROL</Text>
                   <Text style={styles.modalTitle}>
-                    {selectedIssue?.assignedTo ? 'Reassign Complaint' : 'Assign Faculty'}
+                    {selectedIssue?.assignedTo ? 'Reassign Complaint' : 'Assign Staff'}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -1158,14 +1215,14 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                 </Text>
                 <Text style={styles.modalContextAssignee}>
                   {selectedIssue?.assignedTo
-                    ? `Current: ${selectedIssue.assignedTo?.name || 'Assigned faculty'}`
+                    ? `Current: ${selectedIssue.assignedTo?.name || 'Assigned staff'}`
                     : 'Currently unassigned'}
                 </Text>
               </View>
 
               <TextInput
                 style={styles.facultySearchInput}
-                placeholder="Search faculty by name, email, department…"
+                placeholder="Search staff by name, email, department…"
                 placeholderTextColor="#94A3B8"
                 value={facultySearch}
                 onChangeText={setFacultySearch}
@@ -1182,7 +1239,7 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
               >
                 {filteredFaculty.length === 0 ? (
                   <View style={styles.noFaculty}>
-                    <Text style={styles.noFacultyTitle}>No faculty found</Text>
+                    <Text style={styles.noFacultyTitle}>No staff found</Text>
                     <Text style={styles.noFacultyText}>Try a different name or department.</Text>
                   </View>
                 ) : (
@@ -1200,17 +1257,17 @@ export default function ClusterHeadDashboardScreen({ navigation }) {
                           <Text
                             style={[styles.facultyAvatarText, selected && styles.facultyAvatarTextSelected]}
                           >
-                            {(teacher.name || 'T').charAt(0).toUpperCase()}
+                            {(teacher.name || 'S').charAt(0).toUpperCase()}
                           </Text>
                         </View>
 
                         <View style={styles.facultyMetaCol}>
                           <Text style={styles.facultyName} numberOfLines={1}>
-                            {teacher.name || 'Unnamed Faculty'}
+                            {teacher.name || 'Staff Member'}
                           </Text>
                           <Text style={styles.facultyDept} numberOfLines={1}>
                             {[teacher.department, teacher.email].filter(Boolean).join(' • ') ||
-                              'General Faculty'}
+                              'General Staff'}
                           </Text>
                           <Text
                             style={[styles.facultyWorkload, count > 3 && styles.facultyWorkloadBusy]}

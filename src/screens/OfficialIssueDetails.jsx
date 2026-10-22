@@ -515,7 +515,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
   const assignedTeacher = issue.assignedTo || {};
   const isResolved = issue.status === 'resolved';
   const isRejected = issue.status === 'rejected';
-  const isTeacher = currentUser?.role === 'teacher';
+  const isTeacher = currentUser?.role === 'teacher' || currentUser?.role === 'staff';
   const isAssignedToCurrentUser =
     isTeacher &&
     String(assignedTeacher._id || assignedTeacher) ===
@@ -807,7 +807,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
                   Resolution proof
                 </Text>
                 <Text style={styles.proofSubtitle}>
-                  Photo submitted by the teacher
+                  Photo submitted by the staff
                 </Text>
               </View>
             </View>
@@ -816,7 +816,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
               source={{ uri: issue.resolutionPhotoUrl }}
               style={styles.issuePhoto}
               resizeMode="cover"
-              accessibilityLabel="Teacher resolution proof photo"
+              accessibilityLabel="Staff resolution proof photo"
             />
 
             {issue.resolutionNote ? (
@@ -832,7 +832,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
             <Text style={styles.sectionKicker}>DEPARTMENT QUEUE</Text>
             <Text style={styles.sectionTitle}>Take ownership</Text>
             <Text style={styles.actionDescription}>
-              This complaint is waiting for a teacher in {issue.department} to take it.
+              This complaint is waiting for a staff member in {issue.department} to take it.
             </Text>
             <TouchableOpacity
               style={[
@@ -1053,7 +1053,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
 
               <Text style={styles.muted}>
                 {!canManageIssue && issue.assignedTo
-                  ? `Assigned to ${assignedTeacher.name || 'another teacher'}.`
+                  ? `Assigned to ${assignedTeacher.name || 'another staff member'}.`
                   : isResolved
                   ? 'The complaint has been marked as resolved.'
                   : isRejected
@@ -1293,7 +1293,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
                     marginTop: 2,
                   }}
                 >
-                  {issue.assignedTo ? 'Reassign Complaint' : 'Assign Faculty'}
+                  {issue.assignedTo ? 'Reassign Complaint' : 'Assign Staff'}
                 </Text>
               </View>
 
@@ -1323,7 +1323,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
                 fontSize: 13,
                 marginBottom: 12,
               }}
-              placeholder="Search faculty by name or department…"
+              placeholder="Search staff by name or department…"
               placeholderTextColor="#94A3B8"
               value={teacherSearch}
               onChangeText={setTeacherSearch}
@@ -1384,7 +1384,7 @@ export default function OfficialIssueDetails({ navigation, route }) {
                           {teacher.name}
                         </Text>
                         <Text style={{ color: '#64748B', fontSize: 11, marginTop: 2 }}>
-                          {teacher.department || 'Faculty'} • {teacher.email}
+                          {teacher.department || 'Staff'} • {teacher.email}
                         </Text>
                       </View>
 

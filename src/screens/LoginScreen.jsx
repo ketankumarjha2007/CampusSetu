@@ -35,10 +35,10 @@ const ROLES = [
     icon: 'S',
   },
   {
-    id: 'teacher',
-    title: 'Teacher',
+    id: 'staff',
+    title: 'Staff',
     subtitle: 'Manage issues',
-    icon: 'T',
+    icon: 'S',
   },
   {
     id: 'cluster_head',
@@ -56,7 +56,8 @@ const ROLES = [
 
 const ROLE_ROUTES = {
   student: 'StudentHome',
-  teacher: 'TeacherDashboard',
+  staff: 'StaffDashboard',
+  teacher: 'StaffDashboard',
   cluster_head: 'ClusterHeadDashboard',
   principal: 'PrincipalDashboard',
 };
@@ -273,10 +274,12 @@ export default function LoginScreen({ navigation }) {
 
       // STEP 5: Make sure the selected role matches
       // the role assigned to this account in the backend.
+      const normalizedBackendRole = backendRole === 'teacher' ? 'staff' : backendRole;
+      const normalizedSelectedRole = selectedRole === 'teacher' ? 'staff' : selectedRole;
 
-      if (selectedRole !== backendRole) {
+      if (normalizedSelectedRole !== normalizedBackendRole) {
         const actualRole = ROLES.find(
-          (role) => role.id === backendRole
+          (role) => role.id === normalizedBackendRole
         )?.title;
 
         Alert.alert(
@@ -317,7 +320,7 @@ export default function LoginScreen({ navigation }) {
 
       // STEP 7: Navigate using the verified backend role.
 
-      const destination = ROLE_ROUTES[backendRole];
+      const destination = ROLE_ROUTES[backendRole] || ROLE_ROUTES[normalizedBackendRole] || 'StaffDashboard';
 
       console.log(
         `CampusSetu: Navigating ${backendRole} to ${destination}`
